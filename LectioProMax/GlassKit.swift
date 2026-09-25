@@ -93,8 +93,11 @@ struct GlassCircleButton: View {
 struct SubjectDot: View {
     let code: String
     var size: CGFloat = 8
+    @Environment(\.colorScheme) private var scheme
     var body: some View {
-        Circle().fill(Color.forSubject(code)).frame(width: size, height: size)
+        // Same ink-mixed colour as the lesson stripe, so a yellow dot is
+        // actually visible on a white card.
+        Circle().fill(Color.subjectStripe(code, in: scheme)).frame(width: size, height: size)
     }
 }
 

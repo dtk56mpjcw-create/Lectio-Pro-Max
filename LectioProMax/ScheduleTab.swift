@@ -272,11 +272,21 @@ struct LessonCard: View {
     let lesson: Lesson
     let dayISO: String
     @EnvironmentObject private var session: LectioSession
+    @Environment(\.colorScheme) private var scheme
     @State private var sheet: CardSheet?
 
     private var state: LessonState { lesson.state(onDay: dayISO) }
     private var tint: Color {
         lesson.isPrivateEvent ? Color.secondary : Color.forSubject(lesson.code)
+    }
+    private var stripe: Color {
+        lesson.isPrivateEvent ? Color.secondary : Color.subjectStripe(lesson.code, in: scheme)
+    }
+    /// Only a subject with a colour of its own gets the wash. Grey on the
+    /// grey page measured 1.01:1 — the card simply vanished into the background.
+    private var washed: Bool {
+        !lesson.isPrivateEvent && !lesson.cancelled && state != .past
+            && SubjectPalette.isAssigned(lesson.code)
     }
 
     var body: some View {
@@ -318,7 +328,7 @@ struct LessonCard: View {
             // colour lives here and in the faint wash behind the card — never in
             // the text, which stays in the system's own label colours.
             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(lesson.cancelled ? Color(.tertiaryLabel) : tint.opacity(state == .past ? 0.4 : 1))
+                .fill(lesson.cancelled ? Color(.tertiaryLabel) : stripe.opacity(state == .past ? 0.4 : 1))
                 .frame(width: 4)
 
             VStack(alignment: .leading, spacing: 5) {
@@ -362,7 +372,7 @@ struct LessonCard: View {
         // past events at all.
         .background {
             RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous)
-                .fill(tint.opacity(lesson.cancelled || state == .past ? 0 : 0.10))
+                .fill(tint.opacity(washed ? 0.08 : 0))
         }
         .contentCard(radius: Metrics.inner + 4)
     }
@@ -407,6 +417,10 @@ struct CompactLessonCard: View {
     private var state: LessonState { lesson.state(onDay: dayISO) }
     private var tint: Color {
         lesson.isPrivateEvent ? Color.secondary : Color.forSubject(lesson.code)
+    }
+    private var washed: Bool {
+        !lesson.isPrivateEvent && !lesson.cancelled && state != .past
+            && SubjectPalette.isAssigned(lesson.code)
     }
 
     var body: some View {
@@ -463,7 +477,7 @@ struct CompactLessonCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 RoundedRectangle(cornerRadius: Metrics.inner + 2, style: .continuous)
-                    .fill(tint.opacity(lesson.cancelled || state == .past ? 0 : 0.10))
+                    .fill(tint.opacity(washed ? 0.08 : 0))
             }
             .contentCard(radius: Metrics.inner + 2)
     }

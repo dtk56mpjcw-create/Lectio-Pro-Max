@@ -37,6 +37,13 @@ enum SubjectPalette {
         return assigned[key] ?? .gray
     }
 
+    /// Whether this subject has a colour of its own, rather than the grey
+    /// every unassigned subject shares.
+    static func isAssigned(_ rawCode: String) -> Bool {
+        guard let key = subjectKey(rawCode) else { return false }
+        return assigned[key] != nil
+    }
+
     /// Reduces whatever Lectio calls a team to the subject it teaches:
     /// "1j ma" → "ma", "1ij daAB" → "da", "1j fy øv" → "fy", "ENB" → "en".
     /// Class prefixes start with a digit ("1j", "2i"); the level letters glued
@@ -59,4 +66,15 @@ enum SubjectPalette {
 
 extension Color {
     static func forSubject(_ code: String) -> Color { SubjectPalette.color(for: code) }
+
+    /// The lesson stripe. Measured against its own card in light mode, the bare
+    /// system colours were too faint to read as a mark — yellow 1.5:1, teal,
+    /// green and orange about 2:1, where a graphic needs 3:1. Mixing in 35% ink
+    /// takes every one of them to at least 3.4:1, the same trick Calendar uses
+    /// for its yellow. In Dark Mode the system colours already clear 4.3:1
+    /// against the dark card, so they're left exactly as Apple ships them.
+    static func subjectStripe(_ code: String, in scheme: ColorScheme) -> Color {
+        let base = SubjectPalette.color(for: code)
+        return scheme == .dark ? base : base.mix(with: .black, by: 0.35)
+    }
 }
