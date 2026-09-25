@@ -46,6 +46,23 @@ struct ReminderButton: View {
             }
         }
         .onAppear { timing = RemindersStore.timing(for: itemKey) }
+        // Felt as well as seen: a tap when a reminder is set or taken off.
+        .sensoryFeedback(trigger: timing) { old, new in
+            new == nil ? SensoryFeedback.impact(weight: .light) : SensoryFeedback.success
+        }
+        // If notifications are off for the app, setting a reminder used to do
+        // nothing at all — the bell just stayed empty. Say why, and offer the
+        // one place it can be fixed.
+        .alert("Notifications are off", isPresented: $denied) {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Not now", role: .cancel) { }
+        } message: {
+            Text("Reminders arrive as notifications. Turn them on for Lectio Pro Max in Settings.")
+        }
     }
 
     private var bell: some View {
@@ -72,7 +89,8 @@ struct ReminderButton: View {
             }
         }
         RemindersStore.set(option, for: itemKey)
-        timing = option
+        // Animated, so the bell fills with the symbol's own replace effect.
+        withAnimation(.snappy) { timing = option }
         onChange()
     }
 }
