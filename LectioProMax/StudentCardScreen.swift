@@ -20,15 +20,11 @@ struct StudentCardScreen: View {
     private var className: String { session.snapshot.profile.className }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            AppBackground()
+        // A navigation bar of its own, so the close button sits in it rather
+        // than floating over the card.
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
-                    Text("Student card")
-                        .font(.system(size: 26, weight: .bold))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .sheetTitleSpacing()
-
                     if let card {
                         cardView(card)
                         qrView(card)
@@ -42,14 +38,20 @@ struct StudentCardScreen: View {
                     }
                 }
                 .padding(.horizontal, Metrics.margin)
-                .padding(.top, 24)
+                .padding(.top, 8)
                 .padding(.bottom, 36)
             }
             .scrollIndicators(.hidden)
-
-            SheetCloseButton { dismiss() }
+            .background { AppBackground() }
+            .navigationTitle("Student card")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Label("Close", systemImage: "xmark")
+                    }
+                }
+            }
         }
-        .environment(\.pushedScreen, false)
         .task { await load() }
         // A fresh QR for as long as the card is open.
         .task(id: card?.qrURL) {

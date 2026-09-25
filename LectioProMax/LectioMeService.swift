@@ -136,11 +136,16 @@ enum LectioMeService {
         if let src = root.first(id: "s_m_Content_Content_StudPic")?.attr("src") {
             card.photoURL = LectioParser.absoluteURL(src)
         }
-        if let src = root.first(id: "s_m_Content_Content_QRCode_theQrCode")?.attr("src"),
-           let absolute = LectioParser.absoluteURL(src) {
+        // The QR <img> arrives without a src: Lectio's script fills it in,
+        // from the address it's given here —
+        //   LectioQRCode.Initialize('…theQrCode', 'https://…studiekortqr…', '', 36000);
+        if let g = Rx.match("LectioQRCode\\.Initialize\\(\\s*'[^']*'\\s*,\\s*'([^']+)'", html) {
+            let link = g[1].replacingOccurrences(of: "&amp;", with: "&")
+            card.qrURL = LectioParser.absoluteURL(link).map { withoutTime($0) }
+        } else if let src = root.first(id: "s_m_Content_Content_QRCode_theQrCode")?.attr("src"),
+                  let absolute = LectioParser.absoluteURL(src) {
             card.qrURL = withoutTime(absolute)
         }
-        // LectioQRCode.Initialize('…', 'https://…studiekortqr…', '', 36000);
         if let g = Rx.match("LectioQRCode\\.Initialize\\([^)]*?,\\s*(\\d+)\\s*\\)", html),
            let ms = Double(g[1]), ms >= 5000 {
             card.qrInterval = ms / 1000
