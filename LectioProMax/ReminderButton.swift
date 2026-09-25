@@ -1,0 +1,71 @@
+import SwiftUI
+
+/// The bell that sits on whatever it's reminding you about.
+///
+/// A reminder belongs to the thing itself, not to a switch in Settings — so it
+/// lives on the row, and asks for notification permission the first time you
+/// actually set one rather than up front.
+struct ReminderButton: View {
+    let itemKey: String
+    /// False for things with no due date (absence), which get a plain on/off.
+    var offersTiming: Bool = true
+    var onChange: () -> Void
+
+    @State private var timing: ReminderTiming?
+    @State private var denied = false
+
+    var body: some View {
+        Group {
+            if offersTiming {
+                Menu {
+                    ForEach(ReminderTiming.allCases, id: \.self) { option in
+                        Button {
+                            Task { await apply(option) }
+                        } label: {
+                            Label(option.label, systemImage: timing == option ? "checkmark" : option.icon)
+                        }
+                    }
+                    if timing != nil {
+                        Divider()
+                        Button(role: .destructive) {
+                            Task { await apply(nil) }
+                        } label: {
+                            Label("Remove reminder", systemImage: "bell.slash")
+                        }
+                    }
+                } label: {
+                    bell
+                }
+            } else {
+                Button {
+                    Task { await apply(timing == nil ? .morningOf : nil) }
+                } label: {
+                    bell
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .onAppear { timing = RemindersStore.timing(for: itemKey) }
+    }
+
+    private var bell: some View {
+        Image(systemName: timing == nil ? "bell" : "bell.fill")
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(timing == nil ? Color.primary.opacity(0.35) : Palette.accent)
+            .frame(width: 30, height: 30)
+            .contentShape(Rectangle())
+    }
+
+    private func apply(_ option: ReminderTiming?) async {
+        if option != nil {
+            let granted = await NotificationService.requestPermission()
+            guard granted else {
+                denied = true
+                return
+            }
+        }
+        RemindersStore.set(option, for: itemKey)
+        timing = option
+        onChange()
+    }
+}

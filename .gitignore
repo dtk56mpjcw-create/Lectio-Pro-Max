@@ -1,0 +1,6 @@
+# Build output and per-user Xcode state — regenerated, never worth versioning
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.DS_Store
