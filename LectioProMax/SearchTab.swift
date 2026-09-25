@@ -19,6 +19,9 @@ struct SearchTab: View {
 
     @State private var openWork: WorkItem?
     @State private var openThread: MessageThreadSummary?
+    @State private var path: [LessonRoute] = []
+    /// Rebuilds the lesson rows after one closes — see LessonOpener.returnToken.
+    @State private var returnToken = 0
 
     private var trimmed: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -63,7 +66,7 @@ struct SearchTab: View {
         let threads = self.threads
         let lessons = self.lessons
 
-        NavigationStack {
+        NavigationStack(path: $path) {
             results(work: work, threads: threads, lessons: lessons)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background { AppBackground() }
@@ -74,6 +77,13 @@ struct SearchTab: View {
                 }
         }
         .task { await session.loadInbox() }
+        .onChange(of: path.count) { old, new in
+            guard new < old else { return }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(650))
+                if path.isEmpty { returnToken += 1 }
+            }
+        }
         .sheet(item: $openWork) { item in
             WorkDetailSheet(item: item,
                             done: session.snapshot.isCompleted(item),
@@ -141,6 +151,7 @@ struct SearchTab: View {
                                 }
                                 .buttonStyle(.plain)
                                 .matchedTransitionSource(id: route.zoomID, in: zoom)
+                                .id(returnToken)
                             }
                         }
                     }

@@ -61,6 +61,11 @@ enum LessonText {
 final class LessonOpener {
     var path: [LessonRoute] = []
     @ObservationIgnored var lastPinch = Date.distantPast
+    /// Bumped a moment after a lesson closes, to rebuild the cards. A zoom
+    /// transition hides the card it grew out of while it runs; interrupt the
+    /// swipe back by touching the page too soon and the card could stay
+    /// hidden — invisible, yet still tappable. A fresh card is always visible.
+    var returnToken = 0
 
     var pinchedJustNow: Bool { Date().timeIntervalSince(lastPinch) < 0.5 }
 
@@ -135,6 +140,15 @@ struct ScheduleTab: View {
             .navigationDestination(for: LessonRoute.self) { route in
                 LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
                     .navigationTransition(.zoom(sourceID: route.zoomID, in: zoom))
+            }
+        }
+        .onChange(of: opener.path.count) { old, new in
+            guard new < old else { return }
+            Task { @MainActor in
+                // After the zoom back has finished, and only if nothing new
+                // has been opened meanwhile (that needs its card in place).
+                try? await Task.sleep(for: .milliseconds(650))
+                if opener.path.isEmpty { opener.returnToken += 1 }
             }
         }
         .onChange(of: dayPage) { _, page in
@@ -602,6 +616,7 @@ struct LessonCard: View {
             Button { opener?.open(route) } label: { card }
                 .buttonStyle(PressableCard())
                 .lessonZoomSource(route.zoomID, in: zoom)
+                .id(opener?.returnToken ?? 0)
         }
     }
 
@@ -740,6 +755,7 @@ struct CompactLessonCard: View {
             Button { opener?.open(route) } label: { compactCard }
                 .buttonStyle(PressableCard())
                 .lessonZoomSource(route.zoomID, in: zoom)
+                .id(opener?.returnToken ?? 0)
         }
     }
 
