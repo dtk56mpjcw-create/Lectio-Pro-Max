@@ -7,7 +7,8 @@ struct HomeworkTab: View {
     @State private var filter = WorkFilter()
 
     private var subjects: [String] {
-        Array(Set(session.snapshot.workItems.map { $0.code }.filter { !$0.isEmpty }))
+        // Only real subjects: a school-wide event's list of classes isn't one.
+        Array(Set(session.snapshot.workItems.filter { $0.isSubjectCode }.map { $0.code }))
             .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     }
 
@@ -202,7 +203,7 @@ struct WorkRow: View {
 
             NavigationLink(value: item) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(LectioDates.tidy(item.title))
+                    Text(item.displayTitle)
                         .font(.system(size: 16.5, weight: .medium))
                         .strikethrough(done)
                         .foregroundStyle(done ? Color(.secondaryLabel) : Color.primary)
@@ -213,8 +214,12 @@ struct WorkRow: View {
                         Text(metaLine)
                             .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
                         Spacer(minLength: 0)
                     }
+                    // What to actually do, so the list answers it without a
+                    // tap. Left off once it's done, to keep Completed short.
+                    if !done { previewLines }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
@@ -233,9 +238,39 @@ struct WorkRow: View {
         .opacity(done ? 0.5 : 1)
     }
 
+    @ViewBuilder
+    private var previewLines: some View {
+        let preview = item.preview
+        if !preview.text.isEmpty {
+            Text(preview.text)
+                .font(.system(size: 14.5))
+                .foregroundStyle(.secondary)
+                .lineLimit(3)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 2)
+        }
+        if let first = preview.files.first {
+            HStack(spacing: 5) {
+                Image(systemName: "paperclip")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(first)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                if preview.files.count > 1 {
+                    Text("+\(preview.files.count - 1)")
+                        .fixedSize()
+                }
+            }
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(.secondary)
+            .padding(.top, preview.text.isEmpty ? 2 : 0)
+        }
+    }
+
     private var metaLine: String {
         var bits: [String] = []
-        if !item.code.isEmpty { bits.append(item.code.uppercased()) }
+        if !item.code.isEmpty { bits.append(item.displayCode) }
         if item.isDelivered { bits.append("Handed in") }
         else if item.isAssignment { bits.append("Hand-in") }
         if !item.dueTime.isEmpty { bits.append(item.dueTime) }
@@ -258,13 +293,13 @@ struct WorkDetailSheet: View {
                 VStack(alignment: .leading, spacing: 9) {
                     HStack(spacing: 8) {
                         SubjectDot(code: item.code, size: 9)
-                        Text(item.code.uppercased())
+                        Text(item.displayCode)
                             .font(.system(size: 14, weight: .heavy))
                             .tracking(0.6)
                             .foregroundStyle(.secondary)
                         Spacer()
                     }
-                    Text(LectioDates.tidy(item.title))
+                    Text(item.displayTitle)
                         .font(.system(size: 25.5, weight: .bold))
                         .fixedSize(horizontal: false, vertical: true)
                     if let due = item.due {

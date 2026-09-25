@@ -106,6 +106,9 @@ struct AssignmentItem: Identifiable, Codable, Hashable {
     var dueTime: String = ""
     var status: String = ""
     var link: String? = nil
+    /// The teacher's note from the assignments list ("Opgavenote"). Optional
+    /// so a cache written before it existed still loads.
+    var note: String? = nil
 
     var isPending: Bool {
         return status.lowercased().contains("pending") || status.lowercased().contains("venter")
@@ -259,7 +262,8 @@ struct LectioSnapshot: Codable {
             seen.insert(k)
             out.append(WorkItem(key: k, code: a.code, title: a.title,
                                 due: a.due, dueTime: a.dueTime, isAssignment: true,
-                                link: a.link, isDelivered: a.isDelivered))
+                                link: a.link, isDelivered: a.isDelivered,
+                                text: a.note ?? ""))
         }
         return out
     }

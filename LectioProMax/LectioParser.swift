@@ -313,13 +313,20 @@ enum LectioParser {
             else if Rx.test("venter", statusText) { status = "pending" }
             else if Rx.test("afleveret", statusText) { status = "done" }
 
+            // Uge | Hold | Opgavetitel | Frist | Elevtid | Status | Fravær |
+            // Afventer | Opgavenote | Karakter | Elevnote
+            let note = cells.count > 8
+                ? cells[8].text.trimmingCharacters(in: .whitespacesAndNewlines)
+                : ""
+
             items.append(AssignmentItem(
                 code: holdToCode(hold),
                 title: anchor.text,
                 due: due,
                 dueTime: dueTime,
                 status: status,
-                link: absoluteURL(anchor.attr("href"))
+                link: absoluteURL(anchor.attr("href")),
+                note: note.isEmpty ? nil : note
             ))
         }
 

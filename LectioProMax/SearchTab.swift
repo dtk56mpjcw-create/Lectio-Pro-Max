@@ -105,7 +105,7 @@ struct SearchTab: View {
                                 } label: {
                                     row(icon: item.isAssignment ? "tray.and.arrow.up" : "book",
                                         code: item.code,
-                                        title: LectioDates.tidy(item.title),
+                                        title: item.displayTitle,
                                         detail: item.due.map { "Due " + LectioDates.friendlyLabel(iso: $0) } ?? "")
                                 }
                                 .buttonStyle(.plain)

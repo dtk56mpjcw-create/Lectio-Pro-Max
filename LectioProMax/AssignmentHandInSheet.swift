@@ -105,13 +105,13 @@ struct AssignmentHandInSheet: View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 8) {
                 SubjectDot(code: item.code, size: 9)
-                Text(item.code.uppercased())
+                Text(item.displayCode)
                     .font(.system(size: 14, weight: .heavy))
                     .tracking(0.6)
                     .foregroundStyle(.secondary)
                 Spacer()
             }
-            Text(LectioDates.tidy(item.title))
+            Text(item.displayTitle)
                 .font(.system(size: 25.5, weight: .bold))
                 .fixedSize(horizontal: false, vertical: true)
             if let due = item.due {
