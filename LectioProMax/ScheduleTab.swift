@@ -429,15 +429,20 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
     var body: some View {
         let p = progress(for: pinch)
         ZStack {
+            // The view you're not on can't scroll. Hit testing alone didn't
+            // stop it: once the week started fading in under a pinch, its
+            // scroll views took the fingers and moved in the background.
             day
                 .scaleEffect(dayScale(p), anchor: anchor)
                 .allowsHitTesting(!weekMode)
+                .scrollDisabled(weekMode)
                 .accessibilityHidden(weekMode)
             week
                 .scaleEffect(weekScale(p), anchor: anchor)
                 .background(Color(.systemGroupedBackground))
                 .opacity(Double(weekMode ? 1 - p : p))
                 .allowsHitTesting(weekMode)
+                .scrollDisabled(!weekMode)
                 .accessibilityHidden(!weekMode)
         }
         .clipped()
@@ -482,16 +487,19 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
         return min(max(raw, 0), 1)
     }
 
-    /// The day follows the fingers one to one while you're on it; under the
-    /// week it waits a little smaller, and grows back as the week fades.
+    /// The day follows the fingers one to one while you're on it — but only
+    /// shrinking, toward the week. Spreading your fingers on a day has
+    /// nothing to zoom into, so it doesn't move at all. Under the week it
+    /// waits a little smaller, and grows back as the week fades.
     private func dayScale(_ p: CGFloat) -> CGFloat {
-        weekMode ? 0.8 + 0.2 * p : Self.soft(pinch, low: 0.6, high: 1)
+        weekMode ? 0.8 + 0.2 * p : min(Self.soft(pinch, low: 0.6, high: 1), 1)
     }
 
-    /// The week follows the fingers one to one while you're on it; from the
-    /// day it comes in from slightly larger.
+    /// The week follows the fingers one to one while you're on it — but only
+    /// growing, toward the day; pinching it smaller has nothing to go to.
+    /// From the day it comes in from slightly larger.
     private func weekScale(_ p: CGFloat) -> CGFloat {
-        weekMode ? Self.soft(pinch, low: 1, high: 1.6) : 1.25 - 0.25 * p
+        weekMode ? max(Self.soft(pinch, low: 1, high: 1.6), 1) : 1.25 - 0.25 * p
     }
 
     /// Follows the value inside the range and resists beyond it.
