@@ -21,6 +21,13 @@ struct MessagesTab: View {
     @State private var undoTask: Task<Void, Never>?
     @State private var deleteCount = 0
 
+    /// "Sent", after a new message goes out, with the thread to open once
+    /// the inbox has it.
+    @State private var sentShown = false
+    @State private var sentThread: MessageThreadSummary?
+    @State private var sentTask: Task<Void, Never>?
+    @State private var sentCount = 0
+
     private var threads: [MessageThreadSummary] {
         guard folder == .newest else { return folderThreads }
         if !session.threads.isEmpty { return session.threads }
@@ -82,8 +89,12 @@ struct MessagesTab: View {
             undoable = nil
         }
         .sensoryFeedback(.success, trigger: deleteCount)
+        .sensoryFeedback(.success, trigger: sentCount)
         .sheet(isPresented: $composing) {
-            NewMessageSheet().environmentObject(session)
+            NewMessageSheet(onSent: { subject in
+                Task { await messageSent(subject) }
+            })
+            .environmentObject(session)
         }
     }
 
@@ -171,9 +182,16 @@ struct MessagesTab: View {
                     .padding(.horizontal, Metrics.margin)
                     .padding(.bottom, 8)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if sentShown {
+                sentBar
+                    .padding(.horizontal, Metrics.margin)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(.snappy, value: undoable?.id)
+        .animation(.snappy, value: sentShown)
+        .animation(.snappy, value: sentThread?.id)
     }
 
     private func undoBar(_ thread: MessageThreadSummary) -> some View {
@@ -189,6 +207,29 @@ struct MessagesTab: View {
             }
             .font(.system(size: 15.5, weight: .semibold))
             .frame(minHeight: 44)
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 50)
+        .glassEffect(.regular, in: .capsule)
+    }
+
+    private var sentBar: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.green)
+            Text("Message sent")
+                .font(.system(size: 15.5, weight: .medium))
+            Spacer(minLength: 0)
+            if let thread = sentThread {
+                Button("View") {
+                    hideSent()
+                    path.append(thread)
+                }
+                .font(.system(size: 15.5, weight: .semibold))
+                .frame(minHeight: 44)
+                .transition(.opacity)
+            }
         }
         .padding(.horizontal, 16)
         .frame(height: 50)
@@ -274,6 +315,39 @@ struct MessagesTab: View {
         } else {
             offerUndo(thread)
         }
+    }
+
+    /// The sheet has closed: say so, bring the inbox up to date, and offer
+    /// the new thread once it's there — the newest one with that subject.
+    private func messageSent(_ subject: String) async {
+        sentCount += 1
+        sentThread = nil
+        sentShown = true
+        hideSentLater()
+
+        await session.loadInbox(force: true)
+        if folder != .newest { await loadFolder() }
+        let found = session.threads.first {
+            $0.subject.trimmingCharacters(in: .whitespacesAndNewlines) == subject
+        }
+        if sentShown, let found {
+            sentThread = found
+            hideSentLater()
+        }
+    }
+
+    private func hideSentLater() {
+        sentTask?.cancel()
+        sentTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(4))
+            if !Task.isCancelled { hideSent() }
+        }
+    }
+
+    private func hideSent() {
+        sentTask?.cancel()
+        sentShown = false
+        sentThread = nil
     }
 
     private func offerUndo(_ thread: MessageThreadSummary) {

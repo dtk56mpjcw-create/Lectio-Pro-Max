@@ -3,6 +3,9 @@ import SwiftUI
 struct NewMessageSheet: View {
     @EnvironmentObject private var session: LectioSession
     @Environment(\.dismiss) private var dismiss
+    /// Called with the subject once Lectio has taken the message; the sheet
+    /// then closes, like Mail's does.
+    var onSent: (String) -> Void = { _ in }
 
     @State private var query = ""
     @State private var chosen: [Recipient] = []
@@ -11,7 +14,6 @@ struct NewMessageSheet: View {
     @State private var includeSignature = true
     @State private var sending = false
     @State private var sendError: String?
-    @State private var sent = false
     @State private var loadingDirectory = false
 
     private var matches: [Recipient] {
@@ -47,13 +49,6 @@ struct NewMessageSheet: View {
                     SignatureFooter(include: $includeSignature)
                         .padding(.top, -8)
 
-                    if sent {
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                            Text("Sent").font(.system(size: 15.5, weight: .semibold))
-                        }
-                    }
-
                     sendButton
                 }
                 .padding(.horizontal, Metrics.margin)
@@ -67,6 +62,9 @@ struct NewMessageSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(.clear)
+        // Not while it's going out: closing then would leave you not knowing
+        // whether it was sent.
+        .interactiveDismissDisabled(sending)
         // Always a sheet — even when it opens from a pushed page, whose
         // "pushed" flag would otherwise carry in and hide the close button.
         .environment(\.pushedScreen, false)
@@ -196,22 +194,20 @@ struct NewMessageSheet: View {
         guard canSend else { return }
         sending = true
         sendError = nil
-        sent = false
 
         let cookies = await session.requestCookies()
+        let title = subject.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             let ok = try await LectioMessagesService.createThread(
                 to: chosen,
-                subject: subject.trimmingCharacters(in: .whitespacesAndNewlines),
+                subject: title,
                 body: MessageSignature.apply(to: body_, include: includeSignature),
                 cookies: cookies)
             if ok {
-                sent = true
-                subject = ""
-                body_ = ""
-                includeSignature = true
-                chosen = []
-                await session.loadInbox(force: true)
+                sending = false
+                onSent(title)
+                dismiss()
+                return
             } else {
                 sendError = "Lectio didn't confirm the message was sent — check in Lectio before resending."
             }
