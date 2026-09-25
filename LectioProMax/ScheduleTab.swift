@@ -95,6 +95,9 @@ struct ScheduleTab: View {
     @State private var dayPage: String? = LectioDates.isoString(from: Date())
     @State private var weekPage: String? = ScheduleTab.monday(of: LectioDates.isoString(from: Date()))
     @State private var weekMode = false
+    /// Whether each view's pages scroll: only the one you're on does.
+    @State private var dayScrollable = true
+    @State private var weekScrollable = false
     @State private var addingEvent = false
 
     @State private var opener = LessonOpener()
@@ -284,7 +287,7 @@ struct ScheduleTab: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
                 ForEach(Self.days, id: \.self) { date in
-                    DayPage(date: date, bottomInset: bottomInset)
+                    DayPage(date: date, bottomInset: bottomInset, scrollable: dayScrollable)
                         .containerRelativeFrame([.horizontal, .vertical])
                 }
             }
@@ -304,7 +307,7 @@ struct ScheduleTab: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
                 ForEach(Self.weeks, id: \.self) { monday in
-                    WeekPage(monday: monday, bottomInset: bottomInset) { date in
+                    WeekPage(monday: monday, bottomInset: bottomInset, scrollable: weekScrollable) { date in
                         pick(date)
                     }
                     .containerRelativeFrame([.horizontal, .vertical])
@@ -340,7 +343,16 @@ struct ScheduleTab: View {
     // MARK: Moving around
 
     private func setWeekMode(_ on: Bool) {
+        // The view coming in can scroll straight away; the one going out
+        // keeps its scroll view (and its place) until it has faded, then
+        // stops being scrollable at all while it waits in the background.
+        if on { weekScrollable = true } else { dayScrollable = true }
         withAnimation(.smooth(duration: 0.35)) { weekMode = on }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
+            guard weekMode == on else { return }
+            if on { dayScrollable = false } else { weekScrollable = false }
+        }
     }
 
     /// A day tapped in the week view: zoom back in on it.
@@ -568,49 +580,81 @@ struct OneFingerScrolling: UIViewRepresentable {
 }
 
 /// One day of the pager: its own scroll view, with its own pull to refresh.
+///
+/// Only while it's the view you're on. Behind the week it's the same lessons
+/// with no scroll view at all — `scrollDisabled` alone didn't stop a hidden
+/// page being dragged up and down under a pinch; a page with nothing to
+/// scroll can't be.
 private struct DayPage: View {
     @EnvironmentObject private var session: LectioSession
     let date: String
     let bottomInset: CGFloat
+    let scrollable: Bool
 
     var body: some View {
-        let code = LectioDates.weekCode(iso: date)
-        ScrollView {
-            RefreshHeader(space: "schedule-page") { await session.refresh() }
-            VStack(alignment: .leading, spacing: 10) {
-                if let week = session.snapshot.weeks[code] {
-                    DayList(day: week.days.first { $0.date == date }).equatable()
-                } else {
-                    WeekPlaceholder(weekCode: code)
+        if scrollable {
+            ScrollView {
+                VStack(spacing: 0) {
+                    RefreshHeader(space: "schedule-page") { await session.refresh() }
+                    lessons
                 }
             }
-            .padding(.horizontal, Metrics.margin)
-            .padding(.top, 4)
-            .padding(.bottom, bottomInset + 24)
-            .background(OneFingerScrolling())
+            .coordinateSpace(.named("schedule-page"))
+            .scrollIndicators(.hidden)
+        } else {
+            lessons
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .clipped()
         }
-        .coordinateSpace(.named("schedule-page"))
-        .scrollIndicators(.hidden)
+    }
+
+    private var lessons: some View {
+        let code = LectioDates.weekCode(iso: date)
+        return VStack(alignment: .leading, spacing: 10) {
+            if let week = session.snapshot.weeks[code] {
+                DayList(day: week.days.first { $0.date == date }).equatable()
+            } else {
+                WeekPlaceholder(weekCode: code)
+            }
+        }
+        .padding(.horizontal, Metrics.margin)
+        .padding(.top, 8)
+        .padding(.bottom, bottomInset + 24)
+        .background(OneFingerScrolling())
     }
 }
 
-/// One week of the week pager.
+/// One week of the week pager — scrollable only while it's the view you're
+/// on, for the same reason as DayPage.
 private struct WeekPage: View {
     @EnvironmentObject private var session: LectioSession
     let monday: String
     let bottomInset: CGFloat
+    let scrollable: Bool
     var onPick: (String) -> Void
 
     var body: some View {
-        ScrollView {
-            RefreshHeader(space: "schedule-week") { await session.refresh() }
-            WeekOverview(weekCode: LectioDates.weekCode(iso: monday), onPick: onPick)
-                .padding(.top, 4)
-                .padding(.bottom, bottomInset + 24)
-                .background(OneFingerScrolling())
+        if scrollable {
+            ScrollView {
+                VStack(spacing: 0) {
+                    RefreshHeader(space: "schedule-week") { await session.refresh() }
+                    overview
+                }
+            }
+            .coordinateSpace(.named("schedule-week"))
+            .scrollIndicators(.hidden)
+        } else {
+            overview
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .clipped()
         }
-        .coordinateSpace(.named("schedule-week"))
-        .scrollIndicators(.hidden)
+    }
+
+    private var overview: some View {
+        WeekOverview(weekCode: LectioDates.weekCode(iso: monday), onPick: onPick)
+            .padding(.top, 8)
+            .padding(.bottom, bottomInset + 24)
+            .background(OneFingerScrolling())
     }
 }
 
