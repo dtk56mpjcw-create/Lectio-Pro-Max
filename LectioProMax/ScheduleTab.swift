@@ -431,6 +431,12 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
                 .accessibilityHidden(!weekMode)
         }
         .clipped()
+        // Two fingers pinching also drag whatever scroll view they're on —
+        // sideways and up and down. Scrolling is switched off for as long as
+        // a pinch lasts. It's a single switch at the start and the end, not a
+        // per-frame change, so it costs nothing while the fingers move; a
+        // pager left between pages snaps back once it comes to rest.
+        .scrollDisabled(pinch != 1)
         .simultaneousGesture(
             MagnifyGesture()
                 .updating($pinch) { value, state, _ in
