@@ -55,27 +55,22 @@ enum LessonText {
 
 // MARK: - Schedule
 
-/// Opens lessons for the schedule's cards — and keeps a pinch from counting as
-/// a tap: the fingers lifting off a card at the end of a pinch used to open it.
+/// Opens lessons for the schedule's cards.
 @Observable
 final class LessonOpener {
     var path: [LessonRoute] = []
-    @ObservationIgnored var lastPinch = Date.distantPast
-    /// Bumped a moment after a lesson closes, to rebuild the cards. A zoom
-    /// transition hides the card it grew out of while it runs; interrupt the
-    /// swipe back by touching the page too soon and the card could stay
-    /// hidden — invisible, yet still tappable. A fresh card is always visible.
+    /// Bumped once a closed lesson has fully gone, to rebuild the cards. A
+    /// zoom transition hides the card it grew out of while it runs; interrupt
+    /// the swipe back and the card could stay hidden — invisible, yet still
+    /// tappable. A fresh card is always visible.
     var returnToken = 0
 
-    var pinchedJustNow: Bool { Date().timeIntervalSince(lastPinch) < 0.5 }
-
     func open(_ route: LessonRoute) {
-        guard !pinchedJustNow else { return }
         path.append(route)
     }
 }
 
-/// The day, with the week a pinch or a tap away.
+/// The day, with the week a tap away.
 ///
 /// Days page sideways in a real paging scroll view, and each day is a scroll
 /// view of its own — the layout Calendar uses. That's what gives the swipe the
@@ -98,6 +93,7 @@ struct ScheduleTab: View {
     @State private var addingEvent = false
 
     @State private var opener = LessonOpener()
+    @State private var switcher = ScreenZoom()
 
     /// The pages run under the tab bar, so the last lesson needs room to
     /// scroll clear of it. The floor is the floating tab bar's own height, in
@@ -136,15 +132,7 @@ struct ScheduleTab: View {
             .navigationDestination(for: LessonRoute.self) { route in
                 LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
                     .navigationTransition(.zoom(sourceID: route.zoomID, in: zoom))
-            }
-        }
-        .onChange(of: opener.path.count) { old, new in
-            guard new < old else { return }
-            Task { @MainActor in
-                // After the zoom back has finished, and only if nothing new
-                // has been opened meanwhile (that needs its card in place).
-                try? await Task.sleep(for: .milliseconds(650))
-                if opener.path.isEmpty { opener.returnToken += 1 }
+                    .onDisappear { lessonClosed() }
             }
         }
         .onChange(of: dayPage) { _, page in
@@ -260,16 +248,28 @@ struct ScheduleTab: View {
     // MARK: Pagers
 
     private var pagers: some View {
-        ScheduleZoom(weekMode: weekMode,
-                     onPinch: { opener.lastPinch = Date() },
-                     onSwitch: { setWeekMode($0) }) {
+        // Both pagers stay alive, the week over the day, and the switch is a
+        // single step underneath a snapshot that animates away (ScreenZoom).
+        ZStack {
             ScrollViewReader { proxy in
                 dayPager(proxy)
             }
-        } week: {
+            .allowsHitTesting(!weekMode)
+            .scrollDisabled(weekMode)
+            .accessibilityHidden(weekMode)
+
             ScrollViewReader { proxy in
                 weekPager(proxy)
             }
+            .background(Color(.systemGroupedBackground))
+            .opacity(weekMode ? 1 : 0)
+            .allowsHitTesting(weekMode)
+            .scrollDisabled(!weekMode)
+            .accessibilityHidden(!weekMode)
+        }
+        .overlay {
+            ScreenZoomHost(zoom: switcher)
+                .allowsHitTesting(false)
         }
         .ignoresSafeArea(.container, edges: .bottom)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -289,7 +289,6 @@ struct ScheduleTab: View {
                 }
             }
             .scrollTargetLayout()
-            .background(OneFingerScrolling())
         }
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $dayPage, anchor: .center)
@@ -311,7 +310,6 @@ struct ScheduleTab: View {
                 }
             }
             .scrollTargetLayout()
-            .background(OneFingerScrolling())
         }
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $weekPage, anchor: .center)
@@ -339,15 +337,27 @@ struct ScheduleTab: View {
 
     // MARK: Moving around
 
-    /// One flag, one animation — the same curve the pinch settles on.
+    /// Snapshot what's showing, flip underneath it in one step, then let the
+    /// snapshot zoom away (see ScreenZoom).
     private func setWeekMode(_ on: Bool) {
-        withAnimation(.smooth(duration: 0.32)) { weekMode = on }
+        guard on != weekMode else { return }
+        switcher.cover(excludingBottom: bottomInset)
+        weekMode = on
+        switcher.play(outward: on)
+    }
+
+    /// Runs once a pushed lesson has fully gone — after its zoom back, not
+    /// when it starts — and rebuilds the cards if nothing new has opened.
+    /// Doing this on a timer instead could land mid-animation and pull the
+    /// card out from under the zoom, which broke later zooms.
+    private func lessonClosed() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            if opener.path.isEmpty { opener.returnToken += 1 }
+        }
     }
 
     /// A day tapped in the week view: zoom back in on it.
     private func pick(_ date: String) {
-        // Fingers lifting at the end of a pinch aren't a tap on a day.
-        guard !opener.pinchedJustNow else { return }
         selectedDate = date
         dayPage = date
         setWeekMode(false)
@@ -393,199 +403,83 @@ struct ScheduleTab: View {
     }
 }
 
-/// The pinch between the day and the week.
+/// Plays the switch between day and week on a picture of the screen.
 ///
-/// A view of its own so that each frame of a pinch re-evaluates only this —
-/// a few modifiers — instead of the whole schedule. Both pagers stay alive
-/// underneath (rebuilding the day pager on the way back from the week
-/// sometimes left it resting between two days).
-///
-/// While the fingers move, nothing is built, rebuilt or switched: the view
-/// you're on follows them one to one, scaling from the top edge of the page
-/// so rows don't slide, and the other view fades in once the pinch is clearly
-/// going somewhere. Every movement keeps its direction through the release:
-/// the day that shrank under your fingers carries on shrinking as the week
-/// settles over it, and the week that grew carries on growing as it fades to
-/// the day — no bounce back the other way. Let go past 40% of the way, or
-/// with a quick flick, and it finishes; otherwise it springs back.
-///
-/// Earlier versions made each view's pages scrollable only while it was the
-/// one you were on, which meant building scroll views at the very moment the
-/// zoom finished — a visible stall at the start of every switch. They stay
-/// scroll views now; the view in the background simply has scrolling and
-/// touches switched off.
-private struct ScheduleZoom<Day: View, Week: View>: View {
-    let weekMode: Bool
-    var onPinch: () -> Void
-    var onSwitch: (Bool) -> Void
-    @ViewBuilder var day: Day
-    @ViewBuilder var week: Week
+/// The pages are heavy to animate in SwiftUI — scaling or fading them means
+/// updating every scroll view inside, every frame, and on a phone that shows
+/// as stutter. So at the moment of the switch this takes a snapshot of what's
+/// on screen, lays it over the pages, flips to the other view underneath in a
+/// single step, and animates only the snapshot — shrinking away as you zoom
+/// out to the week, growing away as you zoom into a day — while it fades to
+/// reveal the view underneath. That's pure Core Animation on one layer,
+/// smooth however much is on the page.
+final class ScreenZoom {
+    /// The view laid over the pages (see ScreenZoomHost).
+    weak var host: UIView?
+    private var picture: UIView?
+    private var animator: UIViewPropertyAnimator?
 
-    /// Settles on the same curve as the switch (setWeekMode), so the fingers
-    /// letting go and the views changing finish together.
-    @GestureState(resetTransaction: Transaction(animation: .smooth(duration: 0.32)))
-    private var pinch: CGFloat = 1
-    /// Scrolling stays off a moment after the pinch, too: the fingers rarely
-    /// lift together, and the last one used to drag the page as it left.
-    @State private var lingering = false
-    @State private var activePinch = false
-    @State private var pinchSerial = 0
-    @State private var tracker = PinchTracker()
+    /// Covers the pages with a picture of them as they are now. Call it just
+    /// before changing what's underneath, then `play` straight after.
+    /// - Parameter bottom: how much of the bottom to leave out — the strip
+    ///   under the tab bar, so the picture doesn't include the bar itself.
+    func cover(excludingBottom bottom: CGFloat) {
+        finishNow()
+        guard let host, let window = host.window,
+              host.bounds.width > 0, host.bounds.height > bottom else { return }
+        let area = CGRect(x: 0, y: 0, width: host.bounds.width,
+                          height: host.bounds.height - bottom)
+        guard let shot = window.resizableSnapshotView(from: host.convert(area, to: window),
+                                                      afterScreenUpdates: false,
+                                                      withCapInsets: .zero) else { return }
+        shot.frame = area
+        shot.isUserInteractionEnabled = false
+        host.addSubview(shot)
+        picture = shot
+    }
 
-    /// The top middle of the page.
-    private let anchor = UnitPoint(x: 0.5, y: 0)
-
-    /// Where each view waits while the other one is showing.
-    private let dayAway: CGFloat = 0.8
-    private let weekAway: CGFloat = 1.2
-
-    var body: some View {
-        let p = progress(for: pinch)
-        let fade = Self.fade(p)
-        ZStack {
-            day
-                .scaleEffect(dayScale(p, fade: fade), anchor: anchor)
-                .allowsHitTesting(!weekMode)
-                .scrollDisabled(weekMode || locked)
-                .accessibilityHidden(weekMode)
-            week
-                .scaleEffect(weekScale(fade: fade), anchor: anchor)
-                .background(Color(.systemGroupedBackground))
-                .opacity(Double(weekMode ? 1 - fade : fade))
-                .allowsHitTesting(weekMode)
-                .scrollDisabled(!weekMode || locked)
-                .accessibilityHidden(!weekMode)
+    /// Animates the cover away: smaller when zooming out to the week, larger
+    /// when zooming into a day.
+    func play(outward: Bool) {
+        guard let shot = picture else { return }
+        let scale: CGFloat = outward ? 0.9 : 1.1
+        let animator = UIViewPropertyAnimator(duration: 0.34, dampingRatio: 1) {
+            shot.transform = CGAffineTransform(scaleX: scale, y: scale)
+            shot.alpha = 0
         }
-        .clipped()
-        .simultaneousGesture(
-            MagnifyGesture()
-                .updating($pinch) { value, state, _ in
-                    state = value.magnification
-                }
-                .onChanged { value in
-                    onPinch()
-                    if !activePinch {
-                        activePinch = true
-                        pinchSerial += 1
-                    }
-                    tracker.track(value.magnification)
-                }
-                .onEnded { value in
-                    onPinch()
-                    activePinch = false
-                    lingering = true
-                    let serial = pinchSerial
-                    // Positive when heading toward the other view.
-                    let toward = weekMode ? tracker.velocity : -tracker.velocity
-                    let p = progress(for: value.magnification)
-                    tracker.reset()
-                    if toward > 1.0 || (p > 0.4 && toward > -0.5) {
-                        onSwitch(!weekMode)
-                    }
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(400))
-                        // Unless another pinch has started since.
-                        guard serial == pinchSerial, !activePinch else { return }
-                        lingering = false
-                    }
-                }
-        )
+        animator.addCompletion { [weak self] _ in
+            shot.removeFromSuperview()
+            if self?.picture === shot { self?.picture = nil }
+        }
+        self.animator = animator
+        animator.startAnimation()
     }
 
-    /// Nothing scrolls while a pinch lasts. Set on each layer, next to its
-    /// own on/off: a disable on the stack around them was overridden by the
-    /// layer's own `scrollDisabled(false)`.
-    private var locked: Bool { pinch != 1 || lingering }
-
-    /// 0 at rest, 1 once the fingers have gone the whole way toward the other
-    /// view: in to 0.75×, or out to 1.35×.
-    private func progress(for m: CGFloat) -> CGFloat {
-        let raw = weekMode ? (m - 1) / 0.35 : (1 - m) / 0.25
-        return min(max(raw, 0), 1)
-    }
-
-    /// Nothing for the first 30% of a pinch, then in over the next half.
-    private static func fade(_ p: CGFloat) -> CGFloat {
-        min(max((p - 0.3) / 0.5, 0), 1)
-    }
-
-    /// On the day: follows the fingers, only ever shrinking (spreading your
-    /// fingers on a day has nothing to zoom into). Behind the week: waits
-    /// small, and grows back to full as the week fades off it.
-    private func dayScale(_ p: CGFloat, fade: CGFloat) -> CGFloat {
-        if weekMode { return dayAway + (1 - dayAway) * fade }
-        return min(Self.soft(pinch, low: 0.75, high: 1), 1)
-    }
-
-    /// On the week: follows the fingers, only ever growing. Coming in over
-    /// the day: settles from a little larger as it fades in.
-    private func weekScale(fade: CGFloat) -> CGFloat {
-        if weekMode { return max(Self.soft(pinch, low: 1, high: 1.35), 1) }
-        return weekAway - (weekAway - 1) * fade
-    }
-
-    /// Follows the value inside the range and resists beyond it.
-    private static func soft(_ value: CGFloat, low: CGFloat, high: CGFloat) -> CGFloat {
-        if value < low { return low - (low - value) * 0.2 }
-        if value > high { return high + (value - high) * 0.2 }
-        return value
+    /// Ends whatever is running at once — for a second tap mid-animation.
+    func finishNow() {
+        animator?.stopAnimation(true)
+        animator = nil
+        picture?.removeFromSuperview()
+        picture = nil
     }
 }
 
-/// How fast a pinch is moving at the moment it ends, so a quick flick counts
-/// even when it's short. A plain reference type: updating it every frame
-/// shouldn't redraw anything.
-private final class PinchTracker {
-    private var magnification: CGFloat = 1
-    private var time = Date()
-    /// In log-magnification per second.
-    private(set) var velocity: CGFloat = 0
+/// The empty, touch-transparent view over the pages that ScreenZoom draws on.
+private struct ScreenZoomHost: UIViewRepresentable {
+    let zoom: ScreenZoom
 
-    func track(_ m: CGFloat) {
-        let now = Date()
-        let dt = now.timeIntervalSince(time)
-        let current = max(m, 0.01)
-        if dt > 0.004 {
-            let instant = (log(current) - log(magnification)) / CGFloat(dt)
-            velocity = velocity * 0.4 + instant * 0.6
-        }
-        magnification = current
-        time = now
-    }
-
-    func reset() {
-        magnification = 1
-        time = Date()
-        velocity = 0
-    }
-}
-
-/// Makes the scroll view it sits in scroll with one finger only — as Photos
-/// does — so two fingers pinching zoom instead of also dragging the page up,
-/// down and sideways. SwiftUI has no setting for this; the probe finds the
-/// UIKit scroll view behind the SwiftUI one and limits its pan gesture.
-struct OneFingerScrolling: UIViewRepresentable {
     func makeUIView(context: Context) -> UIView {
-        let probe = Probe()
-        probe.isUserInteractionEnabled = false
-        probe.backgroundColor = .clear
-        return probe
+        let view = UIView()
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = false
+        // The growing picture mustn't spill over the header.
+        view.clipsToBounds = true
+        zoom.host = view
+        return view
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {}
-
-    private final class Probe: UIView {
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            var view = superview
-            while let current = view {
-                if let scroll = current as? UIScrollView {
-                    scroll.panGestureRecognizer.maximumNumberOfTouches = 1
-                    return
-                }
-                view = current.superview
-            }
-        }
+    func updateUIView(_ uiView: UIView, context: Context) {
+        zoom.host = uiView
     }
 }
 
@@ -610,7 +504,6 @@ private struct DayPage: View {
                 .padding(.horizontal, Metrics.margin)
                 .padding(.top, 8)
                 .padding(.bottom, bottomInset + 24)
-                .background(OneFingerScrolling())
             }
         }
         .coordinateSpace(.named("schedule-page"))
@@ -632,15 +525,14 @@ private struct WeekPage: View {
                 WeekOverview(weekCode: LectioDates.weekCode(iso: monday), onPick: onPick)
                     .padding(.top, 8)
                     .padding(.bottom, bottomInset + 24)
-                    .background(OneFingerScrolling())
-            }
+                }
         }
         .coordinateSpace(.named("schedule-week"))
         .scrollIndicators(.hidden)
     }
 }
 
-// MARK: - Week overview (pinch out / calendar button)
+// MARK: - Week overview (calendar button)
 
 struct WeekOverview: View {
     @EnvironmentObject private var session: LectioSession
@@ -753,8 +645,7 @@ struct LessonCard: View {
 
     var body: some View {
         // Buttons: the day pages in a real scroll view, which cancels the
-        // press the moment a swipe starts. Lessons push through the opener,
-        // which ignores the lift at the end of a pinch.
+        // press the moment a swipe starts. Lessons push through the opener.
         if lesson.isPrivateEvent {
             // Your own event is something to edit, so it stays a sheet.
             Button { editingEvent = true } label: { card }

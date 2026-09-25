@@ -74,16 +74,15 @@ struct SearchTab: View {
                 .navigationDestination(for: LessonRoute.self) { route in
                     LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
                         .navigationTransition(.zoom(sourceID: route.zoomID, in: zoom))
+                        .onDisappear {
+                            // Once the lesson has fully gone, not on a timer.
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                if path.isEmpty { returnToken += 1 }
+                            }
+                        }
                 }
         }
         .task { await session.loadInbox() }
-        .onChange(of: path.count) { old, new in
-            guard new < old else { return }
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(650))
-                if path.isEmpty { returnToken += 1 }
-            }
-        }
         .sheet(item: $openWork) { item in
             WorkDetailSheet(item: item,
                             done: session.snapshot.isCompleted(item),
