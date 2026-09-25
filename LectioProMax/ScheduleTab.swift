@@ -55,65 +55,54 @@ enum LessonText {
 
 // MARK: - Schedule
 
+/// Pushes lessons onto the schedule's stack. The cards open lessons with a tap
+/// gesture rather than a NavigationLink (a link counts a sideways swipe that
+/// stays on the card as a tap), so they need a way to push.
+@Observable
+final class LessonOpener {
+    var path: [LessonRoute] = []
+    func open(_ route: LessonRoute) { path.append(route) }
+}
+
 /// The day, with the week a pinch or a tap away.
 ///
 /// One vertical scroll view in a navigation stack, so the title bar, pull to
-/// refresh, the scroll edge and the tab bar all behave as they do in any system
-/// app. Inside it, the days — or the weeks — page sideways natively.
+/// refresh, the scroll edge and the tab bar all behave as in any system app.
+///
+/// Sideways, three pages sit side by side — yesterday, today, tomorrow (or
+/// three weeks) — and follow the finger one to one. On release they spring on
+/// to the neighbour and quietly re-centre. A horizontal ScrollView pager was
+/// tried here first: nested inside the vertical one it kept the height of
+/// whatever it first measured and cut the day off.
 struct ScheduleTab: View {
     @EnvironmentObject private var session: LectioSession
     @Namespace private var zoom
 
     @State private var selectedDate: String = LectioDates.isoString(from: Date())
-    /// Where each pager rests: a swipe writes it, and writing it jumps.
-    @State private var dayPage: String? = LectioDates.isoString(from: Date())
-    @State private var weekPage: String? = ScheduleTab.monday(of: LectioDates.isoString(from: Date()))
-    /// The last day a swipe came to rest on.
-    @State private var settledDay: String = LectioDates.isoString(from: Date())
     @State private var weekMode = false
     @State private var addingEvent = false
+    @State private var opener = LessonOpener()
+
+    // Swipe state.
+    @State private var dragX: CGFloat = 0
+    @State private var dragAxis: Axis?
+    @State private var settling = false
+    @State private var pageWidth: CGFloat = 0
+
     /// Bumped to send the page back to its top.
     @State private var topRequest = 0
-
     private static let top = "schedule-top"
-
-    /// Eight months either side of today. The pages are lazy, so the length
-    /// costs nothing.
-    private static let days: [String] = {
-        let today = LectioDates.isoString(from: Date())
-        return (-240...240).map { LectioDates.shift(iso: today, byDays: $0) }
-    }()
-
-    private static let weeks: [String] = {
-        let monday = ScheduleTab.monday(of: LectioDates.isoString(from: Date()))
-        return (-34...34).map { LectioDates.shift(iso: monday, byDays: $0 * 7) }
-    }()
 
     private var today: String { LectioDates.isoString(from: Date()) }
     private var weekCode: String { LectioDates.weekCode(iso: selectedDate) }
 
     var body: some View {
-        NavigationStack {
-            // A reader rather than a ScrollPosition: that one is handed down to
-            // scroll views further in, and the pagers inside have their own.
+        NavigationStack(path: $opener.path) {
             ScrollViewReader { proxy in
                 scrollingContent(proxy)
             }
         }
-        .onChange(of: dayPage) { _, page in
-            // A swipe landed on another day.
-            guard let page, page != selectedDate else { return }
-            selectedDate = page
-            weekPage = Self.monday(of: page)
-        }
-        .onChange(of: weekPage) { _, monday in
-            // A swipe landed on another week: same weekday, new week.
-            guard let monday, monday != Self.monday(of: selectedDate) else { return }
-            let moved = LectioDates.shift(iso: monday, byDays: Self.weekdayIndex(selectedDate))
-            selectedDate = moved
-            dayPage = moved
-            settledDay = moved
-        }
+        .environment(opener)
         .task(id: weekCode) {
             // So a pull-to-refresh reloads the week you're looking at, not just
             // whichever one Lectio considers current.
@@ -124,6 +113,7 @@ struct ScheduleTab: View {
                 LectioDates.weekCode(iso: LectioDates.shift(iso: selectedDate, byDays: -7))
             ])
         }
+        .sensoryFeedback(.selection, trigger: selectedDate)
         .sensoryFeedback(.selection, trigger: weekMode)
         .sheet(isPresented: $addingEvent) {
             NewEventSheet(dayISO: selectedDate) {
@@ -134,18 +124,17 @@ struct ScheduleTab: View {
         }
     }
 
-    /// The scrolling page under the title bar: the day pager, or the week
-    /// pager when zoomed out.
+    /// The scrolling page under the title bar.
     private func scrollingContent(_ proxy: ScrollViewProxy) -> some View {
         ScrollView {
             VStack(spacing: 0) {
                 Color.clear.frame(height: 0).id(Self.top)
                 Group {
                     if weekMode {
-                        weekPager
+                        pager(unit: 7)
                             .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     } else {
-                        dayPager
+                        pager(unit: 1)
                             .transition(.opacity.combined(with: .scale(scale: 1.03)))
                     }
                 }
@@ -154,26 +143,22 @@ struct ScheduleTab: View {
             }
         }
         .scrollIndicators(.hidden)
+        .onGeometryChange(for: CGFloat.self) { geometry in
+            geometry.size.width
+        } action: { width in
+            pageWidth = width
+        }
         .onChange(of: topRequest) { _, _ in
             withAnimation(.smooth) { proxy.scrollTo(Self.top, anchor: .top) }
         }
-        // The system control again, now that this is one plain scroll view
-        // in a navigation stack. The work runs in a task of its own so a
-        // redraw halfway through can't cancel it — why the old
-        // `.refreshable` sometimes spun without refreshing.
+        // The system control, now that this is one plain scroll view in a
+        // navigation stack. The work runs in a task of its own so a redraw
+        // halfway through can't cancel it.
         .refreshable {
             await Task { await session.refresh() }.value
         }
-        .environment(\.lessonZoom, zoom)
-        .background { AppBackground() }
-        .navigationTitle(title)
-        .navigationSubtitle(subtitle)
-        .toolbarTitleDisplayMode(.inlineLarge)
-        .toolbar { toolbar }
-        .navigationDestination(for: LessonRoute.self) { route in
-            LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
-                .navigationTransition(.zoom(sourceID: route.zoomID, in: zoom))
-        }
+        .contentShape(Rectangle())
+        .simultaneousGesture(swipe)
         .simultaneousGesture(
             MagnifyGesture()
                 .onEnded { value in
@@ -184,6 +169,18 @@ struct ScheduleTab: View {
                     }
                 }
         )
+        .environment(\.lessonZoom, zoom)
+        .background { AppBackground() }
+        .navigationTitle(title)
+        .navigationSubtitle(subtitle)
+        // Large, not inline-large: iOS only shows the subtitle under a title
+        // drawn below the bar.
+        .toolbarTitleDisplayMode(.large)
+        .toolbar { toolbar }
+        .navigationDestination(for: LessonRoute.self) { route in
+            LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
+                .navigationTransition(.zoom(sourceID: route.zoomID, in: zoom))
+        }
     }
 
     // MARK: Title bar
@@ -235,41 +232,89 @@ struct ScheduleTab: View {
         }
     }
 
-    // MARK: Pagers
+    // MARK: Pager
 
-    private var dayPager: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(alignment: .top, spacing: 0) {
-                ForEach(Self.days, id: \.self) { date in
-                    DayPage(date: date)
-                        .containerRelativeFrame(.horizontal)
+    /// Before, current and after, a page-width apart. Keyed by date, so when a
+    /// swipe lands and the three shift along, the page you're looking at keeps
+    /// its identity — and its place on screen — through the swap.
+    private func pager(unit: Int) -> some View {
+        let anchor = unit == 7 ? Self.monday(of: selectedDate) : selectedDate
+        // Until the width is known (the very first layout) just the one page,
+        // at whatever width it's given.
+        let measured = pageWidth > 0
+        let dates = measured
+            ? [-1, 0, 1].map { LectioDates.shift(iso: anchor, byDays: $0 * unit) }
+            : [anchor]
+        let width: CGFloat? = measured ? pageWidth : nil
+        return HStack(alignment: .top, spacing: 0) {
+            ForEach(dates, id: \.self) { date in
+                Group {
+                    if unit == 7 {
+                        WeekOverview(weekCode: LectioDates.weekCode(iso: date)) { day in
+                            pick(day)
+                        }
+                    } else {
+                        DayPage(date: date)
+                    }
                 }
+                .frame(width: width, alignment: .top)
+                // The neighbours wait off screen; VoiceOver shouldn't read them.
+                .accessibilityHidden(date != anchor)
             }
-            .scrollTargetLayout()
         }
-        .scrollTargetBehavior(.paging)
-        .scrollPosition(id: $dayPage, anchor: .center)
-        .scrollIndicators(.hidden)
-        .onScrollPhaseChange { _, phase, _ in
-            if phase == .idle { settle() }
-        }
+        .frame(width: width, alignment: .leading)
+        .offset(x: -(width ?? 0) + dragX)
     }
 
-    private var weekPager: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(alignment: .top, spacing: 0) {
-                ForEach(Self.weeks, id: \.self) { monday in
-                    WeekOverview(weekCode: LectioDates.weekCode(iso: monday)) { date in
-                        pick(date)
-                    }
-                    .containerRelativeFrame(.horizontal)
+    private var swipe: some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onChanged { value in
+                guard !settling else { return }
+                // Decide once per drag whether it's sideways; a mostly
+                // vertical drag belongs to the scroll view.
+                if dragAxis == nil {
+                    let dx = abs(value.translation.width)
+                    let dy = abs(value.translation.height)
+                    dragAxis = dx > dy ? .horizontal : .vertical
+                }
+                guard dragAxis == .horizontal else { return }
+                dragX = value.translation.width
+            }
+            .onEnded { value in
+                let wasHorizontal = dragAxis == .horizontal
+                dragAxis = nil
+                guard wasHorizontal, !settling else { return }
+                let width = max(pageWidth, 1)
+                let moved = value.translation.width
+                let flung = value.predictedEndTranslation.width
+                if moved < -width * 0.3 || flung < -width * 0.6 {
+                    land(on: 1)
+                } else if moved > width * 0.3 || flung > width * 0.6 {
+                    land(on: -1)
+                } else {
+                    withAnimation(.snappy) { dragX = 0 }
                 }
             }
-            .scrollTargetLayout()
+    }
+
+    /// Carries the swipe through to the neighbour, then re-centres the three
+    /// pages on it without animating — invisible, since the page stays put.
+    private func land(on direction: Int) {
+        let width = max(pageWidth, 1)
+        let unit = weekMode ? 7 : 1
+        settling = true
+        withAnimation(.snappy(duration: 0.3)) {
+            dragX = direction > 0 ? -width : width
+        } completion: {
+            var quiet = Transaction()
+            quiet.disablesAnimations = true
+            withTransaction(quiet) {
+                selectedDate = LectioDates.shift(iso: selectedDate, byDays: direction * unit)
+                dragX = 0
+            }
+            settling = false
+            topRequest += 1
         }
-        .scrollTargetBehavior(.paging)
-        .scrollPosition(id: $weekPage, anchor: .center)
-        .scrollIndicators(.hidden)
     }
 
     // MARK: Moving around
@@ -282,37 +327,11 @@ struct ScheduleTab: View {
     /// A day tapped in the week view: zoom back in on it.
     private func pick(_ date: String) {
         selectedDate = date
-        dayPage = date
-        settledDay = date
         setWeekMode(false)
     }
 
-    /// Scrolls when today is close by; from further away it just goes there,
-    /// rather than spinning through weeks of pages to get back.
     private func jumpToToday() {
-        let target = today
-        let here = Self.days.firstIndex(of: selectedDate) ?? 0
-        let there = Self.days.firstIndex(of: target) ?? 0
-        let apply = {
-            selectedDate = target
-            dayPage = target
-            weekPage = Self.monday(of: target)
-            settledDay = target
-        }
-        if abs(here - there) <= 7 {
-            withAnimation(.smooth) { apply() }
-        } else {
-            apply()
-        }
-        topRequest += 1
-    }
-
-    /// Once a swipe comes to rest on a new day, start that day from the top —
-    /// otherwise a short day could open scrolled into the blank space a longer
-    /// neighbour left behind.
-    private func settle() {
-        guard let page = dayPage, page != settledDay else { return }
-        settledDay = page
+        withAnimation(.smooth) { selectedDate = today }
         topRequest += 1
     }
 
@@ -369,14 +388,11 @@ struct WeekOverview: View {
         VStack(alignment: .leading, spacing: 10) {
             if let week {
                 ForEach(week.days) { day in
-                    Button {
-                        onPick(day.date)
-                    } label: {
-                        dayRow(day)
-                            .contentShape(RoundedRectangle(cornerRadius: Metrics.inner + 3, style: .continuous))
-                            .foregroundStyle(.primary)
-                    }
-                    .buttonStyle(PressableCard())
+                    dayRow(day)
+                        .contentShape(RoundedRectangle(cornerRadius: Metrics.inner + 3, style: .continuous))
+                        // A tap gesture, not a Button: a Button would also
+                        // fire at the end of a sideways swipe across the row.
+                        .onTapGesture { onPick(day.date) }
                 }
             } else {
                 WeekPlaceholder(weekCode: weekCode)
@@ -449,6 +465,7 @@ struct LessonCard: View {
     @EnvironmentObject private var session: LectioSession
     @Environment(\.colorScheme) private var scheme
     @Environment(\.lessonZoom) private var zoom
+    @Environment(LessonOpener.self) private var opener: LessonOpener?
     @State private var editingEvent = false
 
     private var route: LessonRoute { LessonRoute(lesson: lesson, dayISO: dayISO) }
@@ -467,13 +484,12 @@ struct LessonCard: View {
     }
 
     var body: some View {
-        // A real link and button again. The days page in a real scroll view
-        // now, which cancels the press the moment a swipe starts — the old
-        // hand-made drag couldn't, hence the tap gesture this used to be.
+        // Tap gestures, not a Button or NavigationLink: those also fire at the
+        // end of a sideways swipe that stays on the card.
         if lesson.isPrivateEvent {
             // Your own event is something to edit, so it stays a sheet.
-            Button { editingEvent = true } label: { card }
-                .buttonStyle(PressableCard())
+            card
+                .onTapGesture { editingEvent = true }
                 .sheet(isPresented: $editingEvent) {
                     NewEventSheet(dayISO: dayISO, eventID: lesson.privateEventID) {
                         session.retryWeek(LectioDates.weekCode(iso: dayISO))
@@ -481,8 +497,8 @@ struct LessonCard: View {
                     .environmentObject(session)
                 }
         } else {
-            NavigationLink(value: route) { card }
-                .buttonStyle(PressableCard())
+            card
+                .onTapGesture { opener?.open(route) }
                 .lessonZoomSource(route.zoomID, in: zoom)
         }
     }
@@ -554,8 +570,6 @@ struct LessonCard: View {
         }
         .contentCard(radius: Metrics.inner + 4)
         .contentShape(RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous))
-        // A button's label takes the accent colour otherwise, and every
-        // `.secondary` inside would turn faintly blue with it.
         .foregroundStyle(.primary)
     }
 
@@ -595,6 +609,7 @@ struct CompactLessonCard: View {
     let dayISO: String
     @EnvironmentObject private var session: LectioSession
     @Environment(\.lessonZoom) private var zoom
+    @Environment(LessonOpener.self) private var opener: LessonOpener?
     @State private var editingEvent = false
 
     private var route: LessonRoute { LessonRoute(lesson: lesson, dayISO: dayISO) }
@@ -609,8 +624,8 @@ struct CompactLessonCard: View {
 
     var body: some View {
         if lesson.isPrivateEvent {
-            Button { editingEvent = true } label: { compactCard }
-                .buttonStyle(PressableCard())
+            compactCard
+                .onTapGesture { editingEvent = true }
                 .sheet(isPresented: $editingEvent) {
                     NewEventSheet(dayISO: dayISO, eventID: lesson.privateEventID) {
                         session.retryWeek(LectioDates.weekCode(iso: dayISO))
@@ -618,8 +633,8 @@ struct CompactLessonCard: View {
                     .environmentObject(session)
                 }
         } else {
-            NavigationLink(value: route) { compactCard }
-                .buttonStyle(PressableCard())
+            compactCard
+                .onTapGesture { opener?.open(route) }
                 .lessonZoomSource(route.zoomID, in: zoom)
         }
     }
