@@ -393,14 +393,17 @@ struct ScheduleTab: View {
 /// The pinch between the day and the week.
 ///
 /// A view of its own so that each frame of a pinch re-evaluates only this —
-/// a couple of modifiers — instead of the whole schedule. Both pagers stay
-/// alive underneath (rebuilding the day pager on the way back from the week
+/// a few modifiers — instead of the whole schedule. Both pagers stay alive
+/// underneath (rebuilding the day pager on the way back from the week
 /// sometimes left it resting between two days).
 ///
-/// While you pinch, only the view you're on moves, and only in scale: cheap to
-/// draw every frame. Cross the line and the switch happens there and then,
-/// mid-pinch, the way Photos steps between grid sizes — the cross-fade runs
-/// once, as an animation, instead of being redrawn under the fingers.
+/// The fingers drive the whole way: pinching in, the day shrinks as the week
+/// fades in over it from slightly larger; pinching out, the reverse. Let go
+/// and it finishes whichever way you were heading — past about a third of the
+/// way, or with a quick flick — and springs back otherwise.
+///
+/// Kept cheap to draw every frame: the day only scales, and the week, which
+/// sits on top with an opaque background, is the only thing that fades.
 private struct ScheduleZoom<Day: View, Week: View>: View {
     let weekMode: Bool
     var onPinch: () -> Void
@@ -408,24 +411,26 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
     @ViewBuilder var day: Day
     @ViewBuilder var week: Week
 
-    @GestureState(resetTransaction: Transaction(animation: .smooth(duration: 0.25)))
+    @GestureState(resetTransaction: Transaction(animation: .smooth(duration: 0.35)))
     private var pinch: CGFloat = 1
-    /// Set once a pinch has switched views, so the rest of it is ignored.
-    @State private var committed = false
+    @State private var tracker = PinchTracker()
 
     var body: some View {
+        let p = shownProgress
+        let fade = min(p, 1)
         ZStack {
             day
-                .scaleEffect(weekMode ? 0.92 : 1 - 0.06 * progress)
-                .opacity(weekMode ? 0 : 1)
+                .scaleEffect(weekMode ? 0.8 + 0.2 * p : 1 - 0.2 * p)
                 .allowsHitTesting(!weekMode)
                 .accessibilityHidden(weekMode)
             week
-                .scaleEffect(weekMode ? 1 + 0.06 * progress : 1.08)
-                .opacity(weekMode ? 1 : 0)
+                .scaleEffect(weekMode ? 1 + 0.1 * p : 1.1 - 0.1 * p)
+                .background(Color(.systemGroupedBackground))
+                .opacity(Double(weekMode ? 1 - fade : fade))
                 .allowsHitTesting(weekMode)
                 .accessibilityHidden(!weekMode)
         }
+        .clipped()
         .simultaneousGesture(
             MagnifyGesture()
                 .updating($pinch) { value, state, _ in
@@ -433,35 +438,62 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
                 }
                 .onChanged { value in
                     onPinch()
-                    guard !committed else { return }
-                    let m = value.magnification
-                    if (!weekMode && m <= 0.86) || (weekMode && m >= 1.14) {
-                        commit()
-                    }
+                    tracker.track(value.magnification)
                 }
                 .onEnded { value in
                     onPinch()
-                    if !committed {
-                        // A shorter pinch still counts if it's clearly meant.
-                        let m = value.magnification
-                        if (!weekMode && m < 0.94) || (weekMode && m > 1.06) {
-                            commit()
-                        }
+                    // Positive when heading toward the other view.
+                    let toward = weekMode ? tracker.velocity : -tracker.velocity
+                    let p = progress(for: value.magnification)
+                    tracker.reset()
+                    if toward > 1.0 || (p > 0.33 && toward > -0.5) {
+                        onSwitch(!weekMode)
                     }
-                    committed = false
                 }
         )
     }
 
-    /// 0 at rest, 1 at the line — for the view you're on only.
-    private var progress: CGFloat {
-        guard !committed else { return 0 }
-        return weekMode ? min(max(pinch - 1, 0) / 0.14, 1) : min(max(1 - pinch, 0) / 0.14, 1)
+    /// How far toward the other view, 0 to 1: pinching to a little over half
+    /// size (or out to 1.8×) is the whole way. Measured in log scale so in and
+    /// out take the same finger travel.
+    private func progress(for magnification: CGFloat) -> CGFloat {
+        let m = max(magnification, 0.01)
+        let travel = weekMode ? log(m) : -log(m)
+        return max(travel, 0) / log(1.8)
     }
 
-    private func commit() {
-        withAnimation(.smooth(duration: 0.35)) { committed = true }
-        onSwitch(!weekMode)
+    /// Past the whole way it keeps going a little, with resistance.
+    private var shownProgress: CGFloat {
+        let p = progress(for: pinch)
+        return p <= 1 ? p : 1 + (p - 1) * 0.15
+    }
+}
+
+/// How fast a pinch is moving at the moment it ends, so a quick flick counts
+/// even when it's short. A plain reference type: updating it every frame
+/// shouldn't redraw anything.
+private final class PinchTracker {
+    private var magnification: CGFloat = 1
+    private var time = Date()
+    /// In log-magnification per second.
+    private(set) var velocity: CGFloat = 0
+
+    func track(_ m: CGFloat) {
+        let now = Date()
+        let dt = now.timeIntervalSince(time)
+        let current = max(m, 0.01)
+        if dt > 0.004 {
+            let instant = (log(current) - log(magnification)) / CGFloat(dt)
+            velocity = velocity * 0.4 + instant * 0.6
+        }
+        magnification = current
+        time = now
+    }
+
+    func reset() {
+        magnification = 1
+        time = Date()
+        velocity = 0
     }
 }
 
