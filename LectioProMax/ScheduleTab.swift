@@ -196,6 +196,10 @@ struct ScheduleTab: View {
                             Text("Today")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(.primary)
+                                // Never squeezed: it was being crushed to "T…"
+                                // inside its capsule by a long day name.
+                                .lineLimit(1)
+                                .fixedSize()
                                 .padding(.horizontal, 16)
                                 .frame(height: 44)
                                 .contentShape(Capsule())
@@ -215,6 +219,8 @@ struct ScheduleTab: View {
                 }
             }
             .animation(.smooth(duration: 0.3), value: selectedDate == today)
+            // The buttons keep their size; a long day name shrinks instead.
+            .layoutPriority(1)
         }
         .padding(.horizontal, Metrics.margin)
         .padding(.top, 6)
@@ -244,61 +250,72 @@ struct ScheduleTab: View {
     // MARK: Pagers
 
     private var pagers: some View {
-        ScrollViewReader { proxy in
-            ZStack {
-                Group {
-                    // Zooming out, the day shrinks away and the week settles in
-                    // from slightly larger; zooming in, the reverse — the same
-                    // directions the pinch itself moves them.
-                    if weekMode {
-                        weekPager(proxy)
-                            .transition(.opacity.combined(with: .scale(scale: 1.08)))
-                    } else {
-                        dayPager(proxy)
-                            .transition(.opacity.combined(with: .scale(scale: 0.92)))
+        // Both pagers stay alive, one faded out behind the other, rather than
+        // swapping one for the other. Rebuilding the day pager on the way back
+        // from the week sometimes left it resting between two days; kept alive
+        // it never loses its place, and the switch can cross-fade like a zoom.
+        ZStack {
+            ScrollViewReader { proxy in
+                dayPager(proxy)
+            }
+            .scaleEffect(dayLayer.scale)
+            .opacity(dayLayer.opacity)
+            .allowsHitTesting(!weekMode)
+            .accessibilityHidden(weekMode)
+
+            ScrollViewReader { proxy in
+                weekPager(proxy)
+            }
+            .scaleEffect(weekLayer.scale)
+            .opacity(weekLayer.opacity)
+            .allowsHitTesting(weekMode)
+            .accessibilityHidden(!weekMode)
+        }
+        .ignoresSafeArea(.container, edges: .bottom)
+        // Two fingers pinching would otherwise also drag the pages sideways,
+        // landing you on another day or week.
+        .scrollDisabled(pinch != 1)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onGeometryChange(for: CGFloat.self) { geometry in
+            geometry.safeAreaInsets.bottom
+        } action: { inset in
+            safeBottom = inset
+        }
+        .simultaneousGesture(
+            MagnifyGesture()
+                .updating($pinch) { value, state, _ in
+                    state = value.magnification
+                }
+                .onChanged { _ in
+                    opener.lastPinch = Date()
+                }
+                .onEnded { value in
+                    opener.lastPinch = Date()
+                    if value.magnification < 0.9 && !weekMode {
+                        setWeekMode(true)
+                    } else if value.magnification > 1.1 && weekMode {
+                        setWeekMode(false)
                     }
                 }
-                .ignoresSafeArea(.container, edges: .bottom)
-                // Two fingers pinching would otherwise also drag the pages
-                // sideways, landing you on another day or week.
-                .scrollDisabled(pinch != 1)
-                // Follows the pinch: a day shrinks toward the week, a week
-                // grows toward the day. Let go past the line and it carries on.
-                .scaleEffect(pinchScale)
-                .opacity(pinchOpacity)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onGeometryChange(for: CGFloat.self) { geometry in
-                geometry.safeAreaInsets.bottom
-            } action: { inset in
-                safeBottom = inset
-            }
-            .simultaneousGesture(
-                MagnifyGesture()
-                    .updating($pinch) { value, state, _ in
-                        state = value.magnification
-                    }
-                    .onChanged { _ in
-                        opener.lastPinch = Date()
-                    }
-                    .onEnded { value in
-                        opener.lastPinch = Date()
-                        if value.magnification < 0.9 && !weekMode {
-                            setWeekMode(true)
-                        } else if value.magnification > 1.1 && weekMode {
-                            setWeekMode(false)
-                        }
-                    }
-            )
-        }
+        )
     }
 
-    private var pinchScale: CGFloat {
-        weekMode ? min(max(pinch, 1), 1.12) : max(min(pinch, 1), 0.88)
+    /// How far into a pinch toward the other view: 0 at rest, 1 at the line.
+    private var pinchProgress: CGFloat {
+        weekMode ? min(max(pinch - 1, 0) / 0.12, 1) : min(max(1 - pinch, 0) / 0.12, 1)
     }
 
-    private var pinchOpacity: Double {
-        Double(1 - abs(pinchScale - 1) * 2.5)
+    /// Zooming out, the day shrinks and fades as the week comes in from
+    /// slightly larger; zooming in, the reverse. The pinch drives it part way,
+    /// the switch finishes it.
+    private var dayLayer: (scale: CGFloat, opacity: Double) {
+        let p = pinchProgress
+        return weekMode ? (0.92 + 0.04 * p, Double(0.6 * p)) : (1 - 0.08 * p, Double(1 - 0.6 * p))
+    }
+
+    private var weekLayer: (scale: CGFloat, opacity: Double) {
+        let p = pinchProgress
+        return weekMode ? (1 + 0.08 * p, Double(1 - 0.6 * p)) : (1.08 - 0.04 * p, Double(0.6 * p))
     }
 
     private func dayPager(_ proxy: ScrollViewProxy) -> some View {
