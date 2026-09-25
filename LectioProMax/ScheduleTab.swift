@@ -318,7 +318,7 @@ struct LessonCard: View {
             // colour lives here and in the faint wash behind the card — never in
             // the text, which stays in the system's own label colours.
             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(lesson.cancelled ? Color(.tertiaryLabel) : tint)
+                .fill(lesson.cancelled ? Color(.tertiaryLabel) : tint.opacity(state == .past ? 0.4 : 1))
                 .frame(width: 4)
 
             VStack(alignment: .leading, spacing: 5) {
@@ -356,12 +356,15 @@ struct LessonCard: View {
         }
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
+        // A lesson that's over loses its colour — a paler stripe and no wash —
+        // but never its legibility. Fading the whole card to half opacity took
+        // the text with it, well below readable contrast; Calendar doesn't fade
+        // past events at all.
         .background {
             RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous)
-                .fill(tint.opacity(lesson.cancelled ? 0 : 0.10))
+                .fill(tint.opacity(lesson.cancelled || state == .past ? 0 : 0.10))
         }
         .contentCard(radius: Metrics.inner + 4)
-        .opacity(state == .past ? 0.48 : 1)
     }
 
     private var metaLine: String {
@@ -460,10 +463,9 @@ struct CompactLessonCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 RoundedRectangle(cornerRadius: Metrics.inner + 2, style: .continuous)
-                    .fill(tint.opacity(lesson.cancelled ? 0 : 0.10))
+                    .fill(tint.opacity(lesson.cancelled || state == .past ? 0 : 0.10))
             }
             .contentCard(radius: Metrics.inner + 2)
-            .opacity(state == .past ? 0.48 : 1)
     }
 
     private var meta: String {
