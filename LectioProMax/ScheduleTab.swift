@@ -436,6 +436,9 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
     /// Set while a pinch (and its release animation) is in charge, so a tap
     /// on the week button zooms from the middle, not from the last pinch.
     @State private var pinchDriven = false
+    /// Scrolling stays off a moment after the pinch, too: the fingers rarely
+    /// lift together, and the last one used to drag the page as it left.
+    @State private var lingering = false
     @State private var tracker = PinchTracker()
 
     var body: some View {
@@ -447,20 +450,17 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
             day
                 .scaleEffect(dayScale(p), anchor: anchor)
                 .allowsHitTesting(!weekMode)
-                .scrollDisabled(weekMode)
+                .scrollDisabled(weekMode || locked)
                 .accessibilityHidden(weekMode)
             week
                 .scaleEffect(weekScale(p), anchor: anchor)
                 .background(Color(.systemGroupedBackground))
                 .opacity(Double(weekMode ? 1 - p : p))
                 .allowsHitTesting(weekMode)
-                .scrollDisabled(!weekMode)
+                .scrollDisabled(!weekMode || locked)
                 .accessibilityHidden(!weekMode)
         }
         .clipped()
-        // Belt and braces with the one-finger scroll views: nothing scrolls
-        // while a pinch lasts.
-        .scrollDisabled(pinch != 1)
         .simultaneousGesture(
             MagnifyGesture()
                 .updating($pinch) { value, state, _ in
@@ -474,6 +474,7 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
                 }
                 .onEnded { value in
                     onPinch()
+                    lingering = true
                     // Positive when heading toward the other view.
                     let toward = weekMode ? tracker.velocity : -tracker.velocity
                     let p = progress(for: value.magnification)
@@ -484,6 +485,7 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(450))
                         pinchDriven = false
+                        lingering = false
                     }
                 }
         )
@@ -491,6 +493,12 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
             if !pinchDriven { anchor = .center }
         }
     }
+
+    /// Nothing scrolls while a pinch lasts. Set on each layer, next to its
+    /// own on/off: a disable on the stack around them was overridden by the
+    /// layer's own `scrollDisabled(false)`, so the week you were pinching
+    /// still scrolled up and down under your fingers.
+    private var locked: Bool { pinch != 1 || lingering }
 
     /// 0 at rest, 1 once the fingers have gone the whole way toward the other
     /// view: in to 0.6×, or out to 1.6×.
