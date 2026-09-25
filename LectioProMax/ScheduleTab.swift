@@ -456,7 +456,6 @@ private struct DayPage: View {
         let code = LectioDates.weekCode(iso: date)
         ScrollView {
             VStack(spacing: 0) {
-                RefreshHeader(space: "schedule-page") { await session.refresh() }
                 VStack(alignment: .leading, spacing: 10) {
                     if let week = session.snapshot.weeks[code] {
                         DayList(day: week.days.first { $0.date == date }).equatable()
@@ -469,8 +468,10 @@ private struct DayPage: View {
                 .padding(.bottom, bottomInset + 24)
             }
         }
-        .coordinateSpace(.named("schedule-page"))
         .scrollIndicators(.hidden)
+        // The system's own pull to refresh, the work in a task of its own so
+        // an update mid-refresh can't cancel it.
+        .refreshable { await Task { await session.refresh() }.value }
     }
 }
 
@@ -484,14 +485,13 @@ private struct WeekPage: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                RefreshHeader(space: "schedule-week") { await session.refresh() }
                 WeekOverview(weekCode: LectioDates.weekCode(iso: monday), onPick: onPick)
                     .padding(.top, 8)
                     .padding(.bottom, bottomInset + 24)
                 }
         }
-        .coordinateSpace(.named("schedule-week"))
         .scrollIndicators(.hidden)
+        .refreshable { await Task { await session.refresh() }.value }
     }
 }
 

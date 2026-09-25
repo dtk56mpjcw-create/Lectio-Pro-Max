@@ -56,7 +56,8 @@ struct AbsenceSheet: View {
                 .padding(.bottom, 36)
             }
             .scrollIndicators(.hidden)
-            .refreshable { await session.loadAbsence(force: true) }
+            // In a task of its own, so an update mid-refresh can't cancel it.
+            .refreshable { await Task { await session.loadAbsence(force: true) }.value }
 
             SheetCloseButton { dismiss() }
         }
@@ -73,8 +74,7 @@ struct AbsenceSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Absence")
                 .font(.system(size: 26, weight: .bold))
-                .padding(.top, 34)
-                .padding(.trailing, 44)
+                .sheetTitleSpacing()
             if let total = absence.total {
                 Text("Total " + total.percent + (total.modules.isEmpty ? "" : " · " + total.modules + " modules"))
                     .font(.system(size: 15))
@@ -182,8 +182,7 @@ struct ExplainAbsenceSheet: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Explain absence")
                             .font(.system(size: 25, weight: .bold))
-                            .padding(.top, 34)
-                            .padding(.trailing, 44)
+                            .sheetTitleSpacing()
                         Text([record.whenLine, record.percent].filter { !$0.isEmpty }.joined(separator: " · "))
                             .font(.system(size: 15))
                             .foregroundStyle(.secondary)

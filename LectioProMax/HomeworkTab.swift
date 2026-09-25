@@ -24,15 +24,23 @@ struct HomeworkTab: View {
     }
 
     var body: some View {
-        ScrollView {
-            RefreshHeader(space: "homework") {
-                await session.refresh()
-                await session.loadAbsence(force: true)
-            }
-            VStack(alignment: .leading, spacing: 16) {
-                SectionHeading(title: "Homework", subtitle: subtitle)
-                    .padding(.top, 6)
+        NavigationStack {
+            list
+                .navigationTitle("Homework")
+                .navigationSubtitle(subtitle)
+                // A piece of homework or an assignment opens as a page of its
+                // own, with the system back button — not a sheet over the list.
+                .navigationDestination(for: WorkItem.self) { item in
+                    workScreen(item)
+                }
+        }
+        .task { await session.loadAbsence() }
+        .sensoryFeedback(.success, trigger: session.snapshot.completedKeys.count)
+    }
 
+    private var list: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
                 WorkFilterBar(subjects: subjects, filter: $filter)
 
                 if groups.isEmpty && doneItems.isEmpty {
@@ -51,11 +59,37 @@ struct HomeworkTab: View {
 
             }
             .padding(.horizontal, Metrics.margin)
+            .padding(.top, 4)
+            .padding(.bottom, 24)
         }
-        .coordinateSpace(.named("homework"))
         .scrollIndicators(.hidden)
-        .task { await session.loadAbsence() }
-        .sensoryFeedback(.success, trigger: session.snapshot.completedKeys.count)
+        // The system's own pull to refresh. The work runs in a task of its
+        // own: SwiftUI cancels the refresh's task if the view updates while
+        // it runs — as it does when the new data arrives — and a cancelled
+        // request is why the spinner once spun without refreshing.
+        .refreshable {
+            await Task {
+                await session.refresh()
+                await session.loadAbsence(force: true)
+            }.value
+        }
+        .background { AppBackground() }
+    }
+
+    @ViewBuilder
+    private func workScreen(_ item: WorkItem) -> some View {
+        let done = session.snapshot.isCompleted(item)
+        let toggle: () -> Void = {
+            withAnimation(.snappy(duration: 0.22)) { session.toggleCompleted(item) }
+        }
+        // An assignment has a real hand-in page behind it; homework doesn't.
+        if item.isAssignment, let link = item.link {
+            AssignmentHandInSheet(item: item, link: link, done: done, toggle: toggle)
+                .asPushedScreen()
+        } else {
+            WorkDetailSheet(item: item, done: done, toggle: toggle)
+                .asPushedScreen()
+        }
     }
 
     private func groupSection(title: String, accent: Color?, items: [WorkItem]) -> some View {
@@ -135,7 +169,6 @@ struct WorkRow: View {
     let done: Bool
     let toggle: () -> Void
     @EnvironmentObject private var session: LectioSession
-    @State private var open = false
 
     private var tint: Color { Color.forSubject(item.code) }
 
@@ -159,7 +192,7 @@ struct WorkRow: View {
             .disabled(item.isDelivered)
             .padding(.top, 1)
 
-            Button { open = true } label: {
+            NavigationLink(value: item) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(LectioDates.tidy(item.title))
                         .font(.system(size: 16.5, weight: .medium))
@@ -190,16 +223,6 @@ struct WorkRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentCard(radius: Metrics.inner + 4)
         .opacity(done ? 0.5 : 1)
-        .sheet(isPresented: $open) {
-            // An assignment has a real hand-in page behind it; homework doesn't.
-            if item.isAssignment, let link = item.link {
-                AssignmentHandInSheet(item: item, link: link, done: done, toggle: toggle)
-                    .environmentObject(session)
-            } else {
-                WorkDetailSheet(item: item, done: done, toggle: toggle)
-                    .environmentObject(session)
-            }
-        }
     }
 
     private var metaLine: String {

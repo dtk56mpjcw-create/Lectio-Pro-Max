@@ -24,6 +24,8 @@ struct SheetCloseButton: View {
     static let contentInset: CGFloat = 92
 
     @State private var closing = false
+    /// Pushed onto a stack, the system back button does this job.
+    @Environment(\.pushedScreen) private var pushed
 
     /// The circle you see is 32 points, but the target your finger has to hit
     /// is 44 — Apple's minimum. At 32 a tap landing just off the circle did
@@ -33,6 +35,10 @@ struct SheetCloseButton: View {
     private static let slack = (target - visible) / 2
 
     var body: some View {
+        if !pushed { button }
+    }
+
+    private var button: some View {
         Button {
             guard !closing else { return }
             closing = true

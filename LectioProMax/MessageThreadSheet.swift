@@ -60,8 +60,7 @@ struct MessageThreadSheet: View {
             Text(thread?.subject.isEmpty == false ? thread!.subject : summary.subject)
                 .font(.system(size: 25, weight: .bold))
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 34)
-                .padding(.trailing, 44)
+                .sheetTitleSpacing()
             if let recipients = thread?.recipients, !recipients.isEmpty {
                 Text(recipients)
                     .font(.system(size: 13.5))

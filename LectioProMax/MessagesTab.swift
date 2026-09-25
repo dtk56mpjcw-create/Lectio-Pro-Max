@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MessagesTab: View {
     @EnvironmentObject private var session: LectioSession
-    @State private var openThread: MessageThreadSummary?
     @State private var composing = false
 
     private var threads: [MessageThreadSummary] {
@@ -21,14 +20,35 @@ struct MessagesTab: View {
     }
 
     var body: some View {
-        ScrollView {
-            RefreshHeader(space: "messages") {
-                await session.refresh()
-                await session.loadInbox(force: true)
-            }
-            VStack(alignment: .leading, spacing: 14) {
-                header
+        NavigationStack {
+            list
+                .navigationTitle("Messages")
+                .navigationSubtitle(subtitle)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            composing = true
+                        } label: {
+                            Label("New message", systemImage: "square.and.pencil")
+                        }
+                    }
+                }
+                // A thread opens as a page of its own, with the system back
+                // button. Writing a new message stays a sheet: it's a task
+                // you finish or cancel.
+                .navigationDestination(for: MessageThreadSummary.self) { thread in
+                    MessageThreadSheet(summary: thread).asPushedScreen()
+                }
+        }
+        .task { await session.loadInbox() }
+        .sheet(isPresented: $composing) {
+            NewMessageSheet().environmentObject(session)
+        }
+    }
 
+    private var list: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 9) {
                 if threads.isEmpty {
                     if session.inboxLoading {
                         ProgressView().frame(maxWidth: .infinity).padding(.vertical, 60)
@@ -36,35 +56,25 @@ struct MessagesTab: View {
                         EmptyNotice(icon: "tray", text: "No messages")
                     }
                 } else {
-                    VStack(spacing: 9) {
-                        ForEach(threads) { thread in
-                            ThreadRow(thread: thread) { openThread = thread }
-                        }
+                    ForEach(threads) { thread in
+                        ThreadRow(thread: thread)
                     }
                 }
             }
             .padding(.horizontal, Metrics.margin)
+            .padding(.top, 4)
+            .padding(.bottom, 24)
         }
-        .coordinateSpace(.named("messages"))
         .scrollIndicators(.hidden)
-        .task { await session.loadInbox() }
-        .sheet(item: $openThread) { thread in
-            MessageThreadSheet(summary: thread).environmentObject(session)
+        // The system's own pull to refresh, the work in a task of its own so
+        // an update mid-refresh can't cancel it.
+        .refreshable {
+            await Task {
+                await session.refresh()
+                await session.loadInbox(force: true)
+            }.value
         }
-        .sheet(isPresented: $composing) {
-            NewMessageSheet().environmentObject(session)
-        }
-    }
-
-    private var header: some View {
-        HStack(alignment: .center) {
-            SectionHeading(title: "Messages", subtitle: subtitle)
-            Spacer()
-            GlassEffectContainer(spacing: 14) {
-                GlassCircleButton(systemName: "square.and.pencil") { composing = true }
-            }
-        }
-        .padding(.top, 6)
+        .background { AppBackground() }
     }
 
     private var subtitle: String {
@@ -80,9 +90,26 @@ struct MessagesTab: View {
 struct ThreadRow: View {
     @EnvironmentObject private var session: LectioSession
     let thread: MessageThreadSummary
-    var onOpen: () -> Void
 
     var body: some View {
+        NavigationLink(value: thread) { row }
+            .buttonStyle(PressableCard())
+            .contextMenu {
+                Button {
+                    Task { await toggleRead() }
+                } label: {
+                    Label(thread.unread ? "Mark as read" : "Mark as unread",
+                          systemImage: thread.unread ? "envelope.open" : "envelope.badge")
+                }
+                Button {
+                    Task { await toggleFlag() }
+                } label: {
+                    Label(thread.flagged ? "Remove flag" : "Flag", systemImage: "flag")
+                }
+            }
+    }
+
+    private var row: some View {
         HStack(alignment: .top, spacing: 11) {
             Circle()
                 .fill(thread.unread ? Palette.accent : Color.clear)
@@ -120,21 +147,9 @@ struct ThreadRow: View {
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentCard(radius: Metrics.inner + 4)
-        .contentShape(Rectangle())
-        .onTapGesture { onOpen() }
-        .contextMenu {
-            Button {
-                Task { await toggleRead() }
-            } label: {
-                Label(thread.unread ? "Mark as read" : "Mark as unread",
-                      systemImage: thread.unread ? "envelope.open" : "envelope.badge")
-            }
-            Button {
-                Task { await toggleFlag() }
-            } label: {
-                Label(thread.flagged ? "Remove flag" : "Flag", systemImage: "flag")
-            }
-        }
+        .contentShape(RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous))
+        // A link's label takes the accent colour otherwise.
+        .foregroundStyle(.primary)
     }
 
     private var metaLine: String {

@@ -18,8 +18,7 @@ struct StudyPlanSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Study plan")
                         .font(.system(size: 26, weight: .bold))
-                        .padding(.top, 34)
-                        .padding(.trailing, 44)
+                        .sheetTitleSpacing()
 
                     if loading {
                         ProgressView().frame(maxWidth: .infinity).padding(.vertical, 50)

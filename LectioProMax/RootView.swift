@@ -18,19 +18,17 @@ struct RootView: View {
                 // Its own navigation stack draws the background.
                 ScheduleTab()
             }
+            // Each tab is its own navigation stack and draws its own background.
             Tab("Homework", systemImage: "checklist", value: AppTab.homework) {
                 HomeworkTab()
-                    .background { AppBackground() }
                     .badge(session.snapshot.outstandingCount)
             }
             Tab("Messages", systemImage: "envelope", value: AppTab.messages) {
                 MessagesTab()
-                    .background { AppBackground() }
                     .badge(session.snapshot.unreadMessages)
             }
-            Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
+            Tab("More", systemImage: "ellipsis", value: AppTab.settings) {
                 SettingsTab()
-                    .background { AppBackground() }
             }
             // Search is a tab of its own at the trailing end of the bar, as
             // iOS 26 lays it out; the searchable field below belongs to it.

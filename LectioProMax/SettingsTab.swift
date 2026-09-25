@@ -1,20 +1,35 @@
 import SwiftUI
 
+/// Where the rest of Lectio lives in the app — study plan, absence, other
+/// people's schedules — plus your account. Called More, as in Apple's own
+/// apps: it's mostly places to go, not settings.
+enum MoreRoute: Hashable {
+    case studyPlan, absence, findSchedule
+}
+
 struct SettingsTab: View {
     @EnvironmentObject private var session: LectioSession
-    @State private var showingAbsence = false
-    @State private var showingStudyPlan = false
-    @State private var showingFind = false
 
     private var profile: Profile { session.snapshot.profile }
 
     var body: some View {
-        ScrollView {
-            RefreshHeader(space: "settings") { await session.refresh() }
-            VStack(alignment: .leading, spacing: 16) {
-                SectionHeading(title: "Settings")
-                    .padding(.top, 6)
+        NavigationStack {
+            list
+                .navigationTitle("More")
+                // Each opens as a page of its own, with the system back button.
+                .navigationDestination(for: MoreRoute.self) { route in
+                    switch route {
+                    case .studyPlan: StudyPlanSheet().asPushedScreen()
+                    case .absence: AbsenceSheet().asPushedScreen()
+                    case .findSchedule: FindScheduleSheet().asPushedScreen()
+                    }
+                }
+        }
+    }
 
+    private var list: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
                 accountCard
                 lectioCard
                 actionsCard
@@ -29,29 +44,47 @@ struct SettingsTab: View {
 
             }
             .padding(.horizontal, Metrics.margin)
+            .padding(.top, 4)
+            .padding(.bottom, 24)
         }
-        .coordinateSpace(.named("settings"))
         .scrollIndicators(.hidden)
-        .sheet(isPresented: $showingAbsence) { AbsenceSheet().environmentObject(session) }
-        .sheet(isPresented: $showingStudyPlan) { StudyPlanSheet().environmentObject(session) }
-        .sheet(isPresented: $showingFind) { FindScheduleSheet().environmentObject(session) }
+        // The system's own pull to refresh, the work in a task of its own so
+        // an update mid-refresh can't cancel it.
+        .refreshable { await Task { await session.refresh() }.value }
+        .background { AppBackground() }
     }
 
     private var lectioCard: some View {
         VStack(spacing: 0) {
-            row("Study plan", "list.bullet.rectangle", tint: Color.primary) {
-                showingStudyPlan = true
-            }
+            link("Study plan", "list.bullet.rectangle", to: .studyPlan)
             Divider().padding(.leading, 48)
-            row("Absence", "calendar.badge.exclamationmark", tint: Color.primary) {
-                showingAbsence = true
-            }
+            link("Absence", "calendar.badge.exclamationmark", to: .absence)
             Divider().padding(.leading, 48)
-            row("Find a schedule", "magnifyingglass", tint: Color.primary) {
-                showingFind = true
-            }
+            link("Find a schedule", "magnifyingglass", to: .findSchedule)
         }
         .contentCard()
+    }
+
+    /// A row that goes somewhere: a chevron, like Settings.
+    private func link(_ title: String, _ icon: String, to route: MoreRoute) -> some View {
+        NavigationLink(value: route) {
+            HStack(spacing: 13) {
+                Image(systemName: icon)
+                    .font(.system(size: 15.5, weight: .semibold))
+                    .frame(width: 22)
+                Text(title)
+                    .font(.system(size: 16.5, weight: .medium))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 17)
+            .padding(.vertical, 15)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var accountCard: some View {

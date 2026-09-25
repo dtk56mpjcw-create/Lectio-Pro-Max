@@ -151,6 +151,7 @@ struct LessonDetailScreen: View {
 struct DetailSheetScaffold<Content: View>: View {
     var onClose: () -> Void
     @ViewBuilder var content: Content
+    @Environment(\.pushedScreen) private var pushed
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -162,7 +163,7 @@ struct DetailSheetScaffold<Content: View>: View {
                     // button had to move down to get off the tab header's own
                     // controls, and a long lesson title would otherwise run
                     // straight underneath it.
-                    .padding(.top, SheetCloseButton.contentInset)
+                    .padding(.top, pushed ? 8 : SheetCloseButton.contentInset)
                     .padding(.bottom, 36)
             }
             .scrollIndicators(.hidden)

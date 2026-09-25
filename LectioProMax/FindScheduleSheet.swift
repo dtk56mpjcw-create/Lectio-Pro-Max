@@ -28,8 +28,7 @@ struct FindScheduleSheet: View {
             VStack(alignment: .leading, spacing: 13) {
                 Text("Find a schedule")
                     .font(.system(size: 26, weight: .bold))
-                    .padding(.top, 34)
-                    .padding(.trailing, 44)
+                    .sheetTitleSpacing()
 
                 Picker("Kind", selection: $kind) {
                     ForEach(ScheduleTarget.Kind.allCases, id: \.self) { option in
@@ -55,8 +54,9 @@ struct FindScheduleSheet: View {
         .presentationDragIndicator(.visible)
         .presentationBackground(.clear)
         .task { await session.loadScheduleTargets() }
-        .sheet(item: $chosen) { target in
-            TargetScheduleSheet(target: target).environmentObject(session)
+        // Pushed from More, so a schedule pushes too — back goes back.
+        .navigationDestination(item: $chosen) { target in
+            TargetScheduleSheet(target: target).asPushedScreen()
         }
     }
 
@@ -266,8 +266,7 @@ struct TargetScheduleSheet: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(target.sortName)
                         .font(.system(size: 24, weight: .bold))
-                        .padding(.top, 34)
-                        .padding(.trailing, 44)
+                        .sheetTitleSpacing()
                         .fixedSize(horizontal: false, vertical: true)
                     Text(showingStudents
                          ? "\(classmates.count) students"
@@ -314,8 +313,8 @@ struct TargetScheduleSheet: View {
         .presentationDragIndicator(.visible)
         .presentationBackground(.clear)
         .task(id: weekCode) { await load() }
-        .sheet(item: $openStudent) { student in
-            TargetScheduleSheet(target: student).environmentObject(session)
+        .navigationDestination(item: $openStudent) { student in
+            TargetScheduleSheet(target: student).asPushedScreen()
         }
     }
 
