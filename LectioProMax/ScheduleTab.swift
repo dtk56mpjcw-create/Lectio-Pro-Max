@@ -439,6 +439,10 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
     /// Scrolling stays off a moment after the pinch, too: the fingers rarely
     /// lift together, and the last one used to drag the page as it left.
     @State private var lingering = false
+    /// Turns off the UIKit scroll views under the pinch directly — see below.
+    @State private var freezer = ScrollFreezer()
+    @State private var activePinch = false
+    @State private var pinchSerial = 0
     @State private var tracker = PinchTracker()
 
     var body: some View {
@@ -461,6 +465,7 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
                 .accessibilityHidden(!weekMode)
         }
         .clipped()
+        .background(FreezerProbe(freezer: freezer))
         .simultaneousGesture(
             MagnifyGesture()
                 .updating($pinch) { value, state, _ in
@@ -468,13 +473,21 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
                 }
                 .onChanged { value in
                     onPinch()
+                    // First thing, before the fingers can drag anything.
+                    freezer.freeze()
+                    if !activePinch {
+                        activePinch = true
+                        pinchSerial += 1
+                    }
                     if !pinchDriven { pinchDriven = true }
                     if anchor != value.startAnchor { anchor = value.startAnchor }
                     tracker.track(value.magnification)
                 }
                 .onEnded { value in
                     onPinch()
+                    activePinch = false
                     lingering = true
+                    let serial = pinchSerial
                     // Positive when heading toward the other view.
                     let toward = weekMode ? tracker.velocity : -tracker.velocity
                     let p = progress(for: value.magnification)
@@ -484,8 +497,11 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
                     }
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(450))
+                        // Unless another pinch has started since.
+                        guard serial == pinchSerial, !activePinch else { return }
                         pinchDriven = false
                         lingering = false
+                        freezer.thaw()
                     }
                 }
         )
@@ -555,6 +571,59 @@ private final class PinchTracker {
         magnification = 1
         time = Date()
         velocity = 0
+    }
+}
+
+/// Stops the scroll views under a pinch from scrolling, by switching off their
+/// UIKit pan gestures for as long as the pinch lasts.
+///
+/// SwiftUI's own `scrollDisabled` wasn't enough: the week you pinched from
+/// still slid up and down under your fingers. Turning a pan gesture off in
+/// UIKit cancels it on the spot, whatever state it's in, so this goes to the
+/// source: every scroll view behind the schedule's pages, found by walking the
+/// window's views and keeping those that overlap the pages.
+final class ScrollFreezer {
+    weak var probe: UIView?
+    private var frozen: [UIScrollView] = []
+
+    func freeze() {
+        guard frozen.isEmpty, let probe, let window = probe.window else { return }
+        let area = probe.convert(probe.bounds, to: window)
+        var found: [UIScrollView] = []
+        Self.collect(in: window, into: &found)
+        frozen = found.filter { scroll in
+            scroll.panGestureRecognizer.isEnabled
+                && scroll.convert(scroll.bounds, to: window).intersects(area)
+        }
+        for scroll in frozen { scroll.panGestureRecognizer.isEnabled = false }
+    }
+
+    func thaw() {
+        // Back to whatever the scroll view itself allows by now.
+        for scroll in frozen { scroll.panGestureRecognizer.isEnabled = scroll.isScrollEnabled }
+        frozen = []
+    }
+
+    private static func collect(in view: UIView, into found: inout [UIScrollView]) {
+        if let scroll = view as? UIScrollView { found.append(scroll) }
+        for sub in view.subviews { collect(in: sub, into: &found) }
+    }
+}
+
+/// An empty view behind the pages that tells the freezer where they are.
+private struct FreezerProbe: UIViewRepresentable {
+    let freezer: ScrollFreezer
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        freezer.probe = view
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        freezer.probe = uiView
     }
 }
 
