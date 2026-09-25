@@ -99,3 +99,67 @@ extension WorkItem {
         return parts.count > 1 ? shown + " +\(parts.count - 1)" : shown
     }
 }
+
+// MARK: - Hand-in deadlines
+
+/// Where a hand-in stands, in words: handed in, how long until it's due, or
+/// how late it is.
+struct HandInStatus: Equatable {
+    enum Tone { case done, calm, soon, late }
+    var text: String
+    var tone: Tone
+
+    var isLate: Bool { tone == .late }
+}
+
+extension WorkItem {
+    /// The deadline as a moment in local time; the end of the day when Lectio
+    /// gives no time.
+    var dueDate: Date? {
+        guard let due else { return nil }
+        let parts = due.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        var comps = DateComponents()
+        comps.year = parts[0]; comps.month = parts[1]; comps.day = parts[2]
+        let time = dueTime.split(separator: ":").compactMap { Int($0) }
+        if time.count == 2 {
+            comps.hour = time[0]; comps.minute = time[1]
+        } else {
+            comps.hour = 23; comps.minute = 59
+        }
+        return Calendar.current.date(from: comps)
+    }
+
+    func handInStatus(now: Date = Date(), markedDone: Bool = false) -> HandInStatus {
+        if isDelivered { return HandInStatus(text: "Handed in", tone: .done) }
+        if markedDone { return HandInStatus(text: "Marked done", tone: .done) }
+        guard let due = dueDate else { return HandInStatus(text: "Hand-in", tone: .calm) }
+
+        let seconds = due.timeIntervalSince(now)
+        let calendar = Calendar.current
+        let at = dueTime.isEmpty ? "" : " · " + dueTime
+
+        if seconds < 0 {
+            let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: due),
+                                               to: calendar.startOfDay(for: now)).day ?? 0
+            if days < 1 { return HandInStatus(text: dueTime.isEmpty ? "Overdue" : "Overdue · was due " + dueTime, tone: .late) }
+            return HandInStatus(text: days == 1 ? "1 day late" : "\(days) days late", tone: .late)
+        }
+        if seconds < 3600 {
+            let minutes = max(1, Int(seconds / 60))
+            return HandInStatus(text: "Due in \(minutes) min", tone: .soon)
+        }
+        if calendar.isDateInToday(due) {
+            let hours = Int(seconds / 3600)
+            return HandInStatus(text: (hours <= 1 ? "Due in 1 hour" : "Due in \(hours) hours") + at, tone: .soon)
+        }
+        if calendar.isDateInTomorrow(due) {
+            return HandInStatus(text: "Due tomorrow" + at, tone: seconds < 86_400 ? .soon : .calm)
+        }
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now),
+                                           to: calendar.startOfDay(for: due)).day ?? 0
+        if days < 14 { return HandInStatus(text: "Due in \(days) days" + at, tone: .calm) }
+        let weeks = days / 7
+        return HandInStatus(text: "Due in \(weeks) weeks", tone: .calm)
+    }
+}

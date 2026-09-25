@@ -5,6 +5,10 @@ struct HomeworkTab: View {
 
     /// Not @AppStorage on purpose — see WorkFilterBar.
     @State private var filter = WorkFilter()
+    @State private var path: [WorkItem] = []
+    /// What a swipe asked to be reminded about, while its time is chosen.
+    @State private var remindAbout: WorkItem?
+    @State private var notificationsOff = false
 
     private var subjects: [String] {
         // Only real subjects: a school-wide event's list of classes isn't one.
@@ -25,7 +29,7 @@ struct HomeworkTab: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             list
                 .navigationTitle("Homework")
                 .navigationSubtitle(subtitle)
@@ -37,32 +41,54 @@ struct HomeworkTab: View {
         }
         .task { await session.loadAbsence() }
         .sensoryFeedback(.success, trigger: session.snapshot.completedKeys.count)
+        .confirmationDialog("Remind me",
+                            isPresented: Binding(get: { remindAbout != nil },
+                                                 set: { if !$0 { remindAbout = nil } }),
+                            titleVisibility: .visible,
+                            presenting: remindAbout) { item in
+            ForEach(ReminderTiming.allCases, id: \.self) { option in
+                Button(option.label) {
+                    Task { await setReminder(option, on: item) }
+                }
+            }
+        } message: { item in
+            Text(item.displayTitle)
+        }
+        .alert("Notifications are off", isPresented: $notificationsOff) {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Not now", role: .cancel) { }
+        } message: {
+            Text("Reminders arrive as notifications. Turn them on for Lectio Pro Max in Settings.")
+        }
     }
 
+    /// A List, for the system's swipe actions: right to tick off, left for a
+    /// reminder. Rows still look like cards.
     private var list: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                WorkFilterBar(subjects: subjects, filter: $filter)
+        List {
+            WorkFilterBar(subjects: subjects, filter: $filter)
+                .homeworkRow(top: 4, bottom: 4)
 
-                if groups.isEmpty && doneItems.isEmpty {
-                    EmptyNotice(icon: "checkmark.circle", text: "Nothing due — you're clear")
-                } else {
-                    ForEach(groups) { group in
-                        groupSection(title: group.title,
-                                     accent: group.isOverdue ? Color.red : nil,
-                                     items: group.items)
-                    }
-                    if !doneItems.isEmpty {
-                        groupSection(title: "Completed", accent: nil, items: doneItems)
-                    }
+            if groups.isEmpty && doneItems.isEmpty {
+                EmptyNotice(icon: "checkmark.circle", text: "Nothing due — you're clear")
+                    .homeworkRow()
+            } else {
+                ForEach(groups) { group in
+                    header(group.title, accent: group.isOverdue ? Color.red : nil)
+                    ForEach(group.items) { item in row(item) }
                 }
-
-
+                if !doneItems.isEmpty {
+                    header("Completed", accent: nil)
+                    ForEach(doneItems) { item in row(item) }
+                }
             }
-            .padding(.horizontal, Metrics.margin)
-            .padding(.top, 4)
-            .padding(.bottom, 24)
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .scrollIndicators(.hidden)
         // The system's own pull to refresh. The work runs in a task of its
         // own: SwiftUI cancels the refresh's task if the view updates while
@@ -75,6 +101,38 @@ struct HomeworkTab: View {
             }.value
         }
         .background { AppBackground() }
+    }
+
+    private func header(_ title: String, accent: Color?) -> some View {
+        Text(title.uppercased())
+            .font(.system(size: 13, weight: .heavy))
+            .tracking(0.8)
+            .foregroundStyle(accent ?? Color.secondary)
+            .padding(.leading, 4)
+            .homeworkRow(top: 14, bottom: 4)
+    }
+
+    private func row(_ item: WorkItem) -> some View {
+        WorkRow(item: item,
+                done: session.snapshot.isCompleted(item),
+                toggle: { toggle(item) },
+                open: { path.append(item) },
+                askReminder: { remindAbout = item },
+                setReminder: { option in Task { await setReminder(option, on: item) } })
+            .homeworkRow(top: 4.5, bottom: 4.5)
+    }
+
+    private func toggle(_ item: WorkItem) {
+        guard !item.isDelivered else { return }
+        withAnimation(.snappy(duration: 0.22)) { session.toggleCompleted(item) }
+    }
+
+    private func setReminder(_ option: ReminderTiming?, on item: WorkItem) async {
+        if await ReminderBook.shared.set(option, for: item.key) {
+            await session.refreshReminders()
+        } else {
+            notificationsOff = true
+        }
     }
 
     @ViewBuilder
@@ -93,27 +151,6 @@ struct HomeworkTab: View {
         }
     }
 
-    private func groupSection(title: String, accent: Color?, items: [WorkItem]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title.uppercased())
-                .font(.system(size: 13, weight: .heavy))
-                .tracking(0.8)
-                .foregroundStyle(accent ?? Color.secondary)
-                .padding(.leading, 4)
-
-            VStack(spacing: 9) {
-                ForEach(items) { item in
-                    WorkRow(item: item,
-                            done: session.snapshot.isCompleted(item)) {
-                        withAnimation(.snappy(duration: 0.22)) {
-                            session.toggleCompleted(item)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     private var subtitle: String {
         let total = session.snapshot.outstandingCount
         if filter.isActive {
@@ -124,6 +161,18 @@ struct HomeworkTab: View {
         }
         if total == 0 { return "All caught up" }
         return total == 1 ? "1 thing to do" : "\(total) things to do"
+    }
+}
+
+private extension View {
+    /// A List row that looks like the rest of the app: no separator, no row
+    /// background, the page's own margins.
+    func homeworkRow(top: CGFloat = 0, bottom: CGFloat = 0) -> some View {
+        self
+            .listRowInsets(EdgeInsets(top: top, leading: Metrics.margin,
+                                      bottom: bottom, trailing: Metrics.margin))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
     }
 }
 
@@ -169,39 +218,20 @@ struct WorkRow: View {
     let item: WorkItem
     let done: Bool
     let toggle: () -> Void
+    var open: () -> Void
+    /// A swipe asks; the list shows the choice of times.
+    var askReminder: () -> Void
+    var setReminder: (ReminderTiming?) -> Void
     @EnvironmentObject private var session: LectioSession
 
     private var tint: Color { Color.forSubject(item.code) }
+    private var reminder: ReminderTiming? { ReminderBook.shared.timing(for: item.key) }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Button(action: toggle) {
-                ZStack {
-                    Circle()
-                        .strokeBorder(done ? tint : Color.secondary.opacity(0.4), lineWidth: 1.6)
-                        .frame(width: 22, height: 22)
-                    if done {
-                        Circle().fill(tint).frame(width: 22, height: 22)
-                            .transition(.scale.combined(with: .opacity))
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.white)
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                }
-                // The circle is 22 points; the target is Apple's 44.
-                .frame(width: 44, height: 44)
-                .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(done ? "Mark as not done" : "Mark as done")
-            // Handed in is Lectio's verdict, not a tick you can take back here.
-            .disabled(item.isDelivered)
-            // Laid out at the circle's size; the extra target spills over.
-            .padding(-11)
-            .padding(.top, 1)
+            mark
 
-            NavigationLink(value: item) {
+            Button(action: open) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.displayTitle)
                         .font(.system(size: 16.5, weight: .medium))
@@ -209,14 +239,7 @@ struct WorkRow: View {
                         .foregroundStyle(done ? Color(.secondaryLabel) : Color.primary)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
-                    HStack(spacing: 6) {
-                        SubjectDot(code: item.code, size: 6)
-                        Text(metaLine)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
+                    meta
                     // What to actually do, so the list answers it without a
                     // tap. Left off once it's done, to keep Completed short.
                     if !done { previewLines }
@@ -226,17 +249,134 @@ struct WorkRow: View {
             }
             .buttonStyle(.plain)
 
-            // The reminder lives on the thing it reminds you about.
-            ReminderButton(itemKey: item.key) {
-                Task { await session.refreshReminders() }
+            // The bell only where a reminder is set; swipe left or hold the
+            // row to add one.
+            if reminder != nil {
+                ReminderButton(itemKey: item.key) {
+                    Task { await session.refreshReminders() }
+                }
+                .padding(.top, -3)
+                .transition(.scale.combined(with: .opacity))
             }
-            .padding(.top, -3)
         }
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentCard(radius: Metrics.inner + 4)
         .opacity(done ? 0.5 : 1)
+        .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous))
+        .contextMenu { menu }
+        // Swipe right: done (or not). Handed in is Lectio's verdict, so
+        // there's nothing to undo there.
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            if !item.isDelivered {
+                Button(action: toggle) {
+                    Label(done ? "Not done" : "Done",
+                          systemImage: done ? "arrow.uturn.backward" : "checkmark")
+                }
+                .tint(done ? .gray : .green)
+            }
+        }
+        // Swipe left: a reminder, or take it off.
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if reminder != nil {
+                Button {
+                    setReminder(nil)
+                } label: {
+                    Label("No reminder", systemImage: "bell.slash")
+                }
+                .tint(.gray)
+            } else {
+                Button(action: askReminder) {
+                    Label("Remind", systemImage: "bell")
+                }
+                .tint(.orange)
+            }
+        }
     }
+
+    // MARK: The mark on the left
+
+    /// Homework: the tick circle. A hand-in: the same circle with an arrow,
+    /// or an exclamation mark once it's late. Tapping ticks it off here;
+    /// handed in is Lectio's verdict and can't be taken back.
+    private var mark: some View {
+        TimelineView(.everyMinute) { context in
+            let late = item.isAssignment && !done && item.handInStatus(now: context.date).isLate
+            Button(action: toggle) {
+                ZStack {
+                    if done {
+                        Circle().fill(item.isDelivered ? Color.green : tint)
+                            .transition(.scale.combined(with: .opacity))
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                            .transition(.scale.combined(with: .opacity))
+                    } else {
+                        Circle()
+                            .strokeBorder(late ? Color.red : Color.secondary.opacity(0.4), lineWidth: 1.6)
+                        if item.isAssignment {
+                            Image(systemName: late ? "exclamationmark" : "arrow.up")
+                                .font(.system(size: 10.5, weight: .heavy))
+                                .foregroundStyle(late ? Color.red : Color.secondary)
+                        }
+                    }
+                }
+                .frame(width: 22, height: 22)
+                // The circle is 22 points; the target is Apple's 44.
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(done ? "Mark as not done" : "Mark as done")
+            .disabled(item.isDelivered)
+        }
+        // Laid out at the circle's size; the extra target spills over.
+        .padding(-11)
+        .padding(.top, 1)
+    }
+
+    // MARK: The line under the title
+
+    private var meta: some View {
+        TimelineView(.everyMinute) { context in
+            HStack(spacing: 6) {
+                SubjectDot(code: item.code, size: 6)
+                if item.isAssignment {
+                    let status = item.handInStatus(now: context.date, markedDone: done)
+                    Text(item.displayCode + " ·")
+                        .foregroundStyle(.secondary)
+                        .fixedSize()
+                    Text(status.text)
+                        .foregroundStyle(color(for: status.tone))
+                        .lineLimit(1)
+                } else {
+                    Text(homeworkMeta)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .font(.system(size: 14, weight: .medium))
+        }
+    }
+
+    private func color(for tone: HandInStatus.Tone) -> Color {
+        switch tone {
+        case .done: return .green
+        case .calm: return Color(.secondaryLabel)
+        case .soon: return .orange
+        case .late: return .red
+        }
+    }
+
+    private var homeworkMeta: String {
+        var bits: [String] = []
+        if !item.code.isEmpty { bits.append(item.displayCode) }
+        if !item.dueTime.isEmpty { bits.append(item.dueTime) }
+        return bits.joined(separator: " · ")
+    }
+
+    // MARK: The preview
 
     @ViewBuilder
     private var previewLines: some View {
@@ -268,13 +408,38 @@ struct WorkRow: View {
         }
     }
 
-    private var metaLine: String {
-        var bits: [String] = []
-        if !item.code.isEmpty { bits.append(item.displayCode) }
-        if item.isDelivered { bits.append("Handed in") }
-        else if item.isAssignment { bits.append("Hand-in") }
-        if !item.dueTime.isEmpty { bits.append(item.dueTime) }
-        return bits.joined(separator: " · ")
+    // MARK: Hold
+
+    @ViewBuilder
+    private var menu: some View {
+        if !item.isDelivered {
+            Button(action: toggle) {
+                Label(done ? "Mark as not done" : "Mark as done",
+                      systemImage: done ? "circle" : "checkmark.circle")
+            }
+        }
+        Menu {
+            ForEach(ReminderTiming.allCases, id: \.self) { option in
+                Button {
+                    setReminder(option)
+                } label: {
+                    Label(option.label, systemImage: reminder == option ? "checkmark" : option.icon)
+                }
+            }
+        } label: {
+            Label(reminder == nil ? "Remind me" : "Change reminder", systemImage: "bell")
+        }
+        if reminder != nil {
+            Button(role: .destructive) {
+                setReminder(nil)
+            } label: {
+                Label("Remove reminder", systemImage: "bell.slash")
+            }
+        }
+        Divider()
+        Button(action: open) {
+            Label(item.isAssignment ? "Open hand-in" : "Open", systemImage: "arrow.up.forward.square")
+        }
     }
 }
 

@@ -11,8 +11,9 @@ struct ReminderButton: View {
     var offersTiming: Bool = true
     var onChange: () -> Void
 
-    @State private var timing: ReminderTiming?
     @State private var denied = false
+
+    private var timing: ReminderTiming? { ReminderBook.shared.timing(for: itemKey) }
 
     var body: some View {
         Group {
@@ -45,7 +46,6 @@ struct ReminderButton: View {
                 .buttonStyle(.plain)
             }
         }
-        .onAppear { timing = RemindersStore.timing(for: itemKey) }
         // Felt as well as seen: a tap when a reminder is set or taken off.
         .sensoryFeedback(trigger: timing) { old, new in
             new == nil ? SensoryFeedback.impact(weight: .light) : SensoryFeedback.success
@@ -81,16 +81,11 @@ struct ReminderButton: View {
     }
 
     private func apply(_ option: ReminderTiming?) async {
-        if option != nil {
-            let granted = await NotificationService.requestPermission()
-            guard granted else {
-                denied = true
-                return
-            }
+        // Animated inside, so the bell fills with the symbol's replace effect.
+        guard await ReminderBook.shared.set(option, for: itemKey) else {
+            denied = true
+            return
         }
-        RemindersStore.set(option, for: itemKey)
-        // Animated, so the bell fills with the symbol's own replace effect.
-        withAnimation(.snappy) { timing = option }
         onChange()
     }
 }
