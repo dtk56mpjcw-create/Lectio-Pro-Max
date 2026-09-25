@@ -406,6 +406,10 @@ final class LectioSession: ObservableObject {
         lessonNotesAt = nil
         absenceAt = nil
         targetsAt = nil
+        grades = nil
+        gradesAt = nil
+        studyPlan = nil
+        studyPlanAt = nil
         deferredWeeks.removeAll()
         sessionVerified = false
         isLoggedIn = false
@@ -620,6 +624,35 @@ final class LectioSession: ObservableObject {
             await refreshReminders()
         }
         absenceLoading = false
+    }
+
+    // MARK: - Me: grades and study hours
+
+    @Published var grades: GradeReport?
+    @Published var studyPlan: [StudyPlanSubject]?
+    private var gradesAt: Date?
+    private var studyPlanAt: Date?
+
+    func loadGrades(force: Bool = false) async {
+        if !force, let at = gradesAt, Date().timeIntervalSince(at) < 600 { return }
+        let cookies = await usableCookies(attempts: 3)
+        guard !cookies.isEmpty else { return }
+        if let report = try? await LectioMeService.loadGrades(cookies: cookies) {
+            grades = report
+            gradesAt = Date()
+            await absorbRenewedCookies()
+        }
+    }
+
+    func loadStudyPlan(force: Bool = false) async {
+        if !force, let at = studyPlanAt, Date().timeIntervalSince(at) < 600 { return }
+        let cookies = await usableCookies(attempts: 3)
+        guard !cookies.isEmpty else { return }
+        if let plan = try? await LectioStudyService.loadStudyPlan(cookies: cookies) {
+            studyPlan = plan
+            studyPlanAt = Date()
+            await absorbRenewedCookies()
+        }
     }
 
     func loadScheduleTargets() async {

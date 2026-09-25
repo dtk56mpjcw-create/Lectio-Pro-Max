@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum AppTab: String, Hashable {
-    case schedule, homework, messages, settings, search
+    case schedule, homework, messages, me, search
 }
 
 /// The native TabView is what gives us Apple's real Liquid Glass tab bar —
@@ -27,8 +27,8 @@ struct RootView: View {
                 MessagesTab()
                     .badge(session.snapshot.unreadMessages)
             }
-            Tab("More", systemImage: "ellipsis", value: AppTab.settings) {
-                SettingsTab()
+            Tab("Me", systemImage: "person.crop.circle", value: AppTab.me) {
+                MeTab()
             }
             // Search is a tab of its own at the trailing end of the bar, as
             // iOS 26 lays it out; the searchable field below belongs to it.
