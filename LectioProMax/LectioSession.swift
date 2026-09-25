@@ -529,6 +529,7 @@ final class LectioSession: ObservableObject {
         do {
             threads = try await LectioMessagesService.loadInbox(cookies: cookies)
             inboxFetchedAt = Date()
+            scheduleSave()
             // The inbox knows the real unread state; the dashboard only guesses.
             snapshot.unreadMessages = threads.filter { $0.unread }.count
             await absorbRenewedCookies()
@@ -546,6 +547,7 @@ final class LectioSession: ObservableObject {
     func removeThreadLocally(_ id: String) {
         threads.removeAll { $0.id == id }
         snapshot.unreadMessages = threads.filter { $0.unread }.count
+        scheduleSave()
     }
 
     func applyThreads(_ updated: [MessageThreadSummary]) {
@@ -553,6 +555,7 @@ final class LectioSession: ObservableObject {
         threads = updated
         inboxFetchedAt = Date()
         snapshot.unreadMessages = updated.filter { $0.unread }.count
+        scheduleSave()
     }
 
     /// Marks a thread read locally the moment it's opened, so the list doesn't
@@ -561,6 +564,7 @@ final class LectioSession: ObservableObject {
         guard let index = threads.firstIndex(where: { $0.id == id }), threads[index].unread else { return }
         threads[index].unread = false
         snapshot.unreadMessages = threads.filter { $0.unread }.count
+        scheduleSave()
     }
 
     /// Everyone this account may write to. Big, and it changes rarely, so it's
@@ -701,13 +705,15 @@ final class LectioSession: ObservableObject {
               let data = try? Data(contentsOf: url),
               let decoded = try? JSONDecoder().decode(LectioSnapshot.self, from: data) else { return }
         snapshot = decoded
+        threads = decoded.inbox ?? []
     }
 
     /// Encoding the whole snapshot took a visible beat on the main thread, and a
     /// single swipe could trigger it three times. Coalesce, then encode off-main.
     private func scheduleSave() {
         saveTask?.cancel()
-        let pending = snapshot
+        var pending = snapshot
+        pending.inbox = threads
         saveTask = Task {
             try? await Task.sleep(nanoseconds: 900_000_000)
             if Task.isCancelled { return }

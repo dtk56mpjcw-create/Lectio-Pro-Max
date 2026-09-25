@@ -210,6 +210,9 @@ struct LectioSnapshot: Codable {
     var homework: [HomeworkItem] = []
     var assignments: [AssignmentItem] = []
     var messages: [MessagePreview] = []
+    /// The last inbox we saw, so Messages opens on it instead of empty.
+    /// Optional so a cache written before it existed still loads.
+    var inbox: [MessageThreadSummary]? = nil
     var unreadMessages: Int = 0
     var fetchedAt: Date? = nil
     var completedKeys: Set<String> = []

@@ -34,9 +34,11 @@ enum LectioMessagesService {
 
     // MARK: - Reading
 
+    /// Always asks for Nyeste by id. Plain beskeder2.aspx shows whichever
+    /// folder you looked at last — Lectio remembers it — so after a visit to
+    /// Deleted, the "inbox" came back as the deleted messages.
     static func loadInbox(cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
-        let html = try await LectioService.fetchHTML(inboxURL, cookies: cookies)
-        return LectioParser.parseInbox(html)
+        return try await loadFolder(.newest, cookies: cookies)
     }
 
     static func loadThread(id: String, cookies: [HTTPCookie]) async throws -> MessageThread {
