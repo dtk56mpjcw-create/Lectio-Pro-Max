@@ -64,6 +64,9 @@ struct NewMessageSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(.clear)
+        // Always a sheet — even when it opens from a pushed page, whose
+        // "pushed" flag would otherwise carry in and hide the close button.
+        .environment(\.pushedScreen, false)
         .task {
             loadingDirectory = session.recipients.isEmpty
             await session.loadRecipients()

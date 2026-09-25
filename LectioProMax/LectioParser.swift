@@ -447,7 +447,70 @@ extension LectioParser {
             }
         }
 
+        // --- a group hand-in ---------------------------------------------------
+        //
+        // "Gruppeaflevering": the members sit in m_Content_groupMembersGV as
+        // `<span data-lectiocontextcard="S<elevid>">Ivan Surov, 1j 12</span>`,
+        // and while you can still add people there's a <select> of the rest of
+        // the class (`m$Content$groupStudentAddDD`, option value = elevid) with
+        // a Tilføj button that posts back `m$Content$groupStudentAddBtn`.
+        if let table = root.first(id: "m_Content_groupMembersGV") {
+            result.isGroup = true
+            for row in table.all("tr") {
+                let cells = row.all("td")
+                guard let first = cells.first else { continue }
+                let people = first.allWhere { ($0.attrs["data-lectiocontextcard"] ?? "").hasPrefix("S") }
+
+                // A remove link, if Lectio offers one, would sit in the row's
+                // last cell. Only trusted when the row holds one person — a
+                // single link for several people would be ambiguous.
+                var removeTarget: String? = nil
+                var removeArgument = ""
+                if people.count == 1, cells.count > 1, let last = cells.last {
+                    for anchor in last.all("a") {
+                        let script = (anchor.attr("onclick") ?? "") + " " + (anchor.attr("href") ?? "")
+                        if let g = Rx.match("__doPostBack\\('([^']*)','([^']*)'\\)", script) {
+                            removeTarget = g[1]
+                            removeArgument = g[2]
+                            break
+                        }
+                    }
+                }
+
+                for span in people {
+                    let id = String((span.attrs["data-lectiocontextcard"] ?? "").dropFirst())
+                    guard !id.isEmpty else { continue }
+                    let (name, klass) = splitPerson(span.text, separator: ", ")
+                    result.groupMembers.append(GroupPerson(id: id, name: name, className: klass,
+                                                           removeTarget: removeTarget,
+                                                           removeArgument: removeArgument))
+                }
+            }
+        }
+        if let select = root.first(id: "m_Content_groupStudentAddDD") {
+            for option in select.all("option") {
+                let id = option.attr("value") ?? ""
+                guard !id.isEmpty else { continue }
+                // "Abdul Raffay Hussain (1j 01)"
+                var text = option.text.trimmingCharacters(in: .whitespaces)
+                var klass = ""
+                if text.hasSuffix(")"), let open = text.range(of: " (", options: .backwards) {
+                    klass = String(text[open.upperBound..<text.index(before: text.endIndex)])
+                    text = String(text[..<open.lowerBound])
+                }
+                result.groupCandidates.append(GroupPerson(id: id, name: text, className: klass))
+            }
+        }
+
         return result
+    }
+
+    /// "Ivan Surov, 1j 12" → ("Ivan Surov", "1j 12").
+    private static func splitPerson(_ raw: String, separator: String) -> (String, String) {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let cut = text.range(of: separator, options: .backwards) else { return (text, "") }
+        return (String(text[..<cut.lowerBound]),
+                String(text[cut.upperBound...]).trimmingCharacters(in: .whitespaces))
     }
 }
 

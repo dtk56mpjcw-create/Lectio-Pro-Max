@@ -41,9 +41,33 @@ struct HandInStatus: Hashable {
     }
 }
 
+/// Someone in a group hand-in, or someone who could be added to one.
+struct GroupPerson: Identifiable, Hashable {
+    /// Lectio's elevid.
+    var id: String
+    var name: String            // "Ivan Surov"
+    var className: String = ""  // "1j 12"
+    /// Lectio's own postback for taking this person off the group, when the
+    /// page offers one (it doesn't always — nor once the assignment closes).
+    var removeTarget: String? = nil
+    var removeArgument: String = ""
+
+    /// As a schedule target, so the app's avatars and people lists can show it.
+    var asTarget: ScheduleTarget {
+        ScheduleTarget(name: className.isEmpty ? name : name + " (" + className + ")",
+                       url: LectioConfig.skemaURL + "?type=elev&elevid=" + id,
+                       kind: .student)
+    }
+}
+
 struct HandIn {
     var status = HandInStatus()
     var entries: [HandInEntry] = []
+    /// A group hand-in ("Gruppeaflevering"): who's in it, and — while Lectio
+    /// still allows it — who from the class can be added.
+    var isGroup = false
+    var groupMembers: [GroupPerson] = []
+    var groupCandidates: [GroupPerson] = []
     /// False once Lectio closes the assignment — then no upload is possible.
     var canHandIn = false
     /// Every enabled field of Lectio's ASP.NET form, ready to be posted back.

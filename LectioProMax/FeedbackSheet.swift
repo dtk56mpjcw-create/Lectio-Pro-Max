@@ -71,6 +71,9 @@ struct FeedbackSheet: View {
             }
         }
         .task { await load() }
+        // Always a sheet — even when it opens from a pushed page, whose
+        // "pushed" flag would otherwise carry in and hide the close button.
+        .environment(\.pushedScreen, false)
         .onChange(of: editor.revision) { _, _ in scheduleDraftSave() }
         .onChange(of: photoItem) { _, item in
             guard let item = item else { return }

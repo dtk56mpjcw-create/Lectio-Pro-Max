@@ -25,6 +25,13 @@ struct AssignmentHandInSheet: View {
     @State private var preview: PreviewDocument?
     @State private var downloading: String?
 
+    // Group hand-in.
+    @State private var choosingMember = false
+    @State private var groupBusy: String?
+    @State private var confirmRemove: GroupPerson?
+    /// Just added, for a moment's tick next to their name.
+    @State private var justAdded: String?
+
     private var tint: Color { Color.forSubject(item.code) }
 
     var body: some View {
@@ -40,6 +47,9 @@ struct AssignmentHandInSheet: View {
 
                 if let handIn = handIn {
                     statusCard(handIn.status)
+                    if handIn.isGroup {
+                        groupSection(handIn)
+                    }
                     entriesSection(handIn.entries)
                     if handIn.canHandIn {
                         handInSection
@@ -63,6 +73,26 @@ struct AssignmentHandInSheet: View {
         }
         .sheet(item: $preview) { document in
             DocumentPreview(url: document.url).ignoresSafeArea()
+        }
+        .sheet(isPresented: $choosingMember) {
+            GroupMemberPicker(candidates: handIn?.groupCandidates ?? []) { person in
+                choosingMember = false
+                Task { await addMember(person) }
+            }
+        }
+        .confirmationDialog(
+            "Take \(confirmRemove?.name ?? "them") off this group hand-in?",
+            isPresented: Binding(get: { confirmRemove != nil },
+                                 set: { if !$0 { confirmRemove = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Remove from group", role: .destructive) {
+                if let person = confirmRemove {
+                    confirmRemove = nil
+                    Task { await removeMember(person) }
+                }
+            }
+            Button("Cancel", role: .cancel) { confirmRemove = nil }
         }
     }
 
@@ -128,6 +158,75 @@ struct AssignmentHandInSheet: View {
                 .font(.system(size: 14.5))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
+        }
+    }
+
+    // MARK: Group hand-in
+
+    private func groupSection(_ handIn: HandIn) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text("Group")
+                .font(.system(size: 13, weight: .heavy))
+                .tracking(0.7)
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 0) {
+                ForEach(Array(handIn.groupMembers.enumerated()), id: \.element.id) { index, person in
+                    if index > 0 { Divider().padding(.leading, 57) }
+                    HStack(spacing: 11) {
+                        PersonAvatar(target: person.asTarget, size: 32)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(person.name)
+                                .font(.system(size: 16, weight: .medium))
+                            if !person.className.isEmpty {
+                                Text(person.className)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                        if justAdded == person.id {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .transition(.scale.combined(with: .opacity))
+                        } else if person.removeTarget != nil && groupBusy == nil {
+                            Button {
+                                confirmRemove = person
+                            } label: {
+                                Image(systemName: "minus.circle")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(.red)
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Remove \(person.name)")
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                }
+            }
+            .contentCard(radius: Metrics.inner + 2)
+
+            if let busy = groupBusy {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text(busy)
+                        .font(.system(size: 15, weight: .medium))
+                    Spacer(minLength: 0)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentCard(radius: Metrics.inner)
+            } else if !handIn.groupCandidates.isEmpty {
+                Button {
+                    choosingMember = true
+                } label: {
+                    actionLabel("person.badge.plus", "Add to group")
+                }
+                .buttonStyle(PressableCard())
+            }
         }
     }
 
@@ -409,6 +508,50 @@ struct AssignmentHandInSheet: View {
             justSent = true
         } catch {
             actionError = error.localizedDescription
+        }
+    }
+
+    /// Adds a classmate the way Lectio's Tilføj button does, on a freshly
+    /// read page (its hidden state is per request), then shows the group as
+    /// Lectio has it afterwards — that list is the confirmation.
+    private func addMember(_ person: GroupPerson) async {
+        groupBusy = "Adding \(person.name)…"
+        defer { groupBusy = nil }
+        let cookies = await session.requestCookies()
+        do {
+            let current = try await LectioHandInService.load(pageURL: link, cookies: cookies)
+            guard current.groupCandidates.contains(where: { $0.id == person.id }) else {
+                handIn = current          // already in, or no longer offered
+                return
+            }
+            let updated = try await LectioHandInService.addGroupMember(person.id, to: current, cookies: cookies)
+            handIn = updated
+            if updated.groupMembers.contains(where: { $0.id == person.id }) {
+                withAnimation(.snappy) { justAdded = person.id }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(2))
+                    withAnimation(.snappy) { if justAdded == person.id { justAdded = nil } }
+                }
+            }
+        } catch {
+            // Reload so what's on screen is what Lectio actually has.
+            await load()
+        }
+    }
+
+    private func removeMember(_ person: GroupPerson) async {
+        groupBusy = "Removing \(person.name)…"
+        defer { groupBusy = nil }
+        let cookies = await session.requestCookies()
+        do {
+            let current = try await LectioHandInService.load(pageURL: link, cookies: cookies)
+            guard let fresh = current.groupMembers.first(where: { $0.id == person.id }) else {
+                handIn = current
+                return
+            }
+            handIn = try await LectioHandInService.removeGroupMember(fresh, from: current, cookies: cookies)
+        } catch {
+            await load()
         }
     }
 

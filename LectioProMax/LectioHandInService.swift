@@ -190,6 +190,34 @@ enum LectioHandInService {
                                   cookies: cookies)
     }
 
+    // MARK: - Group hand-in
+
+    /// Adds a classmate to a group hand-in: Lectio's Tilføj button, with them
+    /// picked in its dropdown. Returns the page as it stands afterwards.
+    static func addGroupMember(_ studentID: String,
+                               to handIn: HandIn,
+                               cookies: [HTTPCookie]) async throws -> HandIn {
+        var fields = handIn.form
+        fields["m$Content$groupStudentAddDD"] = studentID
+        return try await postBack(fields,
+                                  eventTarget: "m$Content$groupStudentAddBtn",
+                                  eventArgument: "",
+                                  to: handIn,
+                                  cookies: cookies)
+    }
+
+    /// Takes someone off a group hand-in, with the page's own remove link.
+    static func removeGroupMember(_ person: GroupPerson,
+                                  from handIn: HandIn,
+                                  cookies: [HTTPCookie]) async throws -> HandIn {
+        guard let target = person.removeTarget else { return handIn }
+        return try await postBack(handIn.form,
+                                  eventTarget: target,
+                                  eventArgument: person.removeArgument,
+                                  to: handIn,
+                                  cookies: cookies)
+    }
+
     private static func postBack(_ fields: [String: String],
                                  eventTarget: String,
                                  eventArgument: String,
