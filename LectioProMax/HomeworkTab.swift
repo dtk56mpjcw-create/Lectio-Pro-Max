@@ -301,7 +301,7 @@ struct WorkRow: View {
     /// handed in is Lectio's verdict and can't be taken back.
     private var mark: some View {
         TimelineView(.everyMinute) { context in
-            let late = item.isAssignment && !done && item.handInStatus(now: context.date).isLate
+            let late = item.isAssignment && !done && item.deadlineStatus(now: context.date).isLate
             Button(action: toggle) {
                 ZStack {
                     if done {
@@ -342,7 +342,7 @@ struct WorkRow: View {
             HStack(spacing: 6) {
                 SubjectDot(code: item.code, size: 6)
                 if item.isAssignment {
-                    let status = item.handInStatus(now: context.date, markedDone: done)
+                    let status = item.deadlineStatus(now: context.date, markedDone: done)
                     Text(item.displayCode + " ·")
                         .foregroundStyle(.secondary)
                         .fixedSize()
@@ -360,7 +360,7 @@ struct WorkRow: View {
         }
     }
 
-    private func color(for tone: HandInStatus.Tone) -> Color {
+    private func color(for tone: DeadlineStatus.Tone) -> Color {
         switch tone {
         case .done: return .green
         case .calm: return Color(.secondaryLabel)
