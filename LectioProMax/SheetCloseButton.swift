@@ -25,21 +25,35 @@ struct SheetCloseButton: View {
 
     @State private var closing = false
 
+    /// The circle you see is 32 points, but the target your finger has to hit
+    /// is 44 — Apple's minimum. At 32 a tap landing just off the circle did
+    /// nothing, which read as the button not working every time.
+    private static let visible: CGFloat = 32
+    private static let target: CGFloat = 44
+    private static let slack = (target - visible) / 2
+
     var body: some View {
         Button {
             guard !closing else { return }
             closing = true
             action()
+            // If the sheet didn't go (something refused the dismissal), the
+            // button must not stay dead: listen again after a moment.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { closing = false }
         } label: {
             Image(systemName: "xmark")
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(.secondary)
-                .frame(width: 32, height: 32)
-                .contentCard(radius: 16)
+                .frame(width: Self.visible, height: Self.visible)
+                .contentCard(radius: Self.visible / 2)
+                .frame(width: Self.target, height: Self.target)
+                .contentShape(Rectangle())
         }
         .buttonStyle(PressableCard())
         .allowsHitTesting(!closing)
-        .padding(.trailing, Metrics.margin)
-        .padding(.top, SheetCloseButton.topInset)
+        .accessibilityLabel("Close")
+        // Same place on screen as before; the extra target spreads around it.
+        .padding(.trailing, Metrics.margin - Self.slack)
+        .padding(.top, SheetCloseButton.topInset - Self.slack)
     }
 }
