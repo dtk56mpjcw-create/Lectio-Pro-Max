@@ -1,6 +1,49 @@
 import Foundation
 
 /// A row in the inbox.
+/// Lectio's message folders, by the ids its folder tree uses.
+enum MessageFolder: Int, CaseIterable, Identifiable {
+    case newest = -70      // "Nyeste" — Lectio's own default view
+    case unread = -40      // "Alle ulæste"
+    case flagged = -50     // "Alle med flag"
+    case sent = -80        // "Sendte beskeder"
+    case deleted = -60     // "Alle slettede"
+
+    var id: Int { rawValue }
+
+    var title: String {
+        switch self {
+        case .newest: return "Messages"
+        case .unread: return "Unread"
+        case .flagged: return "Flagged"
+        case .sent: return "Sent"
+        case .deleted: return "Deleted"
+        }
+    }
+
+    var menuTitle: String { self == .newest ? "Newest" : title }
+
+    var icon: String {
+        switch self {
+        case .newest: return "tray"
+        case .unread: return "envelope.badge"
+        case .flagged: return "flag"
+        case .sent: return "paperplane"
+        case .deleted: return "trash"
+        }
+    }
+
+    var emptyText: String {
+        switch self {
+        case .newest: return "No messages"
+        case .unread: return "Nothing unread"
+        case .flagged: return "Nothing flagged"
+        case .sent: return "Nothing sent"
+        case .deleted: return "Nothing deleted"
+        }
+    }
+}
+
 struct MessageThreadSummary: Identifiable, Hashable, Codable {
     var id: String = ""             // Lectio's thread id
     var subject: String = ""

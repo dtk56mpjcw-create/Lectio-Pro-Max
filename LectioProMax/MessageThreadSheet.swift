@@ -9,6 +9,7 @@ struct MessageThreadSheet: View {
     @State private var thread: MessageThread?
     @State private var loadError: String?
     @State private var reply = ""
+    @State private var includeSignature = true
     @State private var sending = false
     @State private var sendError: String?
     @State private var preview: PreviewDocument?
@@ -129,6 +130,8 @@ struct MessageThreadSheet: View {
                 .contentCard(radius: Metrics.inner)
                 .disabled(sending)
 
+            SignatureFooter(include: $includeSignature)
+
             Button {
                 Task { await send() }
             } label: {
@@ -175,8 +178,12 @@ struct MessageThreadSheet: View {
         sendError = nil
         let cookies = await session.requestCookies()
         do {
-            thread = try await LectioMessagesService.reply(to: current, body: text, cookies: cookies)
+            thread = try await LectioMessagesService.reply(
+                to: current,
+                body: MessageSignature.apply(to: text, include: includeSignature),
+                cookies: cookies)
             reply = ""
+            includeSignature = true
             await session.loadInbox(force: true)
         } catch {
             sendError = error.localizedDescription

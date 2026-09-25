@@ -4,7 +4,7 @@ import SwiftUI
 /// people's schedules — plus your account. Called More, as in Apple's own
 /// apps: it's mostly places to go, not settings.
 enum MoreRoute: Hashable {
-    case studyPlan, absence, findSchedule, subjectColors
+    case studyPlan, absence, findSchedule, subjectColors, signature
 }
 
 struct SettingsTab: View {
@@ -25,6 +25,7 @@ struct SettingsTab: View {
                     case .absence: AbsenceSheet().asPushedScreen()
                     case .findSchedule: FindScheduleSheet().asPushedScreen()
                     case .subjectColors: SubjectColorsScreen().toolbarTitleDisplayMode(.inline)
+                    case .signature: SignatureScreen().toolbarTitleDisplayMode(.inline)
                     }
                 }
         }
@@ -35,6 +36,7 @@ struct SettingsTab: View {
             VStack(alignment: .leading, spacing: 16) {
                 accountCard
                 lectioCard
+                appCard
                 actionsCard
 
                 if let fetched = session.snapshot.fetchedAt {
@@ -64,8 +66,16 @@ struct SettingsTab: View {
             link("Absence", "calendar.badge.exclamationmark", to: .absence)
             Divider().padding(.leading, 48)
             link("Find a schedule", "magnifyingglass", to: .findSchedule)
-            Divider().padding(.leading, 48)
+        }
+        .contentCard()
+    }
+
+    /// How the app looks and behaves, rather than places in Lectio.
+    private var appCard: some View {
+        VStack(spacing: 0) {
             link("Subject colours", "paintpalette", to: .subjectColors)
+            Divider().padding(.leading, 48)
+            link("Message signature", "signature", to: .signature)
         }
         .contentCard()
     }

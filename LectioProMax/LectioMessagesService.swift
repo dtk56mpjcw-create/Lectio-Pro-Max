@@ -130,22 +130,58 @@ enum LectioMessagesService {
         } != nil
     }
 
-    // MARK: - Flags and read state
+    // MARK: - Folders
 
-    static func toggleRead(threadID: String, cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
-        return try await inboxCommand("READMESSAGE_" + threadID, cookies: cookies)
+    static func folderURL(_ folder: MessageFolder) -> String {
+        return inboxURL + "?mappeid=" + String(folder.rawValue)
     }
 
-    static func toggleFlag(threadID: String, cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
-        return try await inboxCommand("FLAGMESSAGE_" + threadID, cookies: cookies)
+    static func loadFolder(_ folder: MessageFolder, cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
+        let html = try await LectioService.fetchHTML(folderURL(folder), cookies: cookies)
+        return LectioParser.parseInbox(html)
     }
 
-    private static func inboxCommand(_ argument: String,
-                                     cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
-        let html = try await LectioService.fetchHTML(inboxURL, cookies: cookies)
+    // MARK: - Read state, flags, deleting
+    //
+    // Each row's icons post `__Page` back with a command and the thread id.
+    // Read state is two commands, not a toggle: a thread you haven't read
+    // offers READMESSAGE_, one you have offers UNREADMESSAGE_ (always sending
+    // READMESSAGE_ is why "Mark as unread" did nothing). Deleting is
+    // HIDEMESSAGE_ — Lectio's "Slet/gendan": it moves the thread to Deleted,
+    // and the same command there brings it back.
+    //
+    // The command is posted to the folder the thread is showing in: ASP.NET
+    // only accepts a command the page it came from actually offered.
+
+    static func setRead(threadID: String,
+                        read: Bool,
+                        in folder: MessageFolder,
+                        cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
+        let command = (read ? "READMESSAGE_" : "UNREADMESSAGE_") + threadID
+        return try await folderCommand(command, in: folder, cookies: cookies)
+    }
+
+    static func toggleFlag(threadID: String,
+                           in folder: MessageFolder,
+                           cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
+        return try await folderCommand("FLAGMESSAGE_" + threadID, in: folder, cookies: cookies)
+    }
+
+    /// Deletes a thread — or, from the Deleted folder, restores it.
+    static func toggleDeleted(threadID: String,
+                              in folder: MessageFolder,
+                              cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
+        return try await folderCommand("HIDEMESSAGE_" + threadID, in: folder, cookies: cookies)
+    }
+
+    private static func folderCommand(_ argument: String,
+                                      in folder: MessageFolder,
+                                      cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
+        let url = folderURL(folder)
+        let html = try await LectioService.fetchHTML(url, cookies: cookies)
         let fields = LectioForms.fields(in: HTMLDocument.parse(html))
         let result = try await LectioForms.postBack(
-            pageURL: inboxURL,
+            pageURL: url,
             fields: fields,
             target: "__Page",
             argument: argument,

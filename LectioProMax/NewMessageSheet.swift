@@ -8,6 +8,7 @@ struct NewMessageSheet: View {
     @State private var chosen: [Recipient] = []
     @State private var subject = ""
     @State private var body_ = ""
+    @State private var includeSignature = true
     @State private var sending = false
     @State private var sendError: String?
     @State private var sent = false
@@ -43,6 +44,8 @@ struct NewMessageSheet: View {
                     recipientSection
                     field("Subject", text: $subject, lines: 1...2)
                     field("Message", text: $body_, lines: 6...14)
+                    SignatureFooter(include: $includeSignature)
+                        .padding(.top, -8)
 
                     if sent {
                         HStack(spacing: 8) {
@@ -200,12 +203,13 @@ struct NewMessageSheet: View {
             let ok = try await LectioMessagesService.createThread(
                 to: chosen,
                 subject: subject.trimmingCharacters(in: .whitespacesAndNewlines),
-                body: body_,
+                body: MessageSignature.apply(to: body_, include: includeSignature),
                 cookies: cookies)
             if ok {
                 sent = true
                 subject = ""
                 body_ = ""
+                includeSignature = true
                 chosen = []
                 await session.loadInbox(force: true)
             } else {

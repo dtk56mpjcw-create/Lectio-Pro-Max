@@ -541,6 +541,13 @@ final class LectioSession: ObservableObject {
         inboxLoading = false
     }
 
+    /// Takes a thread out of the list the moment it's deleted, before Lectio
+    /// has answered, so the row goes as your finger lets go.
+    func removeThreadLocally(_ id: String) {
+        threads.removeAll { $0.id == id }
+        snapshot.unreadMessages = threads.filter { $0.unread }.count
+    }
+
     func applyThreads(_ updated: [MessageThreadSummary]) {
         guard !updated.isEmpty else { return }
         threads = updated
