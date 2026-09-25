@@ -2,11 +2,35 @@ import Foundation
 
 enum LectioConfig {
     static let schoolIDKey = "lectio.schoolID"
-    static let defaultSchoolID = "21"          // Nørre Gymnasium
+    static let schoolNameKey = "lectio.schoolName"
+    /// Nørre Gymnasium. Only a fallback now: installs from before the school
+    /// picker never stored a school, and they ran against this one.
+    static let defaultSchoolID = "21"
 
+    /// The number in every Lectio address for the school you signed in to.
     static var schoolID: String {
         get { UserDefaults.standard.string(forKey: schoolIDKey) ?? defaultSchoolID }
         set { UserDefaults.standard.set(newValue, forKey: schoolIDKey) }
+    }
+
+    /// Whether a school has been picked, so sign-in knows to ask first.
+    static var hasChosenSchool: Bool {
+        UserDefaults.standard.string(forKey: schoolIDKey) != nil
+    }
+
+    /// The school's name as Lectio writes it — from the picker, then kept up
+    /// to date from the header of every Lectio page the app reads.
+    static var schoolName: String {
+        get {
+            UserDefaults.standard.string(forKey: schoolNameKey)
+                ?? (schoolID == defaultSchoolID ? "Nørre Gymnasium" : "")
+        }
+        set { UserDefaults.standard.set(newValue, forKey: schoolNameKey) }
+    }
+
+    static func choose(_ school: LectioSchool) {
+        schoolID = school.id
+        schoolName = school.name
     }
 
     static var base: String { "https://www.lectio.dk/lectio/" + schoolID }
@@ -229,6 +253,9 @@ enum LectioService {
         snapshot.messages = messagesResult.messages
         snapshot.unreadMessages = messagesResult.unread
         snapshot.profile = LectioParser.parseProfile(root: forsideRoot)
+        if let school = snapshot.profile.schoolName, !school.isEmpty {
+            LectioConfig.schoolName = school
+        }
 
         snapshot.fetchedAt = Date()
         return snapshot

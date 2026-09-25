@@ -11,6 +11,8 @@ struct SettingsTab: View {
     @EnvironmentObject private var session: LectioSession
 
     private var profile: Profile { session.snapshot.profile }
+    /// Read from Lectio, not written into the app.
+    private var school: String { profile.schoolName ?? LectioConfig.schoolName }
 
     var body: some View {
         NavigationStack {
@@ -91,9 +93,9 @@ struct SettingsTab: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(profile.name.isEmpty ? "Signed in" : profile.name)
                 .font(.system(size: 22, weight: .bold))
-            Text(profile.className.isEmpty
-                 ? "Nørre Gymnasium"
-                 : "Class " + profile.className + " · Nørre Gymnasium")
+            Text([profile.className.isEmpty ? "" : "Class " + profile.className, school]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " · "))
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(.secondary)
         }

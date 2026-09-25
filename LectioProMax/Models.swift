@@ -133,6 +133,9 @@ struct MessagePreview: Identifiable, Codable, Hashable {
 struct Profile: Codable, Hashable {
     var name: String = ""
     var className: String = ""
+    /// From the page header. Optional so profiles cached before it existed
+    /// still decode.
+    var schoolName: String? = nil
 }
 
 /// Lessons that share a time slot, so the schedule can place them side by side

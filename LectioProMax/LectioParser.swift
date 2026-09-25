@@ -347,6 +347,12 @@ enum LectioParser {
             }
         }
 
+        // The school's own name, from the page header.
+        if let header = root.firstWhere({ $0.hasClass("ls-master-header-institution-name") }) {
+            let name = header.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !name.isEmpty { profile.schoolName = name }
+        }
+
         return profile
     }
 
