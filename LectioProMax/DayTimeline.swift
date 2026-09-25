@@ -67,12 +67,12 @@ struct DayTimeline: View, Equatable {
         ForEach(Array(stride(from: bounds.start, through: bounds.end, by: 60)), id: \.self) { minute in
             HStack(alignment: .top, spacing: 8) {
                 Text(label(minute))
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 12, weight: .medium))
                     .monospacedDigit()
-                    .foregroundStyle(.primary.opacity(0.42))
+                    .foregroundStyle(.tertiary)
                     .frame(width: gutter - 8, alignment: .trailing)
                 Rectangle()
-                    .fill(Color.primary.opacity(0.09))
+                    .fill(Color(.secondarySystemFill))
                     .frame(height: 1)
             }
             .offset(y: offset(for: minute) - 6)
@@ -230,7 +230,7 @@ struct TimelineLessonBlock: View {
                     if lesson.isPrivateEvent {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 9.5, weight: .semibold))
-                            .foregroundStyle(.primary.opacity(0.5))
+                            .foregroundStyle(.secondary)
                     }
                     Text(lesson.displayTitle)
                         .font(.system(size: compact ? 13.5 : 15.5, weight: .semibold))
@@ -240,20 +240,20 @@ struct TimelineLessonBlock: View {
                     Spacer(minLength: 0)
                     if state == .current {
                         Text("NOW")
-                            .font(.system(size: 9.5, weight: .heavy, design: .rounded))
+                            .font(.system(size: 9.5, weight: .heavy))
                             .foregroundStyle(Palette.accent)
                     }
                 }
                 if !compact {
                     Text(lesson.timeRange)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .font(.system(size: 12, weight: .medium))
                         .monospacedDigit()
-                        .foregroundStyle(.primary.opacity(0.58))
+                        .foregroundStyle(.secondary)
                 }
                 if !meta.isEmpty {
                     Text(meta)
                         .font(.system(size: compact ? 11.5 : 12.5, weight: .medium))
-                        .foregroundStyle(.primary.opacity(0.62))
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 if !compact && (!lesson.homework.isEmpty || !lesson.note.isEmpty) {
@@ -263,7 +263,7 @@ struct TimelineLessonBlock: View {
                         Text(lesson.homework.isEmpty ? "Note" : "Homework")
                             .font(.system(size: 11, weight: .semibold))
                     }
-                    .foregroundStyle(.primary.opacity(0.5))
+                    .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
             }

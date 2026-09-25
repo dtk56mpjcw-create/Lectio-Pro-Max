@@ -72,13 +72,13 @@ struct AbsenceSheet: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Absence")
-                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .font(.system(size: 26, weight: .bold))
                 .padding(.top, 34)
                 .padding(.trailing, 44)
             if let total = absence.total {
                 Text("Total " + total.percent + (total.modules.isEmpty ? "" : " · " + total.modules + " modules"))
                     .font(.system(size: 15))
-                    .foregroundStyle(.primary.opacity(0.7))
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -87,9 +87,9 @@ struct AbsenceSheet: View {
                                         @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             Text(title.uppercased())
-                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .font(.system(size: 13, weight: .heavy))
                 .tracking(0.7)
-                .foregroundStyle(.primary.opacity(0.6))
+                .foregroundStyle(.secondary)
             content()
         }
     }
@@ -102,12 +102,12 @@ struct AbsenceSheet: View {
             if !subject.modules.isEmpty {
                 Text(subject.modules)
                     .font(.system(size: 13.5))
-                    .foregroundStyle(.primary.opacity(0.5))
+                    .foregroundStyle(.secondary)
             }
             Text(subject.percent)
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .font(.system(size: 15, weight: .semibold))
                 .monospacedDigit()
-                .foregroundStyle(subject.percentValue >= 10 ? Palette.accent : Color.primary.opacity(0.8))
+                .foregroundStyle(subject.percentValue >= 10 ? Color.orange : Color.primary)
         }
         .padding(.vertical, 11)
         .padding(.horizontal, 15)
@@ -125,7 +125,7 @@ struct AbsenceSheet: View {
                         .multilineTextAlignment(.leading)
                     Spacer(minLength: 0)
                     Text(record.percent)
-                        .font(.system(size: 14.5, weight: .semibold, design: .rounded))
+                        .font(.system(size: 14.5, weight: .semibold))
                         .foregroundStyle(Palette.accent)
                     if record.needsReason {
                         ReminderButton(itemKey: record.id, offersTiming: false) {
@@ -136,13 +136,13 @@ struct AbsenceSheet: View {
                 if !record.whereLine.isEmpty {
                     Text(record.whereLine)
                         .font(.system(size: 13.5, weight: .medium))
-                        .foregroundStyle(.primary.opacity(0.6))
+                        .foregroundStyle(.secondary)
                 }
                 if !record.reason.isEmpty || !record.comment.isEmpty {
                     Text([AbsenceWording.reason(record.reason), record.comment]
                             .filter { !$0.isEmpty }.joined(separator: " · "))
                         .font(.system(size: 14))
-                        .foregroundStyle(.primary.opacity(0.72))
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.leading)
                 }
                 if record.needsReason {
@@ -181,12 +181,12 @@ struct ExplainAbsenceSheet: View {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Explain absence")
-                            .font(.system(size: 25, weight: .bold, design: .rounded))
+                            .font(.system(size: 25, weight: .bold))
                             .padding(.top, 34)
                             .padding(.trailing, 44)
                         Text([record.whenLine, record.percent].filter { !$0.isEmpty }.joined(separator: " · "))
                             .font(.system(size: 15))
-                            .foregroundStyle(.primary.opacity(0.7))
+                            .foregroundStyle(.secondary)
                     }
 
                     VStack(alignment: .leading, spacing: 9) {
@@ -200,7 +200,7 @@ struct ExplainAbsenceSheet: View {
                                         HStack(spacing: 9) {
                                             Image(systemName: reason == option ? "largecircle.fill.circle" : "circle")
                                                 .font(.system(size: 15))
-                                                .foregroundStyle(reason == option ? Palette.accent : Color.primary.opacity(0.35))
+                                                .foregroundStyle(reason == option ? Palette.accent : Color(.tertiaryLabel))
                                             Text(AbsenceWording.reason(option))
                                                 .font(.system(size: 15.5))
                                             Spacer(minLength: 0)
@@ -236,7 +236,7 @@ struct ExplainAbsenceSheet: View {
                                 Image(systemName: "checkmark").font(.system(size: 14, weight: .bold))
                             }
                             Text(saving ? "Saving…" : "Save reason")
-                                .font(.system(size: 16.5, weight: .semibold, design: .rounded))
+                                .font(.system(size: 16.5, weight: .semibold))
                             Spacer()
                         }
                         .foregroundStyle(Palette.accent)
@@ -264,9 +264,9 @@ struct ExplainAbsenceSheet: View {
 
     private func label(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 13, weight: .heavy, design: .rounded))
+            .font(.system(size: 13, weight: .heavy))
             .tracking(0.7)
-            .foregroundStyle(.primary.opacity(0.6))
+            .foregroundStyle(.secondary)
     }
 
     private func loadOptions() async {

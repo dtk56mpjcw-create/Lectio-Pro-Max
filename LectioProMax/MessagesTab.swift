@@ -103,18 +103,18 @@ struct ThreadRow: View {
                     if thread.hasAttachment {
                         Image(systemName: "paperclip")
                             .font(.system(size: 11.5, weight: .semibold))
-                            .foregroundStyle(.primary.opacity(0.5))
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Text(metaLine)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.72))
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
                 .font(.system(size: 11.5, weight: .bold))
-                .foregroundStyle(.primary.opacity(0.45))
+                .foregroundStyle(.tertiary)
                 .padding(.top, 5)
         }
         .padding(15)

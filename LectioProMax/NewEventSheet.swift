@@ -37,7 +37,7 @@ struct NewEventSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     Text(isEditing ? "Edit event" : "New event")
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .font(.system(size: 26, weight: .bold))
                         .padding(.top, 34)
                         .padding(.trailing, 44)
 
@@ -60,7 +60,7 @@ struct NewEventSheet: View {
 
                     Text("Private appointments are only visible to you.")
                         .font(.system(size: 13.5))
-                        .foregroundStyle(.primary.opacity(0.55))
+                        .foregroundStyle(.secondary)
 
                     saveButton
                     if isEditing { deleteButton }
@@ -96,7 +96,7 @@ struct NewEventSheet: View {
                 // on the web, so it's worth showing.
                 Text("\(max(titleRemaining, 0)) left")
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(titleRemaining < 0 ? Palette.accent : Color.primary.opacity(0.45))
+                    .foregroundStyle(titleRemaining < 0 ? Color.red : Color(.tertiaryLabel))
             }
             TextField("Football practice", text: $title)
                 .font(.system(size: 16))
@@ -128,9 +128,9 @@ struct NewEventSheet: View {
 
     private func label(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 13, weight: .heavy, design: .rounded))
+            .font(.system(size: 13, weight: .heavy))
             .tracking(0.7)
-            .foregroundStyle(.primary.opacity(0.6))
+            .foregroundStyle(.secondary)
     }
 
     private var saveButton: some View {
@@ -144,7 +144,7 @@ struct NewEventSheet: View {
                     Image(systemName: "calendar.badge.plus").font(.system(size: 15, weight: .semibold))
                 }
                 Text(saving ? "Saving…" : (isEditing ? "Save changes" : "Add to schedule"))
-                    .font(.system(size: 16.5, weight: .semibold, design: .rounded))
+                    .font(.system(size: 16.5, weight: .semibold))
                 Spacer()
             }
             .foregroundStyle(Palette.accent)
@@ -164,7 +164,7 @@ struct NewEventSheet: View {
             HStack(spacing: 9) {
                 Image(systemName: "trash").font(.system(size: 14.5, weight: .semibold))
                 Text("Delete event")
-                    .font(.system(size: 16.5, weight: .semibold, design: .rounded))
+                    .font(.system(size: 16.5, weight: .semibold))
                 Spacer()
             }
             .foregroundStyle(.red)

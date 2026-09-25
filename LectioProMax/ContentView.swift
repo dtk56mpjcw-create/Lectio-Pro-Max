@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var session = LectioSession()
-    @AppStorage("appTheme") private var themeRaw: String = AppTheme.system.rawValue
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -11,7 +10,8 @@ struct ContentView: View {
             .task {
                 await session.bootstrap()
             }
-            .preferredColorScheme(AppTheme(rawValue: themeRaw)?.colorScheme)
+            // No in-app light/dark switch: Apple's Dark Mode guidance asks apps to
+            // follow the phone's own setting, which people expect to apply everywhere.
             .fullScreenCover(isPresented: $session.showLogin) {
                 LoginScreen()
                     .environmentObject(session)

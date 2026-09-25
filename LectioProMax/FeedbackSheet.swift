@@ -93,13 +93,13 @@ struct FeedbackSheet: View {
             HStack(spacing: 8) {
                 SubjectDot(code: code, size: 9)
                 Text("ELEVFEEDBACK")
-                    .font(.system(size: 13, weight: .heavy, design: .rounded))
+                    .font(.system(size: 13, weight: .heavy))
                     .tracking(0.7)
-                    .foregroundStyle(tint)
+                    .foregroundStyle(.secondary)
                 Spacer()
             }
             Text(title)
-                .font(.system(size: 25, weight: .bold, design: .rounded))
+                .font(.system(size: 25, weight: .bold))
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -112,7 +112,7 @@ struct FeedbackSheet: View {
             // just something this editor won't touch.
             Text("Written with a table or an image — edit this one in Lectio.")
                 .font(.system(size: 14.5))
-                .foregroundStyle(.primary.opacity(0.6))
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if !feedback.plainText.isEmpty {
                 Text(feedback.plainText)
@@ -133,7 +133,7 @@ struct FeedbackSheet: View {
             if restoredDraft {
                 Text("Restored what you were typing — not saved to Lectio yet.")
                     .font(.system(size: 14))
-                    .foregroundStyle(.primary.opacity(0.55))
+                    .foregroundStyle(.secondary)
             }
 
             formatBar
@@ -169,7 +169,7 @@ struct FeedbackSheet: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 14.5, weight: .semibold))
-                .foregroundStyle(on ? Color.white : .primary.opacity(0.75))
+                .foregroundStyle(on ? Color.white : Color.primary)
                 .frame(width: 36, height: 32)
                 .background(
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
@@ -197,7 +197,7 @@ struct FeedbackSheet: View {
     private func attachLabel(_ icon: String, _ text: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon).font(.system(size: 13, weight: .semibold))
-            Text(text).font(.system(size: 14.5, weight: .semibold, design: .rounded))
+            Text(text).font(.system(size: 14.5, weight: .semibold))
         }
         .foregroundStyle(Palette.accent)
         .padding(.vertical, 9)
@@ -210,15 +210,15 @@ struct FeedbackSheet: View {
             if let busy = busy {
                 HStack(spacing: 9) {
                     ProgressView()
-                    Text(busy).font(.system(size: 14.5)).foregroundStyle(.primary.opacity(0.7))
+                    Text(busy).font(.system(size: 14.5)).foregroundStyle(.secondary)
                 }
             } else if saved {
                 HStack(spacing: 7) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 14))
-                        .foregroundStyle(Palette.accent)
+                        .foregroundStyle(.green)
                     Text("Saved to Lectio")
-                        .font(.system(size: 14.5, weight: .semibold, design: .rounded))
+                        .font(.system(size: 14.5, weight: .semibold))
                 }
             }
 
@@ -230,7 +230,7 @@ struct FeedbackSheet: View {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 15, weight: .semibold))
                         Text("Save to Lectio")
-                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .font(.system(size: 16, weight: .bold))
                     }
                     .foregroundStyle(.white)
                     .padding(.vertical, 12)
@@ -267,7 +267,7 @@ struct FeedbackSheet: View {
             HStack(spacing: 8) {
                 Image(systemName: "trash").font(.system(size: 14.5, weight: .semibold))
                 Text("Delete feedback")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(.system(size: 16, weight: .semibold))
                 Spacer()
             }
             .foregroundStyle(Palette.ember)
@@ -296,7 +296,7 @@ struct FeedbackSheet: View {
                     HStack(spacing: 8) {
                         Image(systemName: "safari").font(.system(size: 15, weight: .semibold))
                         Text("Open in Lectio")
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .font(.system(size: 16, weight: .semibold))
                         Spacer()
                         Image(systemName: "arrow.up.right").font(.system(size: 12.5, weight: .bold))
                     }

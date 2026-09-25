@@ -93,10 +93,10 @@ struct ScheduleTab: View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(LectioDates.friendlyLabel(iso: selectedDate))
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                    .font(.system(size: 30, weight: .bold))
                 Text(LectioDates.longLabel(iso: selectedDate))
                     .font(.system(size: 14.5, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.72))
+                    .foregroundStyle(.secondary)
             }
             Spacer()
             // The one place glass belongs here: controls floating above content.
@@ -164,7 +164,7 @@ struct ScheduleTab: View {
     private func arrow(_ name: String) -> some View {
         Image(systemName: name)
             .font(.system(size: 17, weight: .bold))
-            .foregroundStyle(.primary.opacity(0.8))
+            .foregroundStyle(.primary)
             .frame(width: 38, height: 38)
             .contentCard(radius: 19)
     }
@@ -214,15 +214,15 @@ struct WeekOverview: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 7) {
                 Text(dayName(day).uppercased())
-                    .font(.system(size: 13, weight: .heavy, design: .rounded))
+                    .font(.system(size: 13, weight: .heavy))
                     .tracking(0.7)
-                    .foregroundStyle(isToday(day) ? Palette.accent : Color.primary.opacity(0.6))
+                    .foregroundStyle(isToday(day) ? Palette.accent : Color(.secondaryLabel))
                 Text(dayNum(day))
-                    .font(.system(size: 18.5, weight: .bold, design: .rounded))
+                    .font(.system(size: 18.5, weight: .bold))
                 Spacer()
                 Text("\(day.lessons.count)")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.primary.opacity(0.58))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.secondary)
             }
             if !day.lessons.isEmpty {
                 VStack(alignment: .leading, spacing: 5) {
@@ -230,9 +230,9 @@ struct WeekOverview: View {
                         HStack(spacing: 7) {
                             SubjectDot(code: lesson.code, size: 6)
                             Text(lesson.start)
-                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                                .font(.system(size: 13, weight: .medium))
                                 .monospacedDigit()
-                                .foregroundStyle(.primary.opacity(0.7))
+                                .foregroundStyle(.secondary)
                             Text(lesson.displayTitle)
                                 .font(.system(size: 14))
                                 .lineLimit(1)
@@ -243,7 +243,7 @@ struct WeekOverview: View {
                     if day.lessons.count > 4 {
                         Text("+\(day.lessons.count - 4) more")
                             .font(.system(size: 12.5, weight: .medium))
-                            .foregroundStyle(.primary.opacity(0.58))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -303,45 +303,48 @@ struct LessonCard: View {
         HStack(alignment: .top, spacing: 13) {
             VStack(alignment: .trailing, spacing: 3) {
                 Text(lesson.start)
-                    .font(.system(size: 16.5, weight: .semibold, design: .rounded))
+                    .font(.system(size: 16.5, weight: .semibold))
                     .monospacedDigit()
                     .lineLimit(1)
                 Text(lesson.end)
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundStyle(.primary.opacity(0.58))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
             .frame(width: 58, alignment: .trailing)
             .fixedSize(horizontal: true, vertical: false)
 
-            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                .fill(lesson.cancelled ? Color.secondary.opacity(0.3) : tint)
-                .frame(width: state == .current ? 3.5 : 2)
+            // Calendar's event stripe: a solid bar in the subject colour. The
+            // colour lives here and in the faint wash behind the card — never in
+            // the text, which stays in the system's own label colours.
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(lesson.cancelled ? Color(.tertiaryLabel) : tint)
+                .frame(width: 4)
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 7) {
                     if lesson.isPrivateEvent {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.primary.opacity(0.5))
+                            .foregroundStyle(.secondary)
                     }
                     Text(lesson.displayTitle)
                         .font(.system(size: 18.5, weight: .semibold))
                         .strikethrough(lesson.cancelled)
-                        .foregroundStyle(lesson.cancelled ? Color.primary.opacity(0.55) : Color.primary)
+                        .foregroundStyle(lesson.cancelled ? Color(.secondaryLabel) : Color.primary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                     Spacer(minLength: 0)
                     if state == .current {
                         Text("NOW")
-                            .font(.system(size: 11.5, weight: .heavy, design: .rounded))
-                            .foregroundStyle(.primary.opacity(0.8))
+                            .font(.system(size: 11.5, weight: .heavy))
+                            .foregroundStyle(.primary)
                     }
                 }
 
                 Text(metaLine)
                     .font(.system(size: 14.5, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.72))
+                    .foregroundStyle(.secondary)
 
                 if !lesson.homework.isEmpty {
                     previewLine("book", lesson.homework)
@@ -353,6 +356,10 @@ struct LessonCard: View {
         }
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous)
+                .fill(tint.opacity(lesson.cancelled ? 0 : 0.10))
+        }
         .contentCard(radius: Metrics.inner + 4)
         .opacity(state == .past ? 0.48 : 1)
     }
@@ -375,11 +382,11 @@ struct LessonCard: View {
         HStack(alignment: .top, spacing: 5) {
             Image(systemName: icon)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.primary.opacity(0.58))
+                .foregroundStyle(.secondary)
                 .padding(.top, 1.5)
             Text(LectioDates.tidy(text))
                 .font(.system(size: 14.5))
-                .foregroundStyle(.primary.opacity(0.72))
+                .foregroundStyle(.secondary)
                 .lineLimit(3)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
@@ -422,35 +429,39 @@ struct CompactLessonCard: View {
                     if lesson.isPrivateEvent {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.primary.opacity(0.5))
+                            .foregroundStyle(.secondary)
                     } else {
                         SubjectDot(code: lesson.code, size: 6)
                     }
                     Text(lesson.start)
-                        .font(.system(size: 14.5, weight: .semibold, design: .rounded))
+                        .font(.system(size: 14.5, weight: .semibold))
                         .monospacedDigit()
-                        .foregroundStyle(.primary.opacity(0.72))
+                        .foregroundStyle(.secondary)
                     Spacer(minLength: 0)
                     if state == .current {
                         Text("NOW")
-                            .font(.system(size: 11, weight: .heavy, design: .rounded))
-                            .foregroundStyle(.primary.opacity(0.8))
+                            .font(.system(size: 11, weight: .heavy))
+                            .foregroundStyle(.primary)
                     }
                 }
                 Text(lesson.displayTitle)
                     .font(.system(size: 16, weight: .semibold))
                     .strikethrough(lesson.cancelled)
-                    .foregroundStyle(lesson.cancelled ? Color.primary.opacity(0.55) : Color.primary)
+                    .foregroundStyle(lesson.cancelled ? Color(.secondaryLabel) : Color.primary)
                     .lineLimit(3)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Text(meta)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.58))
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             .padding(13)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: Metrics.inner + 2, style: .continuous)
+                    .fill(tint.opacity(lesson.cancelled ? 0 : 0.10))
+            }
             .contentCard(radius: Metrics.inner + 2)
             .opacity(state == .past ? 0.48 : 1)
     }
@@ -475,13 +486,13 @@ struct WeekPlaceholder: View {
                 VStack(spacing: 12) {
                     Image(systemName: "wifi.exclamationmark")
                         .font(.system(size: 26, weight: .semibold))
-                        .foregroundStyle(.primary.opacity(0.6))
+                        .foregroundStyle(.secondary)
                     Text("Couldn't load this week")
                         .font(.system(size: 16.5, weight: .semibold))
                     if let why = session.weekErrors[weekCode] {
                         Text(why)
                             .font(.system(size: 13.5))
-                            .foregroundStyle(.primary.opacity(0.6))
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 36)
                     }

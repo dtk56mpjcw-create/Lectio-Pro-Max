@@ -36,7 +36,7 @@ struct LessonContentView: View {
                     ProgressView()
                     Text("Loading from Lectio…")
                         .font(.system(size: 15))
-                        .foregroundStyle(.primary.opacity(0.7))
+                        .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 4)
             }
@@ -75,9 +75,9 @@ struct LessonContentView: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 6) {
                     Text("ELEVFEEDBACK")
-                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .font(.system(size: 12, weight: .heavy))
                         .tracking(0.7)
-                        .foregroundStyle(.primary.opacity(0.58))
+                        .foregroundStyle(.secondary)
                     Spacer()
                     Image(systemName: feedback.isEmpty ? "square.and.pencil" : "chevron.right")
                         .font(.system(size: 12.5, weight: .bold))
@@ -86,7 +86,7 @@ struct LessonContentView: View {
                 if feedback.isEmpty {
                     Text("Nothing written yet")
                         .font(.system(size: 16))
-                        .foregroundStyle(.primary.opacity(0.6))
+                        .foregroundStyle(.secondary)
                 } else {
                     Text(feedback.plainText)
                         .font(.system(size: 16))
@@ -107,9 +107,9 @@ struct LessonContentView: View {
     private func textCard(_ title: String, _ body: String) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title.uppercased())
-                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                .font(.system(size: 12, weight: .heavy))
                 .tracking(0.7)
-                .foregroundStyle(.primary.opacity(0.58))
+                .foregroundStyle(.secondary)
             Text(LectioDates.tidy(body))
                 .font(.system(size: 16.5))
                 .lineSpacing(3)
@@ -123,9 +123,9 @@ struct LessonContentView: View {
     private func sectionCard(_ section: LessonSection) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(LessonWording.section(section.title).uppercased())
-                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                .font(.system(size: 12, weight: .heavy))
                 .tracking(0.7)
-                .foregroundStyle(.primary.opacity(0.58))
+                .foregroundStyle(.secondary)
 
             ForEach(section.entries) { entry in
                 VStack(alignment: .leading, spacing: 8) {
@@ -164,7 +164,7 @@ struct LessonContentView: View {
                 Spacer(minLength: 0)
                 Image(systemName: "arrow.down.circle")
                     .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundStyle(.primary.opacity(0.45))
+                    .foregroundStyle(.tertiary)
             }
             .padding(.vertical, 10)
             .padding(.horizontal, 12)

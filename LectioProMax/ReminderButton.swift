@@ -51,7 +51,7 @@ struct ReminderButton: View {
     private var bell: some View {
         Image(systemName: timing == nil ? "bell" : "bell.fill")
             .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(timing == nil ? Color.primary.opacity(0.35) : Palette.accent)
+            .foregroundStyle(timing == nil ? Color(.tertiaryLabel) : Palette.accent)
             .frame(width: 30, height: 30)
             .contentShape(Rectangle())
     }

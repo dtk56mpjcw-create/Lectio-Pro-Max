@@ -89,16 +89,16 @@ struct WorkFilterBar: View {
                     SubjectDot(code: code, size: 6)
                 }
                 Text(title)
-                    .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                    .font(.system(size: 13.5, weight: .semibold))
             }
-            .foregroundStyle(isOn ? Color.primary : Color.primary.opacity(0.65))
+            .foregroundStyle(isOn ? Color.primary : Color(.secondaryLabel))
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background {
-                Capsule().fill(isOn ? Color.primary.opacity(0.10) : Color.clear)
+                Capsule().fill(isOn ? Color(.secondarySystemFill) : Color.clear)
             }
             .overlay {
-                Capsule().strokeBorder(Color.primary.opacity(isOn ? 0.18 : 0.10), lineWidth: 1)
+                Capsule().strokeBorder(Color(.separator), lineWidth: 1)
             }
         }
         .buttonStyle(.plain)

@@ -7,12 +7,21 @@ import SwiftUI
 //   • Group glass elements in a GlassEffectContainer so they share a
 //     sampling region and can morph into one another.
 
+/// Colours come from the system, not from us.
+///
+/// This used to be a hand-picked "Copenhagen sunset": a peach gradient, an
+/// orange glow in the corner, an apricot accent and beige subjects. Every one of
+/// those was a fixed value, so none of them adapted to Dark Mode or Increase
+/// Contrast, and together they are exactly the warm-gradient look that reads as
+/// generated rather than native. Apple's own apps use the system's semantic
+/// colours, which the OS retunes per release, per appearance and per
+/// accessibility setting — so that is all this app uses now.
 enum Palette {
-    // Sampled from the Copenhagen-sunset wallpaper.
-    static let apricot = Color(red: 0.95, green: 0.68, blue: 0.45)
-    static let ember   = Color(red: 0.90, green: 0.55, blue: 0.42)
-    static let dusk    = Color(red: 0.56, green: 0.64, blue: 0.73)
-    static let accent  = Color(red: 0.93, green: 0.62, blue: 0.38)
+    /// The app's one accent. Follows the AccentColor asset, which is set to the
+    /// system blue: change it there and every button, tab and tick follows.
+    static var accent: Color { .accentColor }
+    /// Destructive and failure states — Sign out, Delete. Apple uses system red.
+    static var ember: Color { .red }
 }
 
 enum Metrics {
@@ -21,34 +30,13 @@ enum Metrics {
     static let margin: CGFloat = 18
 }
 
-/// The content layer's backdrop. Quiet, so the glass above it has something
-/// legible to refract without competing with the text.
+/// The screen behind the content: Apple's grouped background, the same light
+/// grey (black in Dark Mode) that Settings, Health and Calendar's lists sit on.
+/// No gradient, no glow.
 struct AppBackground: View {
-    @Environment(\.colorScheme) private var scheme
-
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: scheme == .dark
-                    ? [Color(red: 0.06, green: 0.07, blue: 0.09),
-                       Color(red: 0.11, green: 0.10, blue: 0.11),
-                       Color(red: 0.16, green: 0.13, blue: 0.12)]
-                    : [Color(red: 0.95, green: 0.95, blue: 0.97),
-                       Color(red: 0.97, green: 0.95, blue: 0.93),
-                       Color(red: 0.98, green: 0.92, blue: 0.87)],
-                startPoint: .top, endPoint: .bottom
-            )
-            GeometryReader { geo in
-                Circle()
-                    .fill(RadialGradient(
-                        colors: [Palette.apricot.opacity(scheme == .dark ? 0.20 : 0.26),
-                                 Palette.apricot.opacity(0)],
-                        center: .center, startRadius: 0, endRadius: 280))
-                    .frame(width: 620, height: 620)
-                    .position(x: geo.size.width * 0.82, y: geo.size.height * 0.88)
-            }
-        }
-        .ignoresSafeArea()
+        Color(.systemGroupedBackground)
+            .ignoresSafeArea()
     }
 }
 
@@ -56,26 +44,21 @@ struct AppBackground: View {
 
 /// Content rows are opaque so text stays crisp. Apple's guidance is explicit
 /// that lists and cards are content, not navigation chrome.
+///
+/// A card is Apple's grouped cell colour on the grouped background: white on
+/// light grey, dark grey on black. No translucency and no hairline border —
+/// the contrast between the two system colours is the separation, exactly as
+/// in Settings.
 struct ContentCard: ViewModifier {
     var radius: CGFloat = Metrics.card
     var emphasised: Bool = false
-    @Environment(\.colorScheme) private var scheme
 
     func body(content: Content) -> some View {
         content
             .background {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(scheme == .dark
-                          ? Color.white.opacity(emphasised ? 0.10 : 0.06)
-                          : Color.white.opacity(emphasised ? 0.95 : 0.78))
+                    .fill(Color(.secondarySystemGroupedBackground))
             }
-            .overlay {
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(scheme == .dark ? 0.09 : 0.06),
-                                  lineWidth: 0.7)
-            }
-            // No shadow: a shadow per row is a real cost when dozens are on
-            // screen during a swipe, and the border already separates them.
     }
 }
 
@@ -121,11 +104,11 @@ struct SectionHeading: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .font(.system(size: 34, weight: .bold))
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.6))
+                    .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -139,10 +122,10 @@ struct EmptyNotice: View {
         VStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 30, weight: .light))
-                .foregroundStyle(.primary.opacity(0.4))
+                .foregroundStyle(.tertiary)
             Text(text)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.62))
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 56)

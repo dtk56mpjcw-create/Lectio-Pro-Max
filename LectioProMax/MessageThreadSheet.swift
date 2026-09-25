@@ -58,14 +58,14 @@ struct MessageThreadSheet: View {
     private var headline: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(thread?.subject.isEmpty == false ? thread!.subject : summary.subject)
-                .font(.system(size: 25, weight: .bold, design: .rounded))
+                .font(.system(size: 25, weight: .bold))
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 34)
                 .padding(.trailing, 44)
             if let recipients = thread?.recipients, !recipients.isEmpty {
                 Text(recipients)
                     .font(.system(size: 13.5))
-                    .foregroundStyle(.primary.opacity(0.58))
+                    .foregroundStyle(.secondary)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -80,7 +80,7 @@ struct MessageThreadSheet: View {
                 Spacer(minLength: 0)
                 Text(message.date)
                     .font(.system(size: 13))
-                    .foregroundStyle(.primary.opacity(0.55))
+                    .foregroundStyle(.secondary)
             }
             if !message.body.isEmpty {
                 Text(message.body)
@@ -119,9 +119,9 @@ struct MessageThreadSheet: View {
     private var replyBox: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Reply")
-                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .font(.system(size: 13, weight: .heavy))
                 .tracking(0.7)
-                .foregroundStyle(.primary.opacity(0.6))
+                .foregroundStyle(.secondary)
 
             TextField("Write a reply…", text: $reply, axis: .vertical)
                 .font(.system(size: 16))
@@ -140,7 +140,7 @@ struct MessageThreadSheet: View {
                         Image(systemName: "paperplane.fill").font(.system(size: 14, weight: .semibold))
                     }
                     Text(sending ? "Sending…" : "Send reply")
-                        .font(.system(size: 16.5, weight: .semibold, design: .rounded))
+                        .font(.system(size: 16.5, weight: .semibold))
                     Spacer()
                 }
                 .foregroundStyle(Palette.accent)

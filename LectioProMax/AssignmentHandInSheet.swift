@@ -73,19 +73,19 @@ struct AssignmentHandInSheet: View {
             HStack(spacing: 8) {
                 SubjectDot(code: item.code, size: 9)
                 Text(item.code.uppercased())
-                    .font(.system(size: 14, weight: .heavy, design: .rounded))
+                    .font(.system(size: 14, weight: .heavy))
                     .tracking(0.6)
-                    .foregroundStyle(tint)
+                    .foregroundStyle(.secondary)
                 Spacer()
             }
             Text(LectioDates.tidy(item.title))
-                .font(.system(size: 25.5, weight: .bold, design: .rounded))
+                .font(.system(size: 25.5, weight: .bold))
                 .fixedSize(horizontal: false, vertical: true)
             if let due = item.due {
                 Text("Due " + LectioDates.friendlyLabel(iso: due)
                      + (item.dueTime.isEmpty ? "" : " · " + item.dueTime))
                     .font(.system(size: 15.5, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.72))
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -97,9 +97,9 @@ struct AssignmentHandInSheet: View {
             HStack(spacing: 9) {
                 Image(systemName: status.isDelivered ? "checkmark.seal.fill" : "exclamationmark.circle")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(status.isDelivered ? tint : Palette.accent)
+                    .foregroundStyle(status.isDelivered ? Color.green : Color.orange)
                 Text(status.isDelivered ? "Handed in" : "Not handed in")
-                    .font(.system(size: 17.5, weight: .semibold, design: .rounded))
+                    .font(.system(size: 17.5, weight: .semibold))
                 Spacer(minLength: 0)
             }
             if !status.deliveryLine.isEmpty {
@@ -122,7 +122,7 @@ struct AssignmentHandInSheet: View {
         HStack(alignment: .top, spacing: 8) {
             Text(label)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.58))
+                .foregroundStyle(.secondary)
                 .frame(width: 96, alignment: .leading)
             Text(value)
                 .font(.system(size: 14.5))
@@ -136,9 +136,9 @@ struct AssignmentHandInSheet: View {
     private func entriesSection(_ entries: [HandInEntry]) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             Text("Handed in")
-                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .font(.system(size: 13, weight: .heavy))
                 .tracking(0.7)
-                .foregroundStyle(.primary.opacity(0.6))
+                .foregroundStyle(.secondary)
 
             if entries.isEmpty {
                 EmptyNotice(icon: "tray", text: "Nothing handed in yet")
@@ -155,7 +155,7 @@ struct AssignmentHandInSheet: View {
                         }
                         Text([entry.user, entry.time].filter { !$0.isEmpty }.joined(separator: " · "))
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.primary.opacity(0.58))
+                            .foregroundStyle(.secondary)
                     }
                     .padding(13)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -186,7 +186,7 @@ struct AssignmentHandInSheet: View {
                 if entry.documentLink != nil {
                     Image(systemName: "arrow.down.circle")
                         .font(.system(size: 13.5, weight: .semibold))
-                        .foregroundStyle(.primary.opacity(0.5))
+                        .foregroundStyle(.secondary)
                 }
             }
             .contentShape(Rectangle())
@@ -216,9 +216,9 @@ struct AssignmentHandInSheet: View {
     private var handInSection: some View {
         VStack(alignment: .leading, spacing: 11) {
             Text("Add to this assignment")
-                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .font(.system(size: 13, weight: .heavy))
                 .tracking(0.7)
-                .foregroundStyle(.primary.opacity(0.6))
+                .foregroundStyle(.secondary)
 
             TextField("Comment (optional)", text: $comment, axis: .vertical)
                 .font(.system(size: 15.5))
@@ -259,7 +259,7 @@ struct AssignmentHandInSheet: View {
             if justSent {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(tint)
+                        .foregroundStyle(.green)
                     Text("Sent to Lectio")
                         .font(.system(size: 15, weight: .semibold))
                 }
@@ -270,7 +270,7 @@ struct AssignmentHandInSheet: View {
     private func actionLabel(_ icon: String, _ title: String) -> some View {
         HStack(spacing: 9) {
             Image(systemName: icon).font(.system(size: 15, weight: .semibold))
-            Text(title).font(.system(size: 16.5, weight: .semibold, design: .rounded))
+            Text(title).font(.system(size: 16.5, weight: .semibold))
             Spacer()
         }
         .foregroundStyle(Palette.accent)
@@ -286,11 +286,11 @@ struct AssignmentHandInSheet: View {
                     HStack(spacing: 8) {
                         Image(systemName: "safari").font(.system(size: 15, weight: .semibold))
                         Text("Open in Lectio")
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .font(.system(size: 16, weight: .semibold))
                         Spacer()
                         Image(systemName: "arrow.up.right").font(.system(size: 12.5, weight: .bold))
                     }
-                    .foregroundStyle(.primary.opacity(0.7))
+                    .foregroundStyle(.secondary)
                     .padding(15)
                     .frame(maxWidth: .infinity)
                     .contentCard(radius: Metrics.inner + 2)

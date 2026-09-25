@@ -66,7 +66,7 @@ struct SearchSheet: View {
 
             VStack(alignment: .leading, spacing: 13) {
                 Text("Search")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .font(.system(size: 26, weight: .bold))
                     .padding(.top, 34)
                     .padding(.trailing, 44)
 
@@ -159,9 +159,9 @@ struct SearchSheet: View {
                                       @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title.uppercased())
-                .font(.system(size: 12.5, weight: .heavy, design: .rounded))
+                .font(.system(size: 12.5, weight: .heavy))
                 .tracking(0.7)
-                .foregroundStyle(.primary.opacity(0.5))
+                .foregroundStyle(.secondary)
                 .padding(.leading, 4)
             VStack(spacing: 0) { content() }
                 .contentCard(radius: Metrics.inner)
@@ -177,7 +177,7 @@ struct SearchSheet: View {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(code.isEmpty ? Color.primary.opacity(0.45) : Color.forSubject(code))
+                    .foregroundStyle(code.isEmpty ? Color(.tertiaryLabel) : Color.forSubject(code))
                     .frame(width: 22)
                     .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 2) {
@@ -188,7 +188,7 @@ struct SearchSheet: View {
                     if !detail.isEmpty || !code.isEmpty {
                         Text([code.uppercased(), detail].filter { !$0.isEmpty }.joined(separator: " · "))
                             .font(.system(size: 12.5, weight: .medium))
-                            .foregroundStyle(.primary.opacity(0.55))
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Spacer(minLength: 0)

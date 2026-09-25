@@ -17,7 +17,7 @@ struct StudyPlanSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Study plan")
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .font(.system(size: 26, weight: .bold))
                         .padding(.top, 34)
                         .padding(.trailing, 44)
 
@@ -56,15 +56,15 @@ struct StudyPlanSheet: View {
         let norm = subjects.reduce(0) { $0 + $1.norm }
         return VStack(alignment: .leading, spacing: 5) {
             Text("STUDY HOURS THIS YEAR")
-                .font(.system(size: 11.5, weight: .heavy, design: .rounded))
+                .font(.system(size: 11.5, weight: .heavy))
                 .tracking(0.6)
-                .foregroundStyle(.primary.opacity(0.55))
+                .foregroundStyle(.secondary)
             Text(hours(done) + (norm > 0 ? " of " + hours(norm) + " hours" : " hours"))
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .font(.system(size: 24, weight: .bold))
             Text("Lectio calls this Elevtid: hours logged against your subjects, "
                  + "against what the year expects.")
                 .font(.system(size: 13))
-                .foregroundStyle(.primary.opacity(0.55))
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(15)
@@ -80,21 +80,21 @@ struct StudyPlanSheet: View {
             HStack(spacing: 8) {
                 SubjectDot(code: subject.code, size: 9)
                 Text(subject.name.uppercased())
-                    .font(.system(size: 13.5, weight: .heavy, design: .rounded))
+                    .font(.system(size: 13.5, weight: .heavy))
                     .tracking(0.5)
-                    .foregroundStyle(tint)
+                    .foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 Text(subject.hasNorm
                      ? hours(subject.hours) + " / " + hours(subject.norm) + " h"
                      : hours(subject.hours) + " h")
-                    .font(.system(size: 13.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.primary.opacity(0.6))
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(.secondary)
             }
 
             if subject.hasNorm {
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color.primary.opacity(0.08))
+                        Capsule().fill(Color(.tertiarySystemFill))
                         Capsule()
                             .fill(tint)
                             .frame(width: max(3, geometry.size.width * subject.progress))
@@ -124,19 +124,19 @@ struct StudyPlanSheet: View {
                     // Lectio counts a forløb in "moduler" — lesson blocks.
                     Text(modules(phase.estimate))
                         .font(.system(size: 12.5, weight: .medium))
-                        .foregroundStyle(.primary.opacity(0.45))
+                        .foregroundStyle(.tertiary)
                 }
             }
             if !phase.period.isEmpty {
                 Text(LectioDates.englishPeriod(phase.period))
                     .font(.system(size: 12.5))
-                    .foregroundStyle(.primary.opacity(0.5))
+                    .foregroundStyle(.secondary)
             }
             if expanded.contains(phase.id), !phase.summary.isEmpty {
                 Text(LectioDates.tidy(phase.summary))
                     .font(.system(size: 14.5))
                     .lineSpacing(2)
-                    .foregroundStyle(.primary.opacity(0.78))
+                    .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 2)
             }

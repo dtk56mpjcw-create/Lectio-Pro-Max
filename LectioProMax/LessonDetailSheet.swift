@@ -17,28 +17,28 @@ struct LessonDetailSheet: View {
                     HStack(spacing: 8) {
                         SubjectDot(code: lesson.code, size: 9)
                         Text(lesson.code.uppercased())
-                            .font(.system(size: 14, weight: .heavy, design: .rounded))
+                            .font(.system(size: 14, weight: .heavy))
                             .tracking(0.6)
-                            .foregroundStyle(tint)
+                            .foregroundStyle(.secondary)
                         if state == .current {
                             Text("NOW")
-                                .font(.system(size: 12.5, weight: .heavy, design: .rounded))
+                                .font(.system(size: 12.5, weight: .heavy))
                                 .foregroundStyle(Palette.accent)
                         }
                         if lesson.cancelled {
                             Text("CANCELLED")
-                                .font(.system(size: 12.5, weight: .heavy, design: .rounded))
-                                .foregroundStyle(Palette.accent)
+                                .font(.system(size: 12.5, weight: .heavy))
+                                .foregroundStyle(.red)
                         }
                         Spacer()
                     }
                     Text(lesson.displayTitle)
-                        .font(.system(size: 31, weight: .bold, design: .rounded))
+                        .font(.system(size: 31, weight: .bold))
                         .strikethrough(lesson.cancelled)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(LectioDates.longLabel(iso: dayISO) + " · " + lesson.timeRange)
                         .font(.system(size: 15.5, weight: .medium))
-                        .foregroundStyle(.primary.opacity(0.72))
+                        .foregroundStyle(.secondary)
                 }
 
                 if !lesson.room.isEmpty || !lesson.teacher.isEmpty {
@@ -62,7 +62,7 @@ struct LessonDetailSheet: View {
                         HStack(spacing: 8) {
                             Image(systemName: "safari").font(.system(size: 15, weight: .semibold))
                             Text("Open in Lectio")
-                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                .font(.system(size: 16, weight: .semibold))
                             Spacer()
                             Image(systemName: "arrow.up.right").font(.system(size: 12.5, weight: .bold))
                         }
@@ -81,11 +81,11 @@ struct LessonDetailSheet: View {
             HStack(spacing: 4) {
                 Image(systemName: icon).font(.system(size: 11, weight: .semibold))
                 Text(label.uppercased())
-                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .font(.system(size: 11, weight: .heavy))
                     .tracking(0.5)
             }
-            .foregroundStyle(.primary.opacity(0.58))
-            Text(value).font(.system(size: 18.5, weight: .semibold, design: .rounded))
+            .foregroundStyle(.secondary)
+            Text(value).font(.system(size: 18.5, weight: .semibold))
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -95,9 +95,9 @@ struct LessonDetailSheet: View {
     private func textSection(_ title: String, _ body: String) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title.uppercased())
-                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                .font(.system(size: 12, weight: .heavy))
                 .tracking(0.7)
-                .foregroundStyle(.primary.opacity(0.58))
+                .foregroundStyle(.secondary)
             Text(LectioDates.tidy(body))
                 .font(.system(size: 16.5))
                 .lineSpacing(3)

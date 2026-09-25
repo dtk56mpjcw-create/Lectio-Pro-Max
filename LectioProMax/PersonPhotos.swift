@@ -156,10 +156,10 @@ struct PersonAvatar: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                Circle().fill(Color.primary.opacity(0.07))
+                Circle().fill(Color(.tertiarySystemFill))
                 Text(initials)
-                    .font(.system(size: size * 0.38, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.primary.opacity(0.45))
+                    .font(.system(size: size * 0.38, weight: .semibold))
+                    .foregroundStyle(.tertiary)
             }
         }
         .frame(width: size, height: size)
@@ -207,7 +207,7 @@ struct PhotoViewer: View {
                     .frame(maxWidth: 200)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 Text(name)
-                    .font(.system(size: 19, weight: .semibold, design: .rounded))
+                    .font(.system(size: 19, weight: .semibold))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Metrics.margin)
                 Spacer()

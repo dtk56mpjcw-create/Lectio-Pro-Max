@@ -33,7 +33,7 @@ struct SheetCloseButton: View {
         } label: {
             Image(systemName: "xmark")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(.primary.opacity(0.72))
+                .foregroundStyle(.secondary)
                 .frame(width: 32, height: 32)
                 .contentCard(radius: 16)
         }

@@ -36,7 +36,7 @@ struct NewMessageSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     Text("New message")
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .font(.system(size: 26, weight: .bold))
                         .padding(.top, 34)
                         .padding(.trailing, 44)
 
@@ -46,7 +46,7 @@ struct NewMessageSheet: View {
 
                     if sent {
                         HStack(spacing: 8) {
-                            Image(systemName: "checkmark.circle.fill").foregroundStyle(Palette.accent)
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                             Text("Sent").font(.system(size: 15.5, weight: .semibold))
                         }
                     }
@@ -74,9 +74,9 @@ struct NewMessageSheet: View {
     private var recipientSection: some View {
         VStack(alignment: .leading, spacing: 9) {
             Text("To")
-                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .font(.system(size: 13, weight: .heavy))
                 .tracking(0.7)
-                .foregroundStyle(.primary.opacity(0.6))
+                .foregroundStyle(.secondary)
 
             if !chosen.isEmpty {
                 VStack(spacing: 7) {
@@ -94,7 +94,7 @@ struct NewMessageSheet: View {
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
                                     .font(.system(size: 15))
-                                    .foregroundStyle(.primary.opacity(0.4))
+                                    .foregroundStyle(.tertiary)
                             }
                             .buttonStyle(.plain)
                         }
@@ -124,7 +124,7 @@ struct NewMessageSheet: View {
                             HStack(spacing: 9) {
                                 Image(systemName: person.kind.icon)
                                     .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.primary.opacity(0.55))
+                                    .foregroundStyle(.secondary)
                                     .frame(width: 20)
                                 Text(person.name)
                                     .font(.system(size: 15))
@@ -132,7 +132,7 @@ struct NewMessageSheet: View {
                                 Spacer(minLength: 0)
                                 Text(person.kind.label)
                                     .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(.primary.opacity(0.45))
+                                    .foregroundStyle(.tertiary)
                             }
                             .padding(.vertical, 10)
                             .padding(.horizontal, 13)
@@ -150,9 +150,9 @@ struct NewMessageSheet: View {
     private func field(_ label: String, text: Binding<String>, lines: ClosedRange<Int>) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             Text(label.uppercased())
-                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .font(.system(size: 13, weight: .heavy))
                 .tracking(0.7)
-                .foregroundStyle(.primary.opacity(0.6))
+                .foregroundStyle(.secondary)
             TextField(label, text: text, axis: .vertical)
                 .font(.system(size: 16))
                 .lineLimit(lines)
@@ -173,7 +173,7 @@ struct NewMessageSheet: View {
                     Image(systemName: "paperplane.fill").font(.system(size: 14, weight: .semibold))
                 }
                 Text(sending ? "Sending…" : "Send message")
-                    .font(.system(size: 16.5, weight: .semibold, design: .rounded))
+                    .font(.system(size: 16.5, weight: .semibold))
                 Spacer()
             }
             .foregroundStyle(Palette.accent)

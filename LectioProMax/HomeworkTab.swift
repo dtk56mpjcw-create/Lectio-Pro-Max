@@ -40,7 +40,7 @@ struct HomeworkTab: View {
                 } else {
                     ForEach(groups) { group in
                         groupSection(title: group.title,
-                                     accent: group.isOverdue ? Palette.accent : nil,
+                                     accent: group.isOverdue ? Color.red : nil,
                                      items: group.items)
                     }
                     if !doneItems.isEmpty {
@@ -61,7 +61,7 @@ struct HomeworkTab: View {
     private func groupSection(title: String, accent: Color?, items: [WorkItem]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
-                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .font(.system(size: 13, weight: .heavy))
                 .tracking(0.8)
                 .foregroundStyle(accent ?? Color.secondary)
                 .padding(.leading, 4)
@@ -164,14 +164,14 @@ struct WorkRow: View {
                     Text(LectioDates.tidy(item.title))
                         .font(.system(size: 16.5, weight: .medium))
                         .strikethrough(done)
-                        .foregroundStyle(done ? Color.primary.opacity(0.55) : Color.primary)
+                        .foregroundStyle(done ? Color(.secondaryLabel) : Color.primary)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 6) {
                         SubjectDot(code: item.code, size: 6)
                         Text(metaLine)
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.primary.opacity(0.72))
+                            .foregroundStyle(.secondary)
                         Spacer(minLength: 0)
                     }
                 }
@@ -228,19 +228,19 @@ struct WorkDetailSheet: View {
                     HStack(spacing: 8) {
                         SubjectDot(code: item.code, size: 9)
                         Text(item.code.uppercased())
-                            .font(.system(size: 14, weight: .heavy, design: .rounded))
+                            .font(.system(size: 14, weight: .heavy))
                             .tracking(0.6)
-                            .foregroundStyle(tint)
+                            .foregroundStyle(.secondary)
                         Spacer()
                     }
                     Text(LectioDates.tidy(item.title))
-                        .font(.system(size: 25.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 25.5, weight: .bold))
                         .fixedSize(horizontal: false, vertical: true)
                     if let due = item.due {
                         Text("Due " + LectioDates.friendlyLabel(iso: due)
                              + (item.dueTime.isEmpty ? "" : " · " + item.dueTime))
                             .font(.system(size: 15.5, weight: .medium))
-                            .foregroundStyle(.primary.opacity(0.72))
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -252,7 +252,7 @@ struct WorkDetailSheet: View {
                         Image(systemName: done ? "arrow.uturn.backward" : "checkmark")
                             .font(.system(size: 15, weight: .bold))
                         Text(done ? "Mark as not done" : "Mark as done")
-                            .font(.system(size: 16.5, weight: .semibold, design: .rounded))
+                            .font(.system(size: 16.5, weight: .semibold))
                         Spacer()
                     }
                     .foregroundStyle(done ? Color.secondary : Palette.accent)
@@ -282,11 +282,11 @@ struct WorkDetailSheet: View {
                         HStack(spacing: 8) {
                             Image(systemName: "safari").font(.system(size: 15, weight: .semibold))
                             Text("Open in Lectio")
-                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                .font(.system(size: 16, weight: .semibold))
                             Spacer()
                             Image(systemName: "arrow.up.right").font(.system(size: 12.5, weight: .bold))
                         }
-                        .foregroundStyle(.primary.opacity(0.7))
+                        .foregroundStyle(.secondary)
                         .padding(15)
                         .frame(maxWidth: .infinity)
                         .contentCard(radius: Metrics.inner + 2)
