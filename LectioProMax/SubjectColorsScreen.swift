@@ -90,7 +90,8 @@ struct SubjectColorsScreen: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
-                    Text(current.name)
+                    Text(SubjectColors.shared.picked[subject.key] == nil
+                         ? "Automatic" : current.name)
                         .font(.system(size: 15))
                         .foregroundStyle(.secondary)
                     Image(systemName: "chevron.down")
@@ -115,9 +116,35 @@ struct SubjectColorsScreen: View {
     }
 
     private func swatches(for key: String, current: SubjectColorChoice) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let isAutomatic = SubjectColors.shared.picked[key] == nil
+        return VStack(alignment: .leading, spacing: 12) {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 7),
                       spacing: 10) {
+                // Automatic always comes first, ticked while nothing's picked —
+                // not a link that only appears once you've changed something.
+                Button {
+                    SubjectColors.shared.set(nil, for: key)
+                } label: {
+                    VStack(spacing: 3) {
+                        ZStack {
+                            Circle()
+                                .fill(SubjectPalette.automaticChoice(forKey: key).color)
+                                .frame(width: 32, height: 32)
+                            Image(systemName: isAutomatic ? "checkmark" : "wand.and.stars")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                        Text("Auto")
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(width: 44, height: 52)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Automatic")
+                .accessibilityAddTraits(isAutomatic ? .isSelected : [])
+
                 ForEach(SubjectColorChoice.allCases) { choice in
                     Button {
                         SubjectColors.shared.set(choice, for: key)
@@ -126,7 +153,7 @@ struct SubjectColorsScreen: View {
                             Circle()
                                 .fill(choice.color)
                                 .frame(width: 32, height: 32)
-                            if choice == current {
+                            if !isAutomatic && choice == current {
                                 Image(systemName: "checkmark")
                                     .font(.system(size: 13, weight: .bold))
                                     .foregroundStyle(.white)
@@ -138,14 +165,8 @@ struct SubjectColorsScreen: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(choice.name)
-                    .accessibilityAddTraits(choice == current ? .isSelected : [])
+                    .accessibilityAddTraits(!isAutomatic && choice == current ? .isSelected : [])
                 }
-            }
-            if SubjectColors.shared.picked[key] != nil {
-                Button("Back to automatic") {
-                    SubjectColors.shared.set(nil, for: key)
-                }
-                .font(.system(size: 15, weight: .medium))
             }
         }
     }

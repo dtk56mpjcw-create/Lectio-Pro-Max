@@ -45,7 +45,11 @@ enum SubjectPalette {
 
     /// Which colour a subject has — picked, default or automatic.
     static func choice(forKey key: String) -> SubjectColorChoice {
-        if let picked = SubjectColors.shared.picked[key] { return picked }
+        SubjectColors.shared.picked[key] ?? automaticChoice(forKey: key)
+    }
+
+    /// The colour a subject has when nothing's been picked for it.
+    static func automaticChoice(forKey key: String) -> SubjectColorChoice {
         if let known = defaults[key] { return known }
         return automatic[Int(stableHash(key) % UInt64(automatic.count))]
     }
