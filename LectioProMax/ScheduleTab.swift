@@ -411,13 +411,15 @@ struct ScheduleTab: View {
 /// underneath (rebuilding the day pager on the way back from the week
 /// sometimes left it resting between two days).
 ///
-/// It behaves like zooming a photo: the view under your fingers scales with
-/// them one to one, around the point between them. Pinching in, the day
-/// shrinks under your fingers while the week fades in over it, settling from
-/// slightly larger; pinching out, the week grows under your fingers and fades
-/// away to the day. Let go and it finishes whichever way you were heading —
-/// past about a third of the way, or with a quick flick — and springs back
-/// otherwise.
+/// The view you're on follows the fingers one to one, scaling from the top
+/// edge of the page: the first lessons stay where they are and nothing slides
+/// up or down. (Scaling around the point between the fingers, or bringing the
+/// other view in from a size well off 1×, pushed whole rows off the top and
+/// back again — it read as the page being dragged up and down mid-pinch.)
+/// The other view only fades in once the pinch is clearly going somewhere,
+/// so the two never sit half-and-half on top of each other for long. Let go
+/// and it finishes whichever way you were heading — past about 40% of the
+/// way, or with a quick flick — and springs back otherwise.
 ///
 /// Cheap to draw every frame: the day only scales, and the week, on top with
 /// an opaque background, is the only thing that fades.
@@ -430,12 +432,6 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
 
     @GestureState(resetTransaction: Transaction(animation: .smooth(duration: 0.35)))
     private var pinch: CGFloat = 1
-    /// Where the fingers started, so the zoom centres on them. Kept after the
-    /// fingers lift, so the release animation doesn't jump to the middle.
-    @State private var anchor: UnitPoint = .center
-    /// Set while a pinch (and its release animation) is in charge, so a tap
-    /// on the week button zooms from the middle, not from the last pinch.
-    @State private var pinchDriven = false
     /// Scrolling stays off a moment after the pinch, too: the fingers rarely
     /// lift together, and the last one used to drag the page as it left.
     @State private var lingering = false
@@ -445,8 +441,12 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
     @State private var pinchSerial = 0
     @State private var tracker = PinchTracker()
 
+    /// The top middle of the page.
+    private let anchor = UnitPoint(x: 0.5, y: 0)
+
     var body: some View {
         let p = progress(for: pinch)
+        let fade = Self.fade(p)
         ZStack {
             // The view you're not on can't scroll. Hit testing alone didn't
             // stop it: once the week started fading in under a pinch, its
@@ -459,7 +459,7 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
             week
                 .scaleEffect(weekScale(p), anchor: anchor)
                 .background(Color(.systemGroupedBackground))
-                .opacity(Double(weekMode ? 1 - p : p))
+                .opacity(Double(weekMode ? 1 - fade : fade))
                 .allowsHitTesting(weekMode)
                 .scrollDisabled(!weekMode || locked)
                 .accessibilityHidden(!weekMode)
@@ -479,8 +479,6 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
                         activePinch = true
                         pinchSerial += 1
                     }
-                    if !pinchDriven { pinchDriven = true }
-                    if anchor != value.startAnchor { anchor = value.startAnchor }
                     tracker.track(value.magnification)
                 }
                 .onEnded { value in
@@ -492,50 +490,48 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
                     let toward = weekMode ? tracker.velocity : -tracker.velocity
                     let p = progress(for: value.magnification)
                     tracker.reset()
-                    if toward > 1.0 || (p > 0.33 && toward > -0.5) {
+                    if toward > 1.0 || (p > 0.4 && toward > -0.5) {
                         onSwitch(!weekMode)
                     }
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(450))
                         // Unless another pinch has started since.
                         guard serial == pinchSerial, !activePinch else { return }
-                        pinchDriven = false
                         lingering = false
                         freezer.thaw()
                     }
                 }
         )
-        .onChange(of: weekMode) { _, _ in
-            if !pinchDriven { anchor = .center }
-        }
     }
 
     /// Nothing scrolls while a pinch lasts. Set on each layer, next to its
     /// own on/off: a disable on the stack around them was overridden by the
-    /// layer's own `scrollDisabled(false)`, so the week you were pinching
-    /// still scrolled up and down under your fingers.
+    /// layer's own `scrollDisabled(false)`.
     private var locked: Bool { pinch != 1 || lingering }
 
     /// 0 at rest, 1 once the fingers have gone the whole way toward the other
-    /// view: in to 0.6×, or out to 1.6×.
+    /// view: in to 0.75×, or out to 1.35×.
     private func progress(for m: CGFloat) -> CGFloat {
-        let raw = weekMode ? (m - 1) / 0.6 : (1 - m) / 0.4
+        let raw = weekMode ? (m - 1) / 0.35 : (1 - m) / 0.25
         return min(max(raw, 0), 1)
     }
 
-    /// The day follows the fingers one to one while you're on it — but only
-    /// shrinking, toward the week. Spreading your fingers on a day has
-    /// nothing to zoom into, so it doesn't move at all. Under the week it
-    /// waits a little smaller, and grows back as the week fades.
-    private func dayScale(_ p: CGFloat) -> CGFloat {
-        weekMode ? 0.8 + 0.2 * p : min(Self.soft(pinch, low: 0.6, high: 1), 1)
+    /// Nothing for the first 30% of a pinch, then in over the next half.
+    private static func fade(_ p: CGFloat) -> CGFloat {
+        min(max((p - 0.3) / 0.5, 0), 1)
     }
 
-    /// The week follows the fingers one to one while you're on it — but only
-    /// growing, toward the day; pinching it smaller has nothing to go to.
-    /// From the day it comes in from slightly larger.
+    /// The day follows the fingers one to one while you're on it — only
+    /// shrinking, toward the week; spreading your fingers on a day has
+    /// nothing to zoom into. Under the week it waits just smaller than full.
+    private func dayScale(_ p: CGFloat) -> CGFloat {
+        weekMode ? 0.94 + 0.06 * p : min(Self.soft(pinch, low: 0.75, high: 1), 1)
+    }
+
+    /// The week follows the fingers one to one while you're on it — only
+    /// growing, toward the day. From the day it comes in from just larger.
     private func weekScale(_ p: CGFloat) -> CGFloat {
-        weekMode ? max(Self.soft(pinch, low: 1, high: 1.6), 1) : 1.25 - 0.25 * p
+        weekMode ? max(Self.soft(pinch, low: 1, high: 1.35), 1) : 1.06 - 0.06 * p
     }
 
     /// Follows the value inside the range and resists beyond it.
