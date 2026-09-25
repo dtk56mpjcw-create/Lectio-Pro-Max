@@ -55,6 +55,21 @@ enum LessonText {
 
 // MARK: - Schedule
 
+/// Opens lessons for the schedule's cards — and keeps a pinch from counting as
+/// a tap: the fingers lifting off a card at the end of a pinch used to open it.
+@Observable
+final class LessonOpener {
+    var path: [LessonRoute] = []
+    @ObservationIgnored var lastPinch = Date.distantPast
+
+    var pinchedJustNow: Bool { Date().timeIntervalSince(lastPinch) < 0.5 }
+
+    func open(_ route: LessonRoute) {
+        guard !pinchedJustNow else { return }
+        path.append(route)
+    }
+}
+
 /// The day, with the week a pinch or a tap away.
 ///
 /// Days page sideways in a real paging scroll view, and each day is a scroll
@@ -77,11 +92,14 @@ struct ScheduleTab: View {
     @State private var weekMode = false
     @State private var addingEvent = false
 
+    @State private var opener = LessonOpener()
+
     /// The pages run under the tab bar, so the last lesson needs room to
-    /// scroll clear of it: the difference between the two heights.
-    @State private var safeHeight: CGFloat = 0
-    @State private var fullHeight: CGFloat = 0
-    private var bottomInset: CGFloat { max(0, fullHeight - safeHeight) }
+    /// scroll clear of it. The floor is the floating tab bar's own height, in
+    /// case the measurement comes back empty — as it once did, leaving the
+    /// last lessons stuck under the bar.
+    @State private var safeBottom: CGFloat = 0
+    private var bottomInset: CGFloat { max(safeBottom, 84) }
 
     /// Live pinch, so the day shrinks toward the week under your fingers.
     @GestureState(resetTransaction: Transaction(animation: .smooth(duration: 0.3)))
@@ -103,7 +121,7 @@ struct ScheduleTab: View {
     private var weekCode: String { LectioDates.weekCode(iso: selectedDate) }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $opener.path) {
             VStack(spacing: 0) {
                 header
                 pagers
@@ -113,6 +131,7 @@ struct ScheduleTab: View {
             // appears on a lesson pushed from it.
             .toolbar(.hidden, for: .navigationBar)
             .environment(\.lessonZoom, zoom)
+            .environment(opener)
             .navigationDestination(for: LessonRoute.self) { route in
                 LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
                     .navigationTransition(.zoom(sourceID: route.zoomID, in: zoom))
@@ -225,49 +244,53 @@ struct ScheduleTab: View {
     // MARK: Pagers
 
     private var pagers: some View {
-        ZStack {
-            Group {
-                // Zooming out, the day shrinks away and the week settles in
-                // from slightly larger; zooming in, the reverse — the same
-                // directions the pinch itself moves them.
-                if weekMode {
-                    weekPager
-                        .transition(.opacity.combined(with: .scale(scale: 1.08)))
-                } else {
-                    dayPager
-                        .transition(.opacity.combined(with: .scale(scale: 0.92)))
-                }
-            }
-            .ignoresSafeArea(.container, edges: .bottom)
-            .onGeometryChange(for: CGFloat.self) { geometry in
-                geometry.size.height
-            } action: { height in
-                fullHeight = height
-            }
-            // Follows the pinch: a day shrinks toward the week, a week grows
-            // toward the day. Let go past the line and it carries on.
-            .scaleEffect(pinchScale)
-            .opacity(pinchOpacity)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onGeometryChange(for: CGFloat.self) { geometry in
-            geometry.size.height
-        } action: { height in
-            safeHeight = height
-        }
-        .simultaneousGesture(
-            MagnifyGesture()
-                .updating($pinch) { value, state, _ in
-                    state = value.magnification
-                }
-                .onEnded { value in
-                    if value.magnification < 0.9 && !weekMode {
-                        setWeekMode(true)
-                    } else if value.magnification > 1.1 && weekMode {
-                        setWeekMode(false)
+        ScrollViewReader { proxy in
+            ZStack {
+                Group {
+                    // Zooming out, the day shrinks away and the week settles in
+                    // from slightly larger; zooming in, the reverse — the same
+                    // directions the pinch itself moves them.
+                    if weekMode {
+                        weekPager(proxy)
+                            .transition(.opacity.combined(with: .scale(scale: 1.08)))
+                    } else {
+                        dayPager(proxy)
+                            .transition(.opacity.combined(with: .scale(scale: 0.92)))
                     }
                 }
-        )
+                .ignoresSafeArea(.container, edges: .bottom)
+                // Two fingers pinching would otherwise also drag the pages
+                // sideways, landing you on another day or week.
+                .scrollDisabled(pinch != 1)
+                // Follows the pinch: a day shrinks toward the week, a week
+                // grows toward the day. Let go past the line and it carries on.
+                .scaleEffect(pinchScale)
+                .opacity(pinchOpacity)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onGeometryChange(for: CGFloat.self) { geometry in
+                geometry.safeAreaInsets.bottom
+            } action: { inset in
+                safeBottom = inset
+            }
+            .simultaneousGesture(
+                MagnifyGesture()
+                    .updating($pinch) { value, state, _ in
+                        state = value.magnification
+                    }
+                    .onChanged { _ in
+                        opener.lastPinch = Date()
+                    }
+                    .onEnded { value in
+                        opener.lastPinch = Date()
+                        if value.magnification < 0.9 && !weekMode {
+                            setWeekMode(true)
+                        } else if value.magnification > 1.1 && weekMode {
+                            setWeekMode(false)
+                        }
+                    }
+            )
+        }
     }
 
     private var pinchScale: CGFloat {
@@ -278,7 +301,7 @@ struct ScheduleTab: View {
         Double(1 - abs(pinchScale - 1) * 2.5)
     }
 
-    private var dayPager: some View {
+    private func dayPager(_ proxy: ScrollViewProxy) -> some View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
                 ForEach(Self.days, id: \.self) { date in
@@ -291,9 +314,13 @@ struct ScheduleTab: View {
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $dayPage, anchor: .center)
         .scrollIndicators(.hidden)
+        .onAppear { align(proxy, on: selectedDate) }
+        .onScrollPhaseChange { _, phase, _ in
+            if phase == .idle { align(proxy, on: dayPage ?? selectedDate, animated: true) }
+        }
     }
 
-    private var weekPager: some View {
+    private func weekPager(_ proxy: ScrollViewProxy) -> some View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
                 ForEach(Self.weeks, id: \.self) { monday in
@@ -308,6 +335,25 @@ struct ScheduleTab: View {
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $weekPage, anchor: .center)
         .scrollIndicators(.hidden)
+        .onAppear { align(proxy, on: Self.monday(of: selectedDate)) }
+        .onScrollPhaseChange { _, phase, _ in
+            if phase == .idle {
+                align(proxy, on: weekPage ?? Self.monday(of: selectedDate), animated: true)
+            }
+        }
+    }
+
+    /// Makes sure a pager rests squarely on a page. Normally a no-op; it's
+    /// there for the times something interrupts a swipe halfway — switching
+    /// between day and week mid-gesture left two half days on screen.
+    private func align(_ proxy: ScrollViewProxy, on id: String, animated: Bool = false) {
+        DispatchQueue.main.async {
+            if animated {
+                withAnimation(.snappy) { proxy.scrollTo(id, anchor: .center) }
+            } else {
+                proxy.scrollTo(id, anchor: .center)
+            }
+        }
     }
 
     // MARK: Moving around
@@ -318,6 +364,8 @@ struct ScheduleTab: View {
 
     /// A day tapped in the week view: zoom back in on it.
     private func pick(_ date: String) {
+        // Fingers lifting at the end of a pinch aren't a tap on a day.
+        guard !opener.pinchedJustNow else { return }
         selectedDate = date
         dayPage = date
         setWeekMode(false)
@@ -501,6 +549,7 @@ struct LessonCard: View {
     @EnvironmentObject private var session: LectioSession
     @Environment(\.colorScheme) private var scheme
     @Environment(\.lessonZoom) private var zoom
+    @Environment(LessonOpener.self) private var opener: LessonOpener?
     @State private var editingEvent = false
 
     private var route: LessonRoute { LessonRoute(lesson: lesson, dayISO: dayISO) }
@@ -519,8 +568,9 @@ struct LessonCard: View {
     }
 
     var body: some View {
-        // A real link and button: the day pages in a real scroll view, which
-        // cancels the press the moment a swipe starts.
+        // Buttons: the day pages in a real scroll view, which cancels the
+        // press the moment a swipe starts. Lessons push through the opener,
+        // which ignores the lift at the end of a pinch.
         if lesson.isPrivateEvent {
             // Your own event is something to edit, so it stays a sheet.
             Button { editingEvent = true } label: { card }
@@ -532,7 +582,7 @@ struct LessonCard: View {
                     .environmentObject(session)
                 }
         } else {
-            NavigationLink(value: route) { card }
+            Button { opener?.open(route) } label: { card }
                 .buttonStyle(PressableCard())
                 .lessonZoomSource(route.zoomID, in: zoom)
         }
@@ -646,6 +696,7 @@ struct CompactLessonCard: View {
     let dayISO: String
     @EnvironmentObject private var session: LectioSession
     @Environment(\.lessonZoom) private var zoom
+    @Environment(LessonOpener.self) private var opener: LessonOpener?
     @State private var editingEvent = false
 
     private var route: LessonRoute { LessonRoute(lesson: lesson, dayISO: dayISO) }
@@ -669,7 +720,7 @@ struct CompactLessonCard: View {
                     .environmentObject(session)
                 }
         } else {
-            NavigationLink(value: route) { compactCard }
+            Button { opener?.open(route) } label: { compactCard }
                 .buttonStyle(PressableCard())
                 .lessonZoomSource(route.zoomID, in: zoom)
         }

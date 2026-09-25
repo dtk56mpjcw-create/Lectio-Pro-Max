@@ -137,7 +137,13 @@ struct LessonDetailScreen: View {
         }
         .scrollIndicators(.hidden)
         .background { AppBackground() }
+        // A small title in the bar, as Calendar's "Event Details" has, so the
+        // back button isn't floating on its own; the lesson's own name stays
+        // large in the page. The editor role keeps the back button to its
+        // chevron.
+        .navigationTitle("Lesson")
         .toolbarTitleDisplayMode(.inline)
+        .toolbarRole(.editor)
     }
 }
 
