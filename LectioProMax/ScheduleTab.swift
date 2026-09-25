@@ -95,9 +95,6 @@ struct ScheduleTab: View {
     @State private var dayPage: String? = LectioDates.isoString(from: Date())
     @State private var weekPage: String? = ScheduleTab.monday(of: LectioDates.isoString(from: Date()))
     @State private var weekMode = false
-    /// Whether each view's pages scroll: only the one you're on does.
-    @State private var dayScrollable = true
-    @State private var weekScrollable = false
     @State private var addingEvent = false
 
     @State private var opener = LessonOpener()
@@ -287,7 +284,7 @@ struct ScheduleTab: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
                 ForEach(Self.days, id: \.self) { date in
-                    DayPage(date: date, bottomInset: bottomInset, scrollable: dayScrollable)
+                    DayPage(date: date, bottomInset: bottomInset)
                         .containerRelativeFrame([.horizontal, .vertical])
                 }
             }
@@ -307,7 +304,7 @@ struct ScheduleTab: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
                 ForEach(Self.weeks, id: \.self) { monday in
-                    WeekPage(monday: monday, bottomInset: bottomInset, scrollable: weekScrollable) { date in
+                    WeekPage(monday: monday, bottomInset: bottomInset) { date in
                         pick(date)
                     }
                     .containerRelativeFrame([.horizontal, .vertical])
@@ -342,17 +339,9 @@ struct ScheduleTab: View {
 
     // MARK: Moving around
 
+    /// One flag, one animation — the same curve the pinch settles on.
     private func setWeekMode(_ on: Bool) {
-        // The view coming in can scroll straight away; the one going out
-        // keeps its scroll view (and its place) until it has faded, then
-        // stops being scrollable at all while it waits in the background.
-        if on { weekScrollable = true } else { dayScrollable = true }
-        withAnimation(.smooth(duration: 0.35)) { weekMode = on }
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(450))
-            guard weekMode == on else { return }
-            if on { dayScrollable = false } else { weekScrollable = false }
-        }
+        withAnimation(.smooth(duration: 0.32)) { weekMode = on }
     }
 
     /// A day tapped in the week view: zoom back in on it.
@@ -411,18 +400,20 @@ struct ScheduleTab: View {
 /// underneath (rebuilding the day pager on the way back from the week
 /// sometimes left it resting between two days).
 ///
-/// The view you're on follows the fingers one to one, scaling from the top
-/// edge of the page: the first lessons stay where they are and nothing slides
-/// up or down. (Scaling around the point between the fingers, or bringing the
-/// other view in from a size well off 1×, pushed whole rows off the top and
-/// back again — it read as the page being dragged up and down mid-pinch.)
-/// The other view only fades in once the pinch is clearly going somewhere,
-/// so the two never sit half-and-half on top of each other for long. Let go
-/// and it finishes whichever way you were heading — past about 40% of the
-/// way, or with a quick flick — and springs back otherwise.
+/// While the fingers move, nothing is built, rebuilt or switched: the view
+/// you're on follows them one to one, scaling from the top edge of the page
+/// so rows don't slide, and the other view fades in once the pinch is clearly
+/// going somewhere. Every movement keeps its direction through the release:
+/// the day that shrank under your fingers carries on shrinking as the week
+/// settles over it, and the week that grew carries on growing as it fades to
+/// the day — no bounce back the other way. Let go past 40% of the way, or
+/// with a quick flick, and it finishes; otherwise it springs back.
 ///
-/// Cheap to draw every frame: the day only scales, and the week, on top with
-/// an opaque background, is the only thing that fades.
+/// Earlier versions made each view's pages scrollable only while it was the
+/// one you were on, which meant building scroll views at the very moment the
+/// zoom finished — a visible stall at the start of every switch. They stay
+/// scroll views now; the view in the background simply has scrolling and
+/// touches switched off.
 private struct ScheduleZoom<Day: View, Week: View>: View {
     let weekMode: Bool
     var onPinch: () -> Void
@@ -430,13 +421,13 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
     @ViewBuilder var day: Day
     @ViewBuilder var week: Week
 
-    @GestureState(resetTransaction: Transaction(animation: .smooth(duration: 0.35)))
+    /// Settles on the same curve as the switch (setWeekMode), so the fingers
+    /// letting go and the views changing finish together.
+    @GestureState(resetTransaction: Transaction(animation: .smooth(duration: 0.32)))
     private var pinch: CGFloat = 1
     /// Scrolling stays off a moment after the pinch, too: the fingers rarely
     /// lift together, and the last one used to drag the page as it left.
     @State private var lingering = false
-    /// Turns off the UIKit scroll views under the pinch directly — see below.
-    @State private var freezer = ScrollFreezer()
     @State private var activePinch = false
     @State private var pinchSerial = 0
     @State private var tracker = PinchTracker()
@@ -444,20 +435,21 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
     /// The top middle of the page.
     private let anchor = UnitPoint(x: 0.5, y: 0)
 
+    /// Where each view waits while the other one is showing.
+    private let dayAway: CGFloat = 0.8
+    private let weekAway: CGFloat = 1.2
+
     var body: some View {
         let p = progress(for: pinch)
         let fade = Self.fade(p)
         ZStack {
-            // The view you're not on can't scroll. Hit testing alone didn't
-            // stop it: once the week started fading in under a pinch, its
-            // scroll views took the fingers and moved in the background.
             day
-                .scaleEffect(dayScale(p), anchor: anchor)
+                .scaleEffect(dayScale(p, fade: fade), anchor: anchor)
                 .allowsHitTesting(!weekMode)
                 .scrollDisabled(weekMode || locked)
                 .accessibilityHidden(weekMode)
             week
-                .scaleEffect(weekScale(p), anchor: anchor)
+                .scaleEffect(weekScale(fade: fade), anchor: anchor)
                 .background(Color(.systemGroupedBackground))
                 .opacity(Double(weekMode ? 1 - fade : fade))
                 .allowsHitTesting(weekMode)
@@ -465,7 +457,6 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
                 .accessibilityHidden(!weekMode)
         }
         .clipped()
-        .background(FreezerProbe(freezer: freezer))
         .simultaneousGesture(
             MagnifyGesture()
                 .updating($pinch) { value, state, _ in
@@ -473,8 +464,6 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
                 }
                 .onChanged { value in
                     onPinch()
-                    // First thing, before the fingers can drag anything.
-                    freezer.freeze()
                     if !activePinch {
                         activePinch = true
                         pinchSerial += 1
@@ -494,11 +483,10 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
                         onSwitch(!weekMode)
                     }
                     Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(450))
+                        try? await Task.sleep(for: .milliseconds(400))
                         // Unless another pinch has started since.
                         guard serial == pinchSerial, !activePinch else { return }
                         lingering = false
-                        freezer.thaw()
                     }
                 }
         )
@@ -521,17 +509,19 @@ private struct ScheduleZoom<Day: View, Week: View>: View {
         min(max((p - 0.3) / 0.5, 0), 1)
     }
 
-    /// The day follows the fingers one to one while you're on it — only
-    /// shrinking, toward the week; spreading your fingers on a day has
-    /// nothing to zoom into. Under the week it waits just smaller than full.
-    private func dayScale(_ p: CGFloat) -> CGFloat {
-        weekMode ? 0.94 + 0.06 * p : min(Self.soft(pinch, low: 0.75, high: 1), 1)
+    /// On the day: follows the fingers, only ever shrinking (spreading your
+    /// fingers on a day has nothing to zoom into). Behind the week: waits
+    /// small, and grows back to full as the week fades off it.
+    private func dayScale(_ p: CGFloat, fade: CGFloat) -> CGFloat {
+        if weekMode { return dayAway + (1 - dayAway) * fade }
+        return min(Self.soft(pinch, low: 0.75, high: 1), 1)
     }
 
-    /// The week follows the fingers one to one while you're on it — only
-    /// growing, toward the day. From the day it comes in from just larger.
-    private func weekScale(_ p: CGFloat) -> CGFloat {
-        weekMode ? max(Self.soft(pinch, low: 1, high: 1.35), 1) : 1.06 - 0.06 * p
+    /// On the week: follows the fingers, only ever growing. Coming in over
+    /// the day: settles from a little larger as it fades in.
+    private func weekScale(fade: CGFloat) -> CGFloat {
+        if weekMode { return max(Self.soft(pinch, low: 1, high: 1.35), 1) }
+        return weekAway - (weekAway - 1) * fade
     }
 
     /// Follows the value inside the range and resists beyond it.
@@ -570,59 +560,6 @@ private final class PinchTracker {
     }
 }
 
-/// Stops the scroll views under a pinch from scrolling, by switching off their
-/// UIKit pan gestures for as long as the pinch lasts.
-///
-/// SwiftUI's own `scrollDisabled` wasn't enough: the week you pinched from
-/// still slid up and down under your fingers. Turning a pan gesture off in
-/// UIKit cancels it on the spot, whatever state it's in, so this goes to the
-/// source: every scroll view behind the schedule's pages, found by walking the
-/// window's views and keeping those that overlap the pages.
-final class ScrollFreezer {
-    weak var probe: UIView?
-    private var frozen: [UIScrollView] = []
-
-    func freeze() {
-        guard frozen.isEmpty, let probe, let window = probe.window else { return }
-        let area = probe.convert(probe.bounds, to: window)
-        var found: [UIScrollView] = []
-        Self.collect(in: window, into: &found)
-        frozen = found.filter { scroll in
-            scroll.panGestureRecognizer.isEnabled
-                && scroll.convert(scroll.bounds, to: window).intersects(area)
-        }
-        for scroll in frozen { scroll.panGestureRecognizer.isEnabled = false }
-    }
-
-    func thaw() {
-        // Back to whatever the scroll view itself allows by now.
-        for scroll in frozen { scroll.panGestureRecognizer.isEnabled = scroll.isScrollEnabled }
-        frozen = []
-    }
-
-    private static func collect(in view: UIView, into found: inout [UIScrollView]) {
-        if let scroll = view as? UIScrollView { found.append(scroll) }
-        for sub in view.subviews { collect(in: sub, into: &found) }
-    }
-}
-
-/// An empty view behind the pages that tells the freezer where they are.
-private struct FreezerProbe: UIViewRepresentable {
-    let freezer: ScrollFreezer
-
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView()
-        view.isUserInteractionEnabled = false
-        view.backgroundColor = .clear
-        freezer.probe = view
-        return view
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        freezer.probe = uiView
-    }
-}
-
 /// Makes the scroll view it sits in scroll with one finger only — as Photos
 /// does — so two fingers pinching zoom instead of also dragging the page up,
 /// down and sideways. SwiftUI has no setting for this; the probe finds the
@@ -653,81 +590,53 @@ struct OneFingerScrolling: UIViewRepresentable {
 }
 
 /// One day of the pager: its own scroll view, with its own pull to refresh.
-///
-/// Only while it's the view you're on. Behind the week it's the same lessons
-/// with no scroll view at all — `scrollDisabled` alone didn't stop a hidden
-/// page being dragged up and down under a pinch; a page with nothing to
-/// scroll can't be.
 private struct DayPage: View {
     @EnvironmentObject private var session: LectioSession
     let date: String
     let bottomInset: CGFloat
-    let scrollable: Bool
 
     var body: some View {
-        if scrollable {
-            ScrollView {
-                VStack(spacing: 0) {
-                    RefreshHeader(space: "schedule-page") { await session.refresh() }
-                    lessons
-                }
-            }
-            .coordinateSpace(.named("schedule-page"))
-            .scrollIndicators(.hidden)
-        } else {
-            lessons
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .clipped()
-        }
-    }
-
-    private var lessons: some View {
         let code = LectioDates.weekCode(iso: date)
-        return VStack(alignment: .leading, spacing: 10) {
-            if let week = session.snapshot.weeks[code] {
-                DayList(day: week.days.first { $0.date == date }).equatable()
-            } else {
-                WeekPlaceholder(weekCode: code)
+        ScrollView {
+            VStack(spacing: 0) {
+                RefreshHeader(space: "schedule-page") { await session.refresh() }
+                VStack(alignment: .leading, spacing: 10) {
+                    if let week = session.snapshot.weeks[code] {
+                        DayList(day: week.days.first { $0.date == date }).equatable()
+                    } else {
+                        WeekPlaceholder(weekCode: code)
+                    }
+                }
+                .padding(.horizontal, Metrics.margin)
+                .padding(.top, 8)
+                .padding(.bottom, bottomInset + 24)
+                .background(OneFingerScrolling())
             }
         }
-        .padding(.horizontal, Metrics.margin)
-        .padding(.top, 8)
-        .padding(.bottom, bottomInset + 24)
-        .background(OneFingerScrolling())
+        .coordinateSpace(.named("schedule-page"))
+        .scrollIndicators(.hidden)
     }
 }
 
-/// One week of the week pager — scrollable only while it's the view you're
-/// on, for the same reason as DayPage.
+/// One week of the week pager.
 private struct WeekPage: View {
     @EnvironmentObject private var session: LectioSession
     let monday: String
     let bottomInset: CGFloat
-    let scrollable: Bool
     var onPick: (String) -> Void
 
     var body: some View {
-        if scrollable {
-            ScrollView {
-                VStack(spacing: 0) {
-                    RefreshHeader(space: "schedule-week") { await session.refresh() }
-                    overview
-                }
+        ScrollView {
+            VStack(spacing: 0) {
+                RefreshHeader(space: "schedule-week") { await session.refresh() }
+                WeekOverview(weekCode: LectioDates.weekCode(iso: monday), onPick: onPick)
+                    .padding(.top, 8)
+                    .padding(.bottom, bottomInset + 24)
+                    .background(OneFingerScrolling())
             }
-            .coordinateSpace(.named("schedule-week"))
-            .scrollIndicators(.hidden)
-        } else {
-            overview
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .clipped()
         }
-    }
-
-    private var overview: some View {
-        WeekOverview(weekCode: LectioDates.weekCode(iso: monday), onPick: onPick)
-            .padding(.top, 8)
-            .padding(.bottom, bottomInset + 24)
-            .background(OneFingerScrolling())
+        .coordinateSpace(.named("schedule-week"))
+        .scrollIndicators(.hidden)
     }
 }
 
