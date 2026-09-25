@@ -4,39 +4,13 @@ import SwiftUI
 
 /// A lesson on a particular day — what the Schedule and Search stacks push.
 ///
-/// The day is part of it because the same lesson recurs every week and the
-/// neighbouring day pages are alive side by side: the zoom transition needs an
-/// id that's unique on screen.
+/// The day is part of it because the same lesson recurs every week, and
+/// neighbouring day pages are alive side by side.
 struct LessonRoute: Hashable {
     let lesson: Lesson
     let dayISO: String
-    var zoomID: String { dayISO + "|" + lesson.id }
-}
-
-extension EnvironmentValues {
-    /// Where lesson cards register as zoom sources, when the stack around them
-    /// can zoom into a lesson. Nil anywhere else, and the cards don't bother.
-    @Entry var lessonZoom: Namespace.ID? = nil
-}
-
-struct LessonZoomSource: ViewModifier {
-    let id: String
-    let namespace: Namespace.ID?
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if let namespace {
-            content.matchedTransitionSource(id: id, in: namespace)
-        } else {
-            content
-        }
-    }
-}
-
-extension View {
-    func lessonZoomSource(_ id: String, in namespace: Namespace.ID?) -> some View {
-        modifier(LessonZoomSource(id: id, namespace: namespace))
-    }
+    /// Unique on screen: the day plus the lesson.
+    var key: String { dayISO + "|" + lesson.id }
 }
 
 /// Lectio lists every class, teacher and room on a school-wide event, which
@@ -55,42 +29,21 @@ enum LessonText {
 
 // MARK: - Schedule
 
-/// Opens lessons for the schedule's cards, one zoom at a time.
+/// Opens lessons for the schedule's cards.
 ///
-/// A lesson zooms out of its card and back into it when closed. Tapping the
-/// schedule again before that zoom back had finished interrupted it — and an
-/// interrupted zoom transition leaves SwiftUI's bookkeeping in a bad state:
-/// the card stayed hidden, or later zooms went wrong. (Rebuilding the cards
-/// afterwards to un-hide them only made it worse: a fresh card registering
-/// the same zoom source as the one being torn down.) So instead the schedule
-/// simply doesn't take touches from the moment a lesson opens until it has
-/// fully gone again — a fraction of a second after the lesson closes.
+/// Lessons open with the standard push — slide in from the right, swipe from
+/// the left edge to go back — not a zoom out of the card. SwiftUI's zoom
+/// transition has known, unfixed bugs on iOS 26 (Apple forum threads 807208,
+/// 807715, 796805; FB19601591): after a swipe back the card can vanish while
+/// staying tappable, and repeated or interrupted zooms flicker and misalign.
+/// Every workaround here only moved the problem; the push is rock solid, and
+/// it's what Calendar uses for an event.
 @Observable
 final class LessonOpener {
     var path: [LessonRoute] = []
-    /// From a lesson opening until its page has fully disappeared.
-    private(set) var busy = false
 
     func open(_ route: LessonRoute) {
-        guard !busy else { return }
-        busy = true
         path.append(route)
-    }
-
-    /// The lesson page has gone (its onDisappear): the zoom back is over.
-    func closed() {
-        guard path.isEmpty else { return }
-        busy = false
-    }
-
-    /// In case a page never reports disappearing, the schedule mustn't stay
-    /// frozen: once nothing is open, free it after a generous moment anyway.
-    func pathChanged() {
-        guard path.isEmpty else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-            guard let self, self.path.isEmpty else { return }
-            self.busy = false
-        }
     }
 }
 
@@ -107,7 +60,6 @@ final class LessonOpener {
 /// as tall as the screen.
 struct ScheduleTab: View {
     @EnvironmentObject private var session: LectioSession
-    @Namespace private var zoom
 
     @State private var selectedDate: String = LectioDates.isoString(from: Date())
     /// Where each pager rests: a swipe writes it, and writing it jumps.
@@ -148,20 +100,14 @@ struct ScheduleTab: View {
                 pagers
             }
             .background { AppBackground() }
-            // No touches while a lesson is opening, open or zooming back.
-            .allowsHitTesting(!opener.busy)
             // The header above is the title bar here; the system bar only
             // appears on a lesson pushed from it.
             .toolbar(.hidden, for: .navigationBar)
-            .environment(\.lessonZoom, zoom)
             .environment(opener)
             .navigationDestination(for: LessonRoute.self) { route in
                 LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
-                    .navigationTransition(.zoom(sourceID: route.zoomID, in: zoom))
-                    .onDisappear { opener.closed() }
             }
         }
-        .onChange(of: opener.path.count) { _, _ in opener.pathChanged() }
         .onChange(of: dayPage) { _, page in
             // A swipe landed on another day.
             guard let page, page != selectedDate else { return }
@@ -641,7 +587,6 @@ struct LessonCard: View {
     let dayISO: String
     @EnvironmentObject private var session: LectioSession
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.lessonZoom) private var zoom
     @Environment(LessonOpener.self) private var opener: LessonOpener?
     @State private var editingEvent = false
 
@@ -676,7 +621,6 @@ struct LessonCard: View {
         } else {
             Button { opener?.open(route) } label: { card }
                 .buttonStyle(PressableCard())
-                .lessonZoomSource(route.zoomID, in: zoom)
         }
     }
 
@@ -787,7 +731,6 @@ struct CompactLessonCard: View {
     let lesson: Lesson
     let dayISO: String
     @EnvironmentObject private var session: LectioSession
-    @Environment(\.lessonZoom) private var zoom
     @Environment(LessonOpener.self) private var opener: LessonOpener?
     @State private var editingEvent = false
 
@@ -814,7 +757,6 @@ struct CompactLessonCard: View {
         } else {
             Button { opener?.open(route) } label: { compactCard }
                 .buttonStyle(PressableCard())
-                .lessonZoomSource(route.zoomID, in: zoom)
         }
     }
 

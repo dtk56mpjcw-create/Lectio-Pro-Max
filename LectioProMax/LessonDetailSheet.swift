@@ -121,8 +121,8 @@ struct LessonDetailSheet: View {
     }
 }
 
-/// A lesson pushed onto the Schedule or Search stack, zooming out of the card
-/// that was tapped. The system back button replaces the sheet's close button —
+/// A lesson pushed onto the Schedule or Search stack (the standard push)
+/// from the card that was tapped. The system back button replaces the sheet's close button —
 /// nothing floats over the schedule's own controls any more.
 struct LessonDetailScreen: View {
     let lesson: Lesson

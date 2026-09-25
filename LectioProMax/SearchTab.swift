@@ -15,14 +15,10 @@ import SwiftUI
 struct SearchTab: View {
     let query: String
     @EnvironmentObject private var session: LectioSession
-    @Namespace private var zoom
 
     @State private var openWork: WorkItem?
     @State private var openThread: MessageThreadSummary?
     @State private var path: [LessonRoute] = []
-    /// No touches from a lesson opening until it has fully gone — see
-    /// LessonOpener for why.
-    @State private var lessonShowing = false
 
     private var trimmed: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -71,13 +67,9 @@ struct SearchTab: View {
             results(work: work, threads: threads, lessons: lessons)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background { AppBackground() }
-                .allowsHitTesting(!lessonShowing)
                 .navigationTitle("Search")
                 .navigationDestination(for: LessonRoute.self) { route in
                     LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
-                        .navigationTransition(.zoom(sourceID: route.zoomID, in: zoom))
-                        .onAppear { lessonShowing = true }
-                        .onDisappear { if path.isEmpty { lessonShowing = false } }
                 }
         }
         .task { await session.loadInbox() }
@@ -138,7 +130,7 @@ struct SearchTab: View {
                     }
                     if !lessons.isEmpty {
                         group("Lessons") {
-                            ForEach(lessons, id: \.zoomID) { route in
+                            ForEach(lessons, id: \.key) { route in
                                 NavigationLink(value: route) {
                                     row(icon: "calendar",
                                         code: route.lesson.code,
@@ -147,7 +139,6 @@ struct SearchTab: View {
                                             + (route.lesson.start.isEmpty ? "" : " · " + route.lesson.start))
                                 }
                                 .buttonStyle(.plain)
-                                .matchedTransitionSource(id: route.zoomID, in: zoom)
                             }
                         }
                     }
