@@ -1,76 +1,75 @@
 import SwiftUI
 
-struct LessonDetailSheet: View {
+/// Everything about a lesson: the header, room and teacher, the lesson's own
+/// page and student feedback. Shown pushed (`LessonDetailScreen`) or, where
+/// there's no stack to push onto, as a sheet (`LessonDetailSheet`).
+struct LessonDetailContent: View {
     let lesson: Lesson
     let dayISO: String
-    @EnvironmentObject private var session: LectioSession
-    @Environment(\.dismiss) private var dismiss
 
 
     private var tint: Color { Color.forSubject(lesson.code) }
     private var state: LessonState { lesson.state(onDay: dayISO) }
 
     var body: some View {
-        DetailSheetScaffold(onClose: { dismiss() }) {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 9) {
-                    HStack(spacing: 8) {
-                        SubjectDot(code: lesson.code, size: 9)
-                        Text(lesson.code.uppercased())
-                            .font(.system(size: 14, weight: .heavy))
-                            .tracking(0.6)
-                            .foregroundStyle(.secondary)
-                        if state == .current {
-                            Text("NOW")
-                                .font(.system(size: 12.5, weight: .heavy))
-                                .foregroundStyle(Palette.accent)
-                        }
-                        if lesson.cancelled {
-                            Text("CANCELLED")
-                                .font(.system(size: 12.5, weight: .heavy))
-                                .foregroundStyle(.red)
-                        }
-                        Spacer()
-                    }
-                    Text(lesson.displayTitle)
-                        .font(.system(size: 31, weight: .bold))
-                        .strikethrough(lesson.cancelled)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(LectioDates.longLabel(iso: dayISO) + " · " + lesson.timeRange)
-                        .font(.system(size: 15.5, weight: .medium))
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(spacing: 8) {
+                    SubjectDot(code: lesson.code, size: 9)
+                    Text(lesson.code.uppercased())
+                        .font(.system(size: 14, weight: .heavy))
+                        .tracking(0.6)
                         .foregroundStyle(.secondary)
-                }
-
-                if !lesson.room.isEmpty || !lesson.teacher.isEmpty {
-                    HStack(spacing: 10) {
-                        if !lesson.room.isEmpty { factTile("mappin", "Room", lesson.room) }
-                        if !lesson.teacher.isEmpty { factTile("person", "Teacher", lesson.teacher) }
+                    if state == .current {
+                        Text("NOW")
+                            .font(.system(size: 12.5, weight: .heavy))
+                            .foregroundStyle(Palette.accent)
                     }
-                }
-
-                if let link = lesson.link {
-                    LessonContentView(link: link,
-                                      placeholder: [lesson.homework, lesson.note]
-                                        .filter { !$0.isEmpty }
-                                        .joined(separator: "\n\n"),
-                                      feedbackTitle: lesson.displayTitle,
-                                      feedbackCode: lesson.code)
-                }
-
-                if let link = lesson.link, let url = URL(string: link) {
-                    Link(destination: url) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "safari").font(.system(size: 15, weight: .semibold))
-                            Text("Open in Lectio")
-                                .font(.system(size: 16, weight: .semibold))
-                            Spacer()
-                            Image(systemName: "arrow.up.right").font(.system(size: 12.5, weight: .bold))
-                        }
-                        .foregroundStyle(Palette.accent)
-                        .padding(15)
-                        .frame(maxWidth: .infinity)
-                        .contentCard(radius: Metrics.inner + 2)
+                    if lesson.cancelled {
+                        Text("CANCELLED")
+                            .font(.system(size: 12.5, weight: .heavy))
+                            .foregroundStyle(.red)
                     }
+                    Spacer()
+                }
+                Text(lesson.displayTitle)
+                    .font(.system(size: 31, weight: .bold))
+                    .strikethrough(lesson.cancelled)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(LectioDates.longLabel(iso: dayISO) + " · " + lesson.timeRange)
+                    .font(.system(size: 15.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            if !lesson.room.isEmpty || !lesson.teacher.isEmpty {
+                HStack(spacing: 10) {
+                    if !lesson.room.isEmpty { factTile("mappin", "Room", lesson.room) }
+                    if !lesson.teacher.isEmpty { factTile("person", "Teacher", lesson.teacher) }
+                }
+            }
+
+            if let link = lesson.link {
+                LessonContentView(link: link,
+                                  placeholder: [lesson.homework, lesson.note]
+                                    .filter { !$0.isEmpty }
+                                    .joined(separator: "\n\n"),
+                                  feedbackTitle: lesson.displayTitle,
+                                  feedbackCode: lesson.code)
+            }
+
+            if let link = lesson.link, let url = URL(string: link) {
+                Link(destination: url) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "safari").font(.system(size: 15, weight: .semibold))
+                        Text("Open in Lectio")
+                            .font(.system(size: 16, weight: .semibold))
+                        Spacer()
+                        Image(systemName: "arrow.up.right").font(.system(size: 12.5, weight: .bold))
+                    }
+                    .foregroundStyle(Palette.accent)
+                    .padding(15)
+                    .frame(maxWidth: .infinity)
+                    .contentCard(radius: Metrics.inner + 2)
                 }
             }
         }
@@ -106,6 +105,39 @@ struct LessonDetailSheet: View {
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentCard(radius: Metrics.inner + 2)
+    }
+}
+
+/// A lesson as a sheet, for places with no navigation stack to push onto.
+struct LessonDetailSheet: View {
+    let lesson: Lesson
+    let dayISO: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        DetailSheetScaffold(onClose: { dismiss() }) {
+            LessonDetailContent(lesson: lesson, dayISO: dayISO)
+        }
+    }
+}
+
+/// A lesson pushed onto the Schedule or Search stack, zooming out of the card
+/// that was tapped. The system back button replaces the sheet's close button —
+/// nothing floats over the schedule's own controls any more.
+struct LessonDetailScreen: View {
+    let lesson: Lesson
+    let dayISO: String
+
+    var body: some View {
+        ScrollView {
+            LessonDetailContent(lesson: lesson, dayISO: dayISO)
+                .padding(.horizontal, Metrics.margin)
+                .padding(.top, 8)
+                .padding(.bottom, 36)
+        }
+        .scrollIndicators(.hidden)
+        .background { AppBackground() }
+        .toolbarTitleDisplayMode(.inline)
     }
 }
 
