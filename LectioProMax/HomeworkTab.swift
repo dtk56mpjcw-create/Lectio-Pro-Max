@@ -3,7 +3,7 @@ import SwiftUI
 struct HomeworkTab: View {
     @EnvironmentObject private var session: LectioSession
 
-    /// Not @AppStorage on purpose — see WorkFilterBar.
+    /// Not @AppStorage on purpose — see WorkFilter.
     @State private var filter = WorkFilter()
     @State private var path: [WorkItem] = []
     /// What a swipe asked to be reminded about, while its time is chosen.
@@ -33,6 +33,11 @@ struct HomeworkTab: View {
             list
                 .navigationTitle("Homework")
                 .navigationSubtitle(subtitle)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        WorkFilterMenu(subjects: subjects, filter: $filter)
+                    }
+                }
                 // A piece of homework or an assignment opens as a page of its
                 // own, with the system back button — not a sheet over the list.
                 .navigationDestination(for: WorkItem.self) { item in
@@ -70,12 +75,23 @@ struct HomeworkTab: View {
     /// reminder. Rows still look like cards.
     private var list: some View {
         List {
-            WorkFilterBar(subjects: subjects, filter: $filter)
-                .homeworkRow(top: 4, bottom: 4)
-
             if groups.isEmpty && doneItems.isEmpty {
-                EmptyNotice(icon: "checkmark.circle", text: "Nothing due — you're clear")
+                if filter.isActive {
+                    VStack(spacing: 10) {
+                        EmptyNotice(icon: "line.3.horizontal.decrease.circle",
+                                    text: "Nothing matches this filter")
+                        Button("Show everything") {
+                            withAnimation(.snappy) { filter = WorkFilter() }
+                        }
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(minHeight: 44)
+                    }
+                    .frame(maxWidth: .infinity)
                     .homeworkRow()
+                } else {
+                    EmptyNotice(icon: "checkmark.circle", text: "Nothing due — you're clear")
+                        .homeworkRow()
+                }
             } else {
                 ForEach(groups) { group in
                     header(group.title, accent: group.isOverdue ? Color.red : nil)
