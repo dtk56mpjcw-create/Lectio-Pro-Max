@@ -55,18 +55,42 @@ enum LessonText {
 
 // MARK: - Schedule
 
-/// Opens lessons for the schedule's cards.
+/// Opens lessons for the schedule's cards, one zoom at a time.
+///
+/// A lesson zooms out of its card and back into it when closed. Tapping the
+/// schedule again before that zoom back had finished interrupted it — and an
+/// interrupted zoom transition leaves SwiftUI's bookkeeping in a bad state:
+/// the card stayed hidden, or later zooms went wrong. (Rebuilding the cards
+/// afterwards to un-hide them only made it worse: a fresh card registering
+/// the same zoom source as the one being torn down.) So instead the schedule
+/// simply doesn't take touches from the moment a lesson opens until it has
+/// fully gone again — a fraction of a second after the lesson closes.
 @Observable
 final class LessonOpener {
     var path: [LessonRoute] = []
-    /// Bumped once a closed lesson has fully gone, to rebuild the cards. A
-    /// zoom transition hides the card it grew out of while it runs; interrupt
-    /// the swipe back and the card could stay hidden — invisible, yet still
-    /// tappable. A fresh card is always visible.
-    var returnToken = 0
+    /// From a lesson opening until its page has fully disappeared.
+    private(set) var busy = false
 
     func open(_ route: LessonRoute) {
+        guard !busy else { return }
+        busy = true
         path.append(route)
+    }
+
+    /// The lesson page has gone (its onDisappear): the zoom back is over.
+    func closed() {
+        guard path.isEmpty else { return }
+        busy = false
+    }
+
+    /// In case a page never reports disappearing, the schedule mustn't stay
+    /// frozen: once nothing is open, free it after a generous moment anyway.
+    func pathChanged() {
+        guard path.isEmpty else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            guard let self, self.path.isEmpty else { return }
+            self.busy = false
+        }
     }
 }
 
@@ -124,6 +148,8 @@ struct ScheduleTab: View {
                 pagers
             }
             .background { AppBackground() }
+            // No touches while a lesson is opening, open or zooming back.
+            .allowsHitTesting(!opener.busy)
             // The header above is the title bar here; the system bar only
             // appears on a lesson pushed from it.
             .toolbar(.hidden, for: .navigationBar)
@@ -132,9 +158,10 @@ struct ScheduleTab: View {
             .navigationDestination(for: LessonRoute.self) { route in
                 LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
                     .navigationTransition(.zoom(sourceID: route.zoomID, in: zoom))
-                    .onDisappear { lessonClosed() }
+                    .onDisappear { opener.closed() }
             }
         }
+        .onChange(of: opener.path.count) { _, _ in opener.pathChanged() }
         .onChange(of: dayPage) { _, page in
             // A swipe landed on another day.
             guard let page, page != selectedDate else { return }
@@ -344,16 +371,6 @@ struct ScheduleTab: View {
         switcher.cover(excludingBottom: bottomInset)
         weekMode = on
         switcher.play(outward: on)
-    }
-
-    /// Runs once a pushed lesson has fully gone — after its zoom back, not
-    /// when it starts — and rebuilds the cards if nothing new has opened.
-    /// Doing this on a timer instead could land mid-animation and pull the
-    /// card out from under the zoom, which broke later zooms.
-    private func lessonClosed() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            if opener.path.isEmpty { opener.returnToken += 1 }
-        }
     }
 
     /// A day tapped in the week view: zoom back in on it.
@@ -660,7 +677,6 @@ struct LessonCard: View {
             Button { opener?.open(route) } label: { card }
                 .buttonStyle(PressableCard())
                 .lessonZoomSource(route.zoomID, in: zoom)
-                .id(opener?.returnToken ?? 0)
         }
     }
 
@@ -799,7 +815,6 @@ struct CompactLessonCard: View {
             Button { opener?.open(route) } label: { compactCard }
                 .buttonStyle(PressableCard())
                 .lessonZoomSource(route.zoomID, in: zoom)
-                .id(opener?.returnToken ?? 0)
         }
     }
 

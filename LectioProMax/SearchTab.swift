@@ -20,8 +20,9 @@ struct SearchTab: View {
     @State private var openWork: WorkItem?
     @State private var openThread: MessageThreadSummary?
     @State private var path: [LessonRoute] = []
-    /// Rebuilds the lesson rows after one closes — see LessonOpener.returnToken.
-    @State private var returnToken = 0
+    /// No touches from a lesson opening until it has fully gone — see
+    /// LessonOpener for why.
+    @State private var lessonShowing = false
 
     private var trimmed: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -70,16 +71,13 @@ struct SearchTab: View {
             results(work: work, threads: threads, lessons: lessons)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background { AppBackground() }
+                .allowsHitTesting(!lessonShowing)
                 .navigationTitle("Search")
                 .navigationDestination(for: LessonRoute.self) { route in
                     LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
                         .navigationTransition(.zoom(sourceID: route.zoomID, in: zoom))
-                        .onDisappear {
-                            // Once the lesson has fully gone, not on a timer.
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                if path.isEmpty { returnToken += 1 }
-                            }
-                        }
+                        .onAppear { lessonShowing = true }
+                        .onDisappear { if path.isEmpty { lessonShowing = false } }
                 }
         }
         .task { await session.loadInbox() }
@@ -150,7 +148,6 @@ struct SearchTab: View {
                                 }
                                 .buttonStyle(.plain)
                                 .matchedTransitionSource(id: route.zoomID, in: zoom)
-                                .id(returnToken)
                             }
                         }
                     }
