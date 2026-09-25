@@ -153,8 +153,20 @@ struct Banner: View {
 /// Press feedback for content rows (glass controls handle their own).
 struct PressableCard: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
+        PressableCardBody(configuration: configuration)
+    }
+}
+
+/// With Reduce Motion on, a press dims instead of shrinking — Apple's advice
+/// is to swap movement for a fade rather than drop the feedback.
+private struct PressableCardBody: View {
+    let configuration: ButtonStyleConfiguration
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.975 : 1)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.975 : 1)
+            .opacity(configuration.isPressed && reduceMotion ? 0.7 : 1)
             .animation(.spring(response: 0.3, dampingFraction: 0.7),
                        value: configuration.isPressed)
     }

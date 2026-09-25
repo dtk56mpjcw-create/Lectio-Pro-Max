@@ -181,15 +181,23 @@ struct WorkRow: View {
                         .frame(width: 22, height: 22)
                     if done {
                         Circle().fill(tint).frame(width: 22, height: 22)
+                            .transition(.scale.combined(with: .opacity))
                         Image(systemName: "checkmark")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(.white)
+                            .transition(.scale.combined(with: .opacity))
                     }
                 }
+                // The circle is 22 points; the target is Apple's 44.
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(done ? "Mark as not done" : "Mark as done")
             // Handed in is Lectio's verdict, not a tick you can take back here.
             .disabled(item.isDelivered)
+            // Laid out at the circle's size; the extra target spills over.
+            .padding(-11)
             .padding(.top, 1)
 
             NavigationLink(value: item) {

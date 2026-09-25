@@ -52,8 +52,15 @@ struct ReminderButton: View {
         Image(systemName: timing == nil ? "bell" : "bell.fill")
             .font(.system(size: 14, weight: .semibold))
             .foregroundStyle(timing == nil ? Color(.tertiaryLabel) : Palette.accent)
-            .frame(width: 30, height: 30)
+            // The bell swaps outline for filled with the system's own symbol
+            // animation, and rings once when a reminder is set.
+            .contentTransition(.symbolEffect(.replace))
+            .symbolEffect(.bounce, value: timing != nil)
+            // Laid out at 30 points as before; the target is Apple's 44.
+            .frame(width: 44, height: 44)
             .contentShape(Rectangle())
+            .padding(-7)
+            .accessibilityLabel(timing == nil ? "Set a reminder" : "Reminder set")
     }
 
     private func apply(_ option: ReminderTiming?) async {

@@ -71,6 +71,7 @@ struct FeedbackSheet: View {
             }
         }
         .task { await load() }
+        .sensoryFeedback(.success, trigger: saved) { _, isSaved in isSaved }
         // Always a sheet — even when it opens from a pushed page, whose
         // "pushed" flag would otherwise carry in and hide the close button.
         .environment(\.pushedScreen, false)

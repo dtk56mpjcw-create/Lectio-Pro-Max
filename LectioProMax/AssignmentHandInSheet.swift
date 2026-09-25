@@ -62,6 +62,9 @@ struct AssignmentHandInSheet: View {
             }
         }
         .task { await load() }
+        // A tap you can feel when Lectio confirms a hand-in or a new member.
+        .sensoryFeedback(.success, trigger: justSent) { _, sent in sent }
+        .sensoryFeedback(.success, trigger: justAdded) { _, added in added != nil }
         .onChange(of: photoItem) { _, newValue in
             guard let newValue = newValue else { return }
             Task { await sendPickedPhoto(newValue) }

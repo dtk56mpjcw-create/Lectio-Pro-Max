@@ -405,7 +405,8 @@ final class ScreenZoom {
     /// when zooming into a day.
     func play(outward: Bool) {
         guard let shot = picture else { return }
-        let scale: CGFloat = outward ? 0.9 : 1.1
+        // Reduce Motion: a plain cross-fade, no zoom.
+        let scale: CGFloat = UIAccessibility.isReduceMotionEnabled ? 1 : (outward ? 0.9 : 1.1)
         let animator = UIViewPropertyAnimator(duration: 0.34, dampingRatio: 1) {
             shot.transform = CGAffineTransform(scaleX: scale, y: scale)
             shot.alpha = 0

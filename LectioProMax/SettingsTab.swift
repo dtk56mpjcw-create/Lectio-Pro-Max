@@ -4,7 +4,7 @@ import SwiftUI
 /// people's schedules — plus your account. Called More, as in Apple's own
 /// apps: it's mostly places to go, not settings.
 enum MoreRoute: Hashable {
-    case studyPlan, absence, findSchedule
+    case studyPlan, absence, findSchedule, subjectColors
 }
 
 struct SettingsTab: View {
@@ -24,6 +24,7 @@ struct SettingsTab: View {
                     case .studyPlan: StudyPlanSheet().asPushedScreen()
                     case .absence: AbsenceSheet().asPushedScreen()
                     case .findSchedule: FindScheduleSheet().asPushedScreen()
+                    case .subjectColors: SubjectColorsScreen().toolbarTitleDisplayMode(.inline)
                     }
                 }
         }
@@ -63,6 +64,8 @@ struct SettingsTab: View {
             link("Absence", "calendar.badge.exclamationmark", to: .absence)
             Divider().padding(.leading, 48)
             link("Find a schedule", "magnifyingglass", to: .findSchedule)
+            Divider().padding(.leading, 48)
+            link("Subject colours", "paintpalette", to: .subjectColors)
         }
         .contentCard()
     }
