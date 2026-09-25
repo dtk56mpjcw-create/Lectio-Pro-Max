@@ -106,10 +106,6 @@ struct ScheduleTab: View {
     @State private var safeBottom: CGFloat = 0
     private var bottomInset: CGFloat { max(safeBottom, 84) }
 
-    /// Live pinch, so the day shrinks toward the week under your fingers.
-    @GestureState(resetTransaction: Transaction(animation: .smooth(duration: 0.3)))
-    private var pinch: CGFloat = 1
-
     /// Eight months either side of today. The pages are lazy, so the length
     /// costs nothing.
     private static let days: [String] = {
@@ -264,72 +260,24 @@ struct ScheduleTab: View {
     // MARK: Pagers
 
     private var pagers: some View {
-        // Both pagers stay alive, one faded out behind the other, rather than
-        // swapping one for the other. Rebuilding the day pager on the way back
-        // from the week sometimes left it resting between two days; kept alive
-        // it never loses its place, and the switch can cross-fade like a zoom.
-        ZStack {
+        ScheduleZoom(weekMode: weekMode,
+                     onPinch: { opener.lastPinch = Date() },
+                     onSwitch: { setWeekMode($0) }) {
             ScrollViewReader { proxy in
                 dayPager(proxy)
             }
-            .scaleEffect(dayLayer.scale)
-            .opacity(dayLayer.opacity)
-            .allowsHitTesting(!weekMode)
-            .accessibilityHidden(weekMode)
-
+        } week: {
             ScrollViewReader { proxy in
                 weekPager(proxy)
             }
-            .scaleEffect(weekLayer.scale)
-            .opacity(weekLayer.opacity)
-            .allowsHitTesting(weekMode)
-            .accessibilityHidden(!weekMode)
         }
         .ignoresSafeArea(.container, edges: .bottom)
-        // Two fingers pinching would otherwise also drag the pages sideways,
-        // landing you on another day or week.
-        .scrollDisabled(pinch != 1)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onGeometryChange(for: CGFloat.self) { geometry in
             geometry.safeAreaInsets.bottom
         } action: { inset in
             safeBottom = inset
         }
-        .simultaneousGesture(
-            MagnifyGesture()
-                .updating($pinch) { value, state, _ in
-                    state = value.magnification
-                }
-                .onChanged { _ in
-                    opener.lastPinch = Date()
-                }
-                .onEnded { value in
-                    opener.lastPinch = Date()
-                    if value.magnification < 0.9 && !weekMode {
-                        setWeekMode(true)
-                    } else if value.magnification > 1.1 && weekMode {
-                        setWeekMode(false)
-                    }
-                }
-        )
-    }
-
-    /// How far into a pinch toward the other view: 0 at rest, 1 at the line.
-    private var pinchProgress: CGFloat {
-        weekMode ? min(max(pinch - 1, 0) / 0.12, 1) : min(max(1 - pinch, 0) / 0.12, 1)
-    }
-
-    /// Zooming out, the day shrinks and fades as the week comes in from
-    /// slightly larger; zooming in, the reverse. The pinch drives it part way,
-    /// the switch finishes it.
-    private var dayLayer: (scale: CGFloat, opacity: Double) {
-        let p = pinchProgress
-        return weekMode ? (0.92 + 0.04 * p, Double(0.6 * p)) : (1 - 0.08 * p, Double(1 - 0.6 * p))
-    }
-
-    private var weekLayer: (scale: CGFloat, opacity: Double) {
-        let p = pinchProgress
-        return weekMode ? (1 + 0.08 * p, Double(1 - 0.6 * p)) : (1.08 - 0.04 * p, Double(0.6 * p))
     }
 
     private func dayPager(_ proxy: ScrollViewProxy) -> some View {
@@ -390,7 +338,7 @@ struct ScheduleTab: View {
     // MARK: Moving around
 
     private func setWeekMode(_ on: Bool) {
-        withAnimation(.smooth(duration: 0.4)) { weekMode = on }
+        withAnimation(.smooth(duration: 0.35)) { weekMode = on }
     }
 
     /// A day tapped in the week view: zoom back in on it.
@@ -439,6 +387,81 @@ struct ScheduleTab: View {
 
     private static func dropFirstWord(_ text: String) -> String {
         text.split(separator: " ").dropFirst().joined(separator: " ")
+    }
+}
+
+/// The pinch between the day and the week.
+///
+/// A view of its own so that each frame of a pinch re-evaluates only this —
+/// a couple of modifiers — instead of the whole schedule. Both pagers stay
+/// alive underneath (rebuilding the day pager on the way back from the week
+/// sometimes left it resting between two days).
+///
+/// While you pinch, only the view you're on moves, and only in scale: cheap to
+/// draw every frame. Cross the line and the switch happens there and then,
+/// mid-pinch, the way Photos steps between grid sizes — the cross-fade runs
+/// once, as an animation, instead of being redrawn under the fingers.
+private struct ScheduleZoom<Day: View, Week: View>: View {
+    let weekMode: Bool
+    var onPinch: () -> Void
+    var onSwitch: (Bool) -> Void
+    @ViewBuilder var day: Day
+    @ViewBuilder var week: Week
+
+    @GestureState(resetTransaction: Transaction(animation: .smooth(duration: 0.25)))
+    private var pinch: CGFloat = 1
+    /// Set once a pinch has switched views, so the rest of it is ignored.
+    @State private var committed = false
+
+    var body: some View {
+        ZStack {
+            day
+                .scaleEffect(weekMode ? 0.92 : 1 - 0.06 * progress)
+                .opacity(weekMode ? 0 : 1)
+                .allowsHitTesting(!weekMode)
+                .accessibilityHidden(weekMode)
+            week
+                .scaleEffect(weekMode ? 1 + 0.06 * progress : 1.08)
+                .opacity(weekMode ? 1 : 0)
+                .allowsHitTesting(weekMode)
+                .accessibilityHidden(!weekMode)
+        }
+        .simultaneousGesture(
+            MagnifyGesture()
+                .updating($pinch) { value, state, _ in
+                    state = value.magnification
+                }
+                .onChanged { value in
+                    onPinch()
+                    guard !committed else { return }
+                    let m = value.magnification
+                    if (!weekMode && m <= 0.86) || (weekMode && m >= 1.14) {
+                        commit()
+                    }
+                }
+                .onEnded { value in
+                    onPinch()
+                    if !committed {
+                        // A shorter pinch still counts if it's clearly meant.
+                        let m = value.magnification
+                        if (!weekMode && m < 0.94) || (weekMode && m > 1.06) {
+                            commit()
+                        }
+                    }
+                    committed = false
+                }
+        )
+    }
+
+    /// 0 at rest, 1 at the line — for the view you're on only.
+    private var progress: CGFloat {
+        guard !committed else { return 0 }
+        return weekMode ? min(max(pinch - 1, 0) / 0.14, 1) : min(max(1 - pinch, 0) / 0.14, 1)
+    }
+
+    private func commit() {
+        withAnimation(.smooth(duration: 0.35)) { committed = true }
+        onSwitch(!weekMode)
     }
 }
 
