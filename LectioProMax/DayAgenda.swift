@@ -130,9 +130,13 @@ enum ModuleGrid {
     /// The space between rows in the day.
     static let gap: CGFloat = 10
 
+    /// Its modules, and any time it runs on past them at the same rate:
+    /// 8:00–16:00 is four modules and 45 minutes more.
     static func height(of slot: DayPlan.Slot) -> CGFloat {
         let count = CGFloat(max(1, slot.last.number - slot.module.number + 1))
-        return count * height + (count - 1) * gap
+        let length = CGFloat(max(slot.module.endMinutes - slot.module.startMinutes, 30))
+        let extra = CGFloat(slot.overrunBefore + slot.overrunAfter) * height / length
+        return count * height + (count - 1) * gap + extra
     }
 }
 
@@ -171,7 +175,7 @@ private struct ModuleRow: View {
     /// at its bottom: it's one thing, not four.
     @ViewBuilder
     private var label: some View {
-        if slot.modules.count == 1 {
+        if slot.modules.count == 1 && slot.overrunBefore == 0 && slot.overrunAfter == 0 {
             moduleLabel(slot.module)
         } else {
             let hours = slot.hours

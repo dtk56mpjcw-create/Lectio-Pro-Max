@@ -441,13 +441,21 @@ struct DayPlan {
         var span: ScheduleModule {
             ScheduleModule(number: module.number, start: module.start, end: last.end)
         }
-        var startMinutes: Int { module.startMinutes }
-        var endMinutes: Int { last.endMinutes }
+        /// Minutes the block runs on past its last module, when nothing
+        /// follows it in the school day (an exam to 16:00 when lessons end
+        /// at 15:15), or starts before its first (7:30 for an 8:00 module).
+        /// The block grows by that much, at the rate of a module, so a
+        /// longer day is a longer block.
+        var overrunBefore = 0
+        var overrunAfter = 0
+
+        var startMinutes: Int { module.startMinutes - overrunBefore }
+        var endMinutes: Int { last.endMinutes + overrunAfter }
 
         /// What the side of a block over several modules shows: its own
         /// hours ("12:00–15:15", "08:00–16:00"), not module numbers.
         var hours: ScheduleModule {
-            guard through != nil else { return module }
+            guard through != nil || overrunBefore > 0 || overrunAfter > 0 else { return module }
             if main.count == 1, let lesson = main.first, !lesson.start.isEmpty, !lesson.end.isEmpty {
                 return ScheduleModule(number: module.number, start: lesson.start, end: lesson.end)
             }
@@ -693,6 +701,23 @@ struct DayPlan {
         if let last = merged.lastIndex(where: { $0.hasContent }) {
             plan.slots = Array(merged[...last])
         }
+
+        // A block at either end of the day that runs past the modules keeps
+        // its real length: 8:00–16:00 is longer than 8:00–15:15. Only at
+        // the ends — in the middle, the next module has the time.
+        // Up to 2½ hours, so an evening doesn't make a block a screen tall.
+        for i in plan.slots.indices where i == 0 || i == plan.slots.count - 1 {
+            let slot = plan.slots[i]
+            let items = slot.main + slot.continuing
+            guard items.count == 1, let item = items.first,
+                  let s = item.startMinutes, let e = item.endMinutes else { continue }
+            if i == plan.slots.count - 1 {
+                plan.slots[i].overrunAfter = min(max(0, e - slot.last.endMinutes), 150)
+            }
+            if i == 0 {
+                plan.slots[i].overrunBefore = min(max(0, slot.module.startMinutes - s), 150)
+            }
+        }
         let hasLessons = plan.slots.contains { !$0.isFree }
 
         // 6. The notes. The ones that repeat what the day already shows go
@@ -812,6 +837,12 @@ struct DayPlan {
         }
         if let g = Rx.match("^until (\\d{1,2}:\\d{2})$", label), let e = Lesson.minutes(from: g[1]) {
             if e <= dayStart { return .skip }
+            // A trip back at 16:00 is a whole day that runs a little long.
+            if e > dayEnd, item.isFor(className: className) {
+                var copy = DayPlan.timedCopy(item, from: dayStart, to: e, title: item.title)
+                copy.dayShape = "all"
+                return .timed(copy)
+            }
             if e >= dayEnd { return wholeDay }
             var copy = DayPlan.timedCopy(item, from: dayStart, to: e, title: item.title)
             copy.dayShape = "ends"
