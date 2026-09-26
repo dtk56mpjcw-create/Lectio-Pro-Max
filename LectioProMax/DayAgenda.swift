@@ -739,7 +739,8 @@ private struct SectionLabel: View {
 /// The day's notes, stacked the way Calendar stacks all-day events: each
 /// on its own line, in full, nothing to scroll or wait for. With two or
 /// more, only the first shows, with "1 more" / "3 more" to open the rest
-/// in place — the lessons stay near the top.
+/// in place and "Show less" to fold them again — the lessons stay near
+/// the top.
 private struct AllDayStrip: View {
     let items: [Lesson]
     let dayISO: String
@@ -791,11 +792,11 @@ private struct AllDayStrip: View {
                         .contentShape(Rectangle())
                     }
                 }
-                if items.count > 1 && !expanded {
+                if items.count > 1 {
                     Button {
-                        withAnimation(.snappy) { expanded = true }
+                        withAnimation(.snappy) { expanded.toggle() }
                     } label: {
-                        Text("\(items.count - 1) more")
+                        Text(expanded ? "Show less" : "\(items.count - 1) more")
                             .font(.system(size: 13.5, weight: .semibold))
                             .foregroundStyle(Palette.accent)
                             .padding(.horizontal, 12)
