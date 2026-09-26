@@ -629,9 +629,10 @@ private struct OutsideRow: View {
     let dayISO: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        // Centred on the row: a small row is one line tall, and its two
+        // times top-aligned with a gap sat about 6 pt low of the name.
+        HStack(alignment: .center, spacing: 10) {
             SideTimes(start: lesson.start, end: lesson.end)
-                .padding(.top, 10)
             OpenButton(lesson: lesson, dayISO: dayISO) {
                 SmallItem(lesson: lesson, showsTime: false)
                     .padding(.horizontal, 12)
@@ -774,8 +775,9 @@ private struct AllDayStrip: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .minimumScaleFactor(0.5)
-                .frame(width: 38)
-                .padding(.top, 5)
+                // Centred on the first note (44 pt tall), however many are
+                // open below it.
+                .frame(width: 38, height: 44)
                 .opacity(showsLabel ? 1 : 0)
                 .accessibilityHidden(!showsLabel)
 
