@@ -335,10 +335,14 @@ private struct OthersLine: View {
     let dayISO: String
     @State private var open = false
 
+    /// Each name once: Lectio can list the same event twice.
     private var summary: String {
+        var seen: Set<String> = []
         let held = items.filter { !$0.cancelled }.map(\.headline)
         let cancelled = items.filter(\.cancelled).map { $0.headline + " cancelled" }
-        return (held + cancelled).joined(separator: " · ")
+        return (held + cancelled)
+            .filter { seen.insert($0.lowercased()).inserted }
+            .joined(separator: " · ")
     }
 
     var body: some View {

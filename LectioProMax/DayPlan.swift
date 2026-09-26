@@ -215,6 +215,17 @@ struct DayPlan {
                 if s < firstStart { plan.before.append(lesson) } else { plan.after.append(lesson) }
                 continue
             }
+            // An event across three modules or more (an audition day, a
+            // trip) isn't something in each module; it goes up top with the
+            // all-day items, with its hours.
+            if hits.count >= 3 && !lesson.isClassLesson && !lesson.isPrivateEvent && !lesson.cancelled {
+                var spanning = lesson
+                spanning.allDay = lesson.start + "–" + lesson.end
+                if seen.insert(spanning.headline.lowercased()).inserted {
+                    plan.allDay.append(spanning)
+                }
+                continue
+            }
             for i in hits {
                 let mine = lesson.isClassLesson || lesson.isPrivateEvent
                 if lesson.cancelled {

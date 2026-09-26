@@ -106,11 +106,14 @@ struct ScheduleTab: View {
         NavigationStack(path: $opener.path) {
             pagers
                 .background { AppBackground() }
-                // The system's own large title and toolbar, like the other
-                // tabs: the title sits at the same height on every tab, and
-                // the buttons get the system's glass and spacing.
+                // The buttons sit in the system bar, where the other tabs have
+                // theirs. The big title is drawn at the top of each page
+                // instead of by the system: the pages are side-scrolling, and
+                // a system large title can't tell which of them to make room
+                // in, so it drew over the lessons. On the page it lands where
+                // the other tabs' titles are and slides along with the day.
                 .navigationTitle(title)
-                .navigationSubtitle(subtitle)
+                .toolbarTitleDisplayMode(.inline)
                 .toolbar { toolbar }
                 .environment(opener)
             .navigationDestination(for: LessonRoute.self) { route in
@@ -169,6 +172,10 @@ struct ScheduleTab: View {
     /// navigation bar, as Calendar has them.
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
+        // No small title in the bar: the page has the big one.
+        ToolbarItem(placement: .principal) {
+            Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+        }
         ToolbarItemGroup(placement: .topBarTrailing) {
             if selectedDate != today {
                 Button("Today") { jumpToToday() }
@@ -188,24 +195,33 @@ struct ScheduleTab: View {
         }
     }
 
-    /// "Today", "Tomorrow" and "Yesterday" as they are; any other day by its
-    /// weekday, with the date underneath. "Week 39" zoomed out.
+    /// For the back button and VoiceOver; the pages draw their own titles.
     private var title: String {
-        if weekMode { return LectioDates.weekLabel(code: weekCode) }
-        let friendly = LectioDates.friendlyLabel(iso: selectedDate)
-        if friendly != LectioDates.dayLabel(iso: selectedDate) { return friendly }
-        return Self.firstWord(LectioDates.longLabel(iso: selectedDate))
+        weekMode ? Self.weekTitle(Self.monday(of: selectedDate)) : Self.dayTitle(selectedDate)
     }
 
-    private var subtitle: String {
-        if weekMode {
-            let monday = Self.monday(of: selectedDate)
-            let sunday = LectioDates.shift(iso: monday, byDays: 6)
-            return Self.dropFirstWord(LectioDates.dayLabel(iso: monday))
-                + " – " + Self.dropFirstWord(LectioDates.dayLabel(iso: sunday))
-        }
-        let long = LectioDates.longLabel(iso: selectedDate)
-        return title == Self.firstWord(long) ? Self.dropFirstWord(long) : long
+    /// "Today", "Tomorrow" and "Yesterday" as they are; any other day by its
+    /// weekday, with the date underneath.
+    static func dayTitle(_ date: String) -> String {
+        let friendly = LectioDates.friendlyLabel(iso: date)
+        if friendly != LectioDates.dayLabel(iso: date) { return friendly }
+        return firstWord(LectioDates.longLabel(iso: date))
+    }
+
+    static func daySubtitle(_ date: String) -> String {
+        let long = LectioDates.longLabel(iso: date)
+        return dayTitle(date) == firstWord(long) ? dropFirstWord(long) : long
+    }
+
+    /// "Week 40", "28 Sep – 4 Oct".
+    static func weekTitle(_ monday: String) -> String {
+        LectioDates.weekLabel(code: LectioDates.weekCode(iso: monday))
+    }
+
+    static func weekSubtitle(_ monday: String) -> String {
+        let sunday = LectioDates.shift(iso: monday, byDays: 6)
+        return dropFirstWord(LectioDates.dayLabel(iso: monday))
+            + " – " + dropFirstWord(LectioDates.dayLabel(iso: sunday))
     }
 
     // MARK: Pagers
@@ -347,11 +363,11 @@ struct ScheduleTab: View {
         return (weekday + 5) % 7
     }
 
-    private static func firstWord(_ text: String) -> String {
+    fileprivate static func firstWord(_ text: String) -> String {
         text.split(separator: " ").first.map(String.init) ?? text
     }
 
-    private static func dropFirstWord(_ text: String) -> String {
+    fileprivate static func dropFirstWord(_ text: String) -> String {
         text.split(separator: " ").dropFirst().joined(separator: " ")
     }
 }
@@ -448,6 +464,8 @@ private struct DayPage: View {
         ScrollView {
             VStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 10) {
+                    PageHeading(title: ScheduleTab.dayTitle(date),
+                                subtitle: ScheduleTab.daySubtitle(date))
                     if let week = session.snapshot.weeks[code] {
                         DayList(day: week.days.first { $0.date == date },
                                 modules: week.resolvedModules,
@@ -469,6 +487,32 @@ private struct DayPage: View {
     }
 }
 
+/// A page's title, where the other tabs have their large titles: 34 pt
+/// bold, 16 pt in, the date under it.
+private struct PageHeading: View {
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title)
+                .font(.system(size: 34, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .accessibilityAddTraits(.isHeader)
+            Text(subtitle)
+                .font(.system(size: 15))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // The system's large titles sit 16 pt in; the page's margin is 18.
+        .padding(.leading, 16 - Metrics.margin)
+        .padding(.top, 6)
+        .padding(.bottom, 4)
+    }
+}
+
 /// One week of the week pager.
 private struct WeekPage: View {
     @EnvironmentObject private var session: LectioSession
@@ -478,11 +522,14 @@ private struct WeekPage: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
+            VStack(spacing: 10) {
+                PageHeading(title: ScheduleTab.weekTitle(monday),
+                            subtitle: ScheduleTab.weekSubtitle(monday))
+                    .padding(.horizontal, Metrics.margin)
                 WeekOverview(weekCode: LectioDates.weekCode(iso: monday), monday: monday, onPick: onPick)
-                    .padding(.top, 8)
-                    .padding(.bottom, bottomInset + 24)
-                }
+            }
+            .padding(.top, 8)
+            .padding(.bottom, bottomInset + 24)
         }
         .scrollIndicators(.hidden)
         .refreshable { await Task { await session.refresh() }.value }
