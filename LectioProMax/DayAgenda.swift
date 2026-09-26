@@ -165,16 +165,34 @@ private struct ModuleRow: View {
         }
     }
 
-    /// The time column is always the school's modules — number, start,
-    /// end — at the same place as on an ordinary day, so a block over
-    /// four of them is visibly the size of four lessons. Its own hours
-    /// ("All day", "8:00–11:35", "From 12:00") are in the block.
+    /// A single module: its number and times, the day's rhythm down the
+    /// side. A block over several — one exam, one reading day, one double
+    /// lesson — shows only when it starts, at its top, and when it ends,
+    /// at its bottom: it's one thing, not four.
+    @ViewBuilder
     private var label: some View {
-        VStack(spacing: ModuleGrid.gap) {
-            ForEach(slot.modules) { module in
-                moduleLabel(module)
-                    .frame(height: ModuleGrid.height, alignment: .top)
+        if slot.modules.count == 1 {
+            moduleLabel(slot.module)
+        } else {
+            let hours = slot.hours
+            VStack(spacing: 0) {
+                Text(hours.shortStart)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(isCurrent ? Palette.accent : (isPast ? Color(.secondaryLabel) : Color.primary))
+                Spacer(minLength: 4)
+                Text(hours.shortEnd)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
             }
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .frame(width: 38)
+            .padding(.top, 10)
+            .padding(.bottom, 12)
+            .frame(height: ModuleGrid.height(of: slot))
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(hours.start) to \(hours.end)")
         }
     }
 
@@ -297,20 +315,12 @@ private struct LessonBlock: View {
     /// "Day 1 of 2 · until Wed 15:15".
     private var spanNote: String? { lesson.spanNote(on: dayISO) }
 
-    /// When, for anything that isn't a lesson — the time column shows the
-    /// modules, not its hours: "All day", "From 12:00", "Until 11:00",
-    /// "8:00–11:35".
+    /// The time column has the hours; the block only says "All day" when
+    /// it is, or the hours when they aren't the module's (a single module).
     private var when: String? {
-        func short(_ t: String) -> String { t.hasPrefix("0") ? String(t.dropFirst()) : t }
-        switch lesson.dayShape {
-        case "all": return "All day"
-        case "starts": return "From " + short(lesson.start)
-        case "ends": return "Until " + short(lesson.end)
-        default:
-            guard !lesson.start.isEmpty,
-                  tall || lesson.start != module.start || lesson.end != module.end else { return nil }
-            return short(lesson.start) + (lesson.end.isEmpty ? "" : "–" + short(lesson.end))
-        }
+        if lesson.dayShape == "all" { return "All day" }
+        guard !tall, lesson.dayShape == nil, let ownTimes else { return nil }
+        return ownTimes
     }
 
     /// For anything that isn't a lesson: when, who it's for, where, with
@@ -391,7 +401,8 @@ private struct LessonBlock: View {
 
                 // With room to spare, the note itself: what to bring, where
                 // to meet.
-                if tall, !lesson.note.isEmpty {
+                if tall, !lesson.note.isEmpty,
+                   Lesson.squashed(lesson.note) != Lesson.squashed(lesson.title) {
                     Text(LectioDates.tidy(lesson.note))
                         .font(.system(size: 13.5))
                         .foregroundStyle(.secondary)
@@ -528,10 +539,17 @@ private struct AlongsideLine: View {
         .contentShape(Rectangle())
     }
 
+    /// Short, to fit beside the name: "until 15:15" on the last day of it,
+    /// "from 12:00" on the first, "Day 3 of 5" in between.
     private var when: String {
-        if let note = lesson.spanNote(on: dayISO) { return note }
-        if lesson.dayShape == "all" || lesson.start.isEmpty { return "All day" }
         func short(_ t: String) -> String { t.hasPrefix("0") ? String(t.dropFirst()) : t }
+        if let note = lesson.spanNote(on: dayISO) {
+            let parts = note.components(separatedBy: " · ")
+            if lesson.dayShape == "starts", !lesson.start.isEmpty { return "from " + short(lesson.start) }
+            if parts.count == 2, Rx.test("^until \\d", parts[1]) { return parts[1] }
+            return parts.first ?? note
+        }
+        if lesson.dayShape == "all" || lesson.start.isEmpty { return "All day" }
         return short(lesson.start) + (lesson.end.isEmpty ? "" : "–" + short(lesson.end))
     }
 }
