@@ -736,43 +736,74 @@ private struct SectionLabel: View {
     }
 }
 
-/// All-day items as a row of chips: there, but not in the way.
+/// The day's notes, stacked the way Calendar stacks all-day events: each
+/// on its own line, in full, nothing to scroll or wait for. More than
+/// three fold to the first two and "3 more", which opens them in place.
 private struct AllDayStrip: View {
     let items: [Lesson]
     let dayISO: String
     /// Off under rows that already say "All day".
     var showsLabel = true
 
+    @State private var expanded = false
+
+    private var shown: [Lesson] {
+        items.count > 3 && !expanded ? Array(items.prefix(2)) : items
+    }
+
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
+        HStack(alignment: .top, spacing: 10) {
             Text("All\nday")
                 .font(.system(size: 11.5, weight: .heavy))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .frame(width: 38)
+                .padding(.top, 5)
                 .opacity(showsLabel ? 1 : 0)
-            ScrollView(.horizontal) {
-                HStack(spacing: 7) {
-                    ForEach(items) { item in
-                        OpenButton(lesson: item, dayISO: dayISO) {
-                            HStack(spacing: 5) {
-                                Text(item.headline)
-                                    .font(.system(size: 14, weight: .semibold))
+                .accessibilityHidden(!showsLabel)
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(shown) { item in
+                    OpenButton(lesson: item, dayISO: dayISO) {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(item.headline)
+                                .font(.system(size: 14.5, weight: .semibold))
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if let span = item.allDay, !span.isEmpty {
+                                Text(span)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
                                     .lineLimit(1)
-                                if let span = item.allDay, !span.isEmpty {
-                                    Text(span)
-                                        .font(.system(size: 12.5, weight: .medium))
-                                        .foregroundStyle(.secondary)
-                                }
+                                    .fixedSize()
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Capsule().fill(Color(.tertiarySystemFill)))
+                            Spacer(minLength: 0)
                         }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color(.tertiarySystemFill)))
+                        .foregroundStyle(.primary)
+                        .contentShape(Rectangle())
                     }
                 }
+                if items.count > 3 && !expanded {
+                    Button {
+                        withAnimation(.snappy) { expanded = true }
+                    } label: {
+                        Text("\(items.count - 2) more")
+                            .font(.system(size: 13.5, weight: .semibold))
+                            .foregroundStyle(Palette.accent)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .scrollIndicators(.hidden)
         }
     }
 }
