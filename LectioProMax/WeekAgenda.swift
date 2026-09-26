@@ -390,7 +390,7 @@ private struct WeekLineMain: View {
             switch row.kind {
             case .allDay(let item):
                 Text(item.headline)
-                    .font(.system(size: 15, weight: item.isExam ? .semibold : .medium))
+                    .font(.system(size: 15, weight: item.isAddressedExam ? .semibold : .medium))
                     .lineLimit(1)
             case .lesson(let lesson):
                 if lesson.isPrivateEvent {
@@ -482,7 +482,7 @@ private struct WeekLineTrailing: View {
                         .fixedSize()
                 }
             case .allDay(let item):
-                if item.isExam { ExamTag() }
+                if item.isAddressedExam { ExamTag() }
                 if let span = item.allDay, !span.isEmpty {
                     Text(span)
                         .font(.system(size: 13, weight: .medium))

@@ -181,9 +181,20 @@ extension Lesson {
     /// "Sygeeksamen AP". Not a class lesson's topic — "Practice test",
     /// "Revision for screening test" and "Test return" say "test" too, and
     /// the topic is right there on the lesson anyway.
+    /// The word has to end there: "Eksamensplan offentliggøres" is news
+    /// about exams, not one.
     var isExam: Bool {
         guard !isClassLesson else { return false }
-        return Rx.test("eksamen|prøve|\\btest\\b|\\bexam", title)
+        return Rx.test("eksamen(?![a-zæøå])|prøve(?![a-zæøå])|\\btest\\b|\\bexams?\\b", title)
+    }
+
+    /// An exam note addressed to your class or year ("1i, 1j: NV-eksamen",
+    /// "1g: AP-eksamen"): a banner, and the Exam tag in the week. One for
+    /// whoever takes it ("DELF-eksamen", "MU skr eksamen") is a plain note.
+    var isAddressedExam: Bool {
+        guard isExam else { return false }
+        let t = title
+        return t.firstIndex(of: ":").flatMap { Lesson.audience(String(t[..<$0])) } != nil
     }
 
     /// Letters and digits only, lowercased: "AP-eksamen" and "Ap Eksamen"
@@ -274,10 +285,11 @@ struct DayPlan {
             guard seenTiles.insert(tileKey).inserted else { continue }
             if item.isAllDay {
                 guard item.isRelevant(toClass: className) else { continue }
-                if let placed = timedPart(of: item, dayStart: dayStart, dayEnd: dayEnd, modules: modules) {
-                    timed.append(placed)
-                } else {
-                    notes.append(item)
+                switch placement(of: item, dayStart: dayStart, dayEnd: dayEnd,
+                                 modules: modules, className: className) {
+                case .timed(let placed): timed.append(placed)
+                case .note(let note): notes.append(note)
+                case .skip: break
                 }
             } else {
                 timed.append(item)
@@ -432,60 +444,87 @@ struct DayPlan {
                 other == name || (name.count >= 5 && other.contains(name))
             }
             guard !repeated, seenNames.insert(name).inserted else { continue }
-            if note.isExam { plan.banners.append(note) } else { chips.append(note) }
+            if note.isAddressedExam { plan.banners.append(note) } else { chips.append(note) }
         }
         plan.allDay = chips + plan.allDay
         return plan
     }
 
-    /// The hours an all-day item actually has, as an ordinary timed item —
-    /// or nil for a plain note. Multi-day things: "from 12:00" runs to the
-    /// end of the school day, "until 15:15" from its start, the days
-    /// between are the whole school day. Notes that say when: "Nørre
-    /// Skriver (13:40-15:00)", "DELF Master Class (4. modul)".
-    static func timedPart(of item: Lesson, dayStart: Int?, dayEnd: Int?,
-                          modules: [ScheduleModule]) -> Lesson? {
-        let label = item.allDay ?? ""
-        var start: Int?
-        var end: Int?
-        var title = item.title
+    /// Where an all-day item goes on this day.
+    enum Placement {
+        /// It has hours here: placed like anything else.
+        case timed(Lesson)
+        /// A note for the top of the day.
+        case note(Lesson)
+        /// Nothing on this day at all: the last day of something that
+        /// ends at midnight ("Vinterferie 15/2 00:00 til 20/2 00:00").
+        case skip
+    }
 
-        if let g = Rx.match("^from (\\d{1,2}:\\d{2})$", label) {
-            start = Lesson.minutes(from: g[1])
-            if let s = start, let dayEnd, s < dayEnd { end = dayEnd }
-        } else if let g = Rx.match("^until (\\d{1,2}:\\d{2})$", label) {
-            end = Lesson.minutes(from: g[1])
-            if let e = end, let dayStart, dayStart < e { start = dayStart }
-        } else if label == "all day" {
-            start = dayStart
-            end = dayEnd
-        } else if label.isEmpty {
-            let timePattern = "\\s*\\((\\d{1,2})[:.](\\d{2})\\s*[-–]\\s*(\\d{1,2})[:.](\\d{2})\\)"
-            let modulePattern = "\\s*\\((\\d{1,2})\\.\\s*modul\\)"
-            if let g = Rx.match(timePattern, title),
-               let h1 = Int(g[1]), let m1 = Int(g[2]), let h2 = Int(g[3]), let m2 = Int(g[4]) {
-                start = h1 * 60 + m1
-                end = h2 * 60 + m2
-                title = title.replacingOccurrences(of: timePattern, with: "", options: .regularExpression)
-            } else if let g = Rx.match(modulePattern, title), let n = Int(g[1]),
-                      let module = modules.first(where: { $0.number == n }) {
-                start = module.startMinutes
-                end = module.endMinutes
-                title = title.replacingOccurrences(of: modulePattern, with: "",
-                                                   options: [.regularExpression, .caseInsensitive])
-            } else {
-                return nil
-            }
+    /// The hours an all-day item actually has. Days of something running
+    /// over several days: "from 12:00" runs to the end of the school day,
+    /// "until 11:00" from its start, and a day it fills — the days between,
+    /// or one that starts at midnight — is the whole school day. Notes that
+    /// say when: "Nørre Skriver (13:40-15:00)", "DELF Master Class (4.
+    /// modul)". Anything else stays a note.
+    static func placement(of item: Lesson, dayStart: Int?, dayEnd: Int?,
+                          modules: [ScheduleModule], className: String) -> Placement {
+        let label = item.allDay ?? ""
+        guard let dayStart, let dayEnd else { return .note(item) }
+
+        // A whole school day of it: a block when it's yours (an exam over
+        // several days, a trip), otherwise a plain note — "Vinterferie",
+        // not "Vinterferie 08:00–15:15".
+        let wholeDay: Placement
+        if item.isFor(className: className) {
+            wholeDay = .timed(DayPlan.timedCopy(item, from: dayStart, to: dayEnd, title: item.title))
         } else {
-            return nil
+            var note = item
+            note.allDay = ""
+            wholeDay = .note(note)
         }
 
-        guard let s = start else { return nil }
+        if let g = Rx.match("^from (\\d{1,2}:\\d{2})$", label), let s = Lesson.minutes(from: g[1]) {
+            if s <= dayStart { return wholeDay }
+            return .timed(DayPlan.timedCopy(item, from: s, to: s < dayEnd ? dayEnd : nil, title: item.title))
+        }
+        if let g = Rx.match("^until (\\d{1,2}:\\d{2})$", label), let e = Lesson.minutes(from: g[1]) {
+            if e <= dayStart { return .skip }
+            if e >= dayEnd { return wholeDay }
+            return .timed(DayPlan.timedCopy(item, from: dayStart, to: e, title: item.title))
+        }
+        if label == "all day" { return wholeDay }
+        guard label.isEmpty else { return .note(item) }
+
+        let title = item.title
+        let timePattern = "\\s*\\((\\d{1,2})[:.](\\d{2})\\s*[-–]\\s*(\\d{1,2})[:.](\\d{2})\\)"
+        let modulePattern = "\\s*\\((\\d{1,2})\\.\\s*modul\\)"
+        if let g = Rx.match(timePattern, title),
+           let h1 = Int(g[1]), let m1 = Int(g[2]), let h2 = Int(g[3]), let m2 = Int(g[4]) {
+            let cleaned = title.replacingOccurrences(of: timePattern, with: "", options: .regularExpression)
+            return .timed(DayPlan.timedCopy(item, from: h1 * 60 + m1, to: h2 * 60 + m2, title: cleaned))
+        }
+        if let g = Rx.match(modulePattern, title), let n = Int(g[1]),
+           let module = modules.first(where: { $0.number == n }) {
+            let cleaned = title.replacingOccurrences(of: modulePattern, with: "",
+                                                     options: [.regularExpression, .caseInsensitive])
+            return .timed(DayPlan.timedCopy(item, from: module.startMinutes, to: module.endMinutes, title: cleaned))
+        }
+        return .note(item)
+    }
+
+    /// The item as an ordinary timed one. No end (or none after the start)
+    /// leaves just a start time: it lands before or after school.
+    private static func timedCopy(_ item: Lesson, from start: Int, to end: Int?, title: String) -> Lesson {
         var copy = item
         copy.allDay = nil
         copy.title = title.trimmingCharacters(in: .whitespaces)
-        copy.start = clock(s)
-        copy.end = end.map { $0 > s ? clock($0) : "" } ?? ""
+        copy.start = DayPlan.clock(start)
+        if let end, end > start {
+            copy.end = DayPlan.clock(end)
+        } else {
+            copy.end = ""
+        }
         return copy
     }
 
