@@ -981,10 +981,14 @@ extension LectioParser {
     /// Both tables on `subnav/fravaerelev_fravaersaarsager.aspx`: the ones still
     /// waiting for a reason, and the full log.
     ///
-    /// The two tables have different columns, so each is read against its own
-    /// header rather than by guessing at cell shapes:
-    ///   missing:    Uge | Aktivitet | Fravær | Bemærkning
-    ///   registered: Uge | Aktivitet | Fravær | Registreret | Bemærkning | Fraværsårsag | Kommentar
+    /// Each table is read against its own header row, by the headers' names,
+    /// so a column Lectio adds, drops or merges doesn't shift the rest. As of
+    /// September 2026:
+    ///   missing:    Uge | Aktivitet | Fravær | Bemærkning | (Fravær, mobile) | edit
+    ///   registered: Uge | Aktivitet | Fravær | Registreret | Bemærkning |
+    ///               Fraværsårsag + Kommentar (one cell, a line each) | (mobile) | edit
+    /// Reading by position had drifted a column: the percentage showed the
+    /// registration date, and reasons and comments came out empty.
     static func parseAbsenceRecords(_ html: String) -> [AbsenceRecord] {
         let root = HTMLDocument.parse(html)
         var records: [AbsenceRecord] = []
@@ -993,9 +997,31 @@ extension LectioParser {
         func collect(_ tableID: String, needsReason: Bool) {
             guard let table = root.firstWhere({ ($0.attrs["id"] ?? "").contains(tableID) }) else { return }
 
+            // Header name -> position among the row's cells. The desktop
+            // copies only: every value is drawn twice, once for phones.
+            var columns: [(name: String, index: Int)] = []
+            if let header = table.all("tr").first(where: { !$0.all("th").isEmpty }) {
+                for (index, th) in header.all("th").enumerated() where !th.hasClass("OnlyMobile") {
+                    columns.append((th.text.lowercased(), index))
+                }
+            }
+            func column(_ test: (String) -> Bool) -> Int? {
+                columns.first(where: { test($0.name) })?.index
+            }
+            let percentAt = column { $0.hasPrefix("fravær") && !$0.contains("årsag") }
+            let registeredAt = column { $0.contains("registreret") }
+            let remarkAt = column { $0.contains("bemærkning") }
+            let reasonAt = column { $0.contains("fraværsårsag") || $0.contains("årsag") }
+            let commentAt = column { $0.contains("kommentar") }
+
             for row in table.all("tr") {
                 guard let tile = row.firstWhere({ $0.name == "a" && $0.hasClass("s2skemabrik") }) else { continue }
                 let parsed = parseTooltip(tile.attr("data-tooltip") ?? "")
+                let cells = row.all("td")
+                func cell(_ index: Int?) -> String {
+                    guard let index, index < cells.count else { return "" }
+                    return cells[index].text.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
 
                 var record = AbsenceRecord()
                 record.needsReason = needsReason
@@ -1011,20 +1037,25 @@ extension LectioParser {
                     record.module = "Module " + g[1]
                 }
 
-                let cells = row.allWhere { $0.name == "td" && $0.hasClass("OnlyDesktop") }
-                if cells.count > 0 { record.week = cells[0].text }
-                if cells.count > 2 {
-                    record.percent = cells[2].text
-                        .replacingOccurrences(of: "Fravær", with: "")
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !cells.isEmpty { record.week = cell(0) }
+                record.percent = cell(percentAt)
+                    .replacingOccurrences(of: "Fravær", with: "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                record.registered = cell(registeredAt)
+
+                // Reason and comment share a cell, a line each: "Andet" /
+                // "I was like 5 minutes late". "(Mangler årsag)" is no reason.
+                let reasonLines = cell(reasonAt)
+                    .components(separatedBy: "\n")
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                    .filter { !$0.isEmpty && !$0.hasPrefix("(") }
+                if !needsReason, let first = reasonLines.first {
+                    record.reason = first
+                    let rest = reasonLines.dropFirst().joined(separator: " ")
+                    record.comment = commentAt != nil && commentAt != reasonAt ? cell(commentAt) : rest
                 }
-                if !needsReason {
-                    if cells.count > 3 { record.registered = cells[3].text }
-                    if cells.count > 5 { record.reason = cells[5].text }
-                    if cells.count > 6 { record.comment = cells[6].text }
-                } else if cells.count > 3 {
-                    record.comment = cells[3].text
-                }
+                let remark = cell(remarkAt)
+                if record.comment.isEmpty && !remark.isEmpty { record.comment = remark }
 
                 if let link = row.firstWhere({ ($0.attr("href") ?? "").contains("fravaer_aarsag.aspx") }) {
                     record.reasonLink = absoluteURL(link.attr("href"))
