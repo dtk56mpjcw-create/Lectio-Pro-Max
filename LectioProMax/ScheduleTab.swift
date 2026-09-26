@@ -494,21 +494,25 @@ private struct PageHeading: View {
     let subtitle: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: -2) {
             Text(title)
                 .font(.system(size: 34, weight: .bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .accessibilityAddTraits(.isHeader)
+            // The system's large-title subtitle is this small.
             Text(subtitle)
-                .font(.system(size: 15))
+                .font(.system(size: 13))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         // The system's large titles sit 16 pt in; the page's margin is 18.
         .padding(.leading, 16 - Metrics.margin)
-        .padding(.top, 6)
+        // Measured against Homework, Messages and Me: 28 pt lower than the
+        // first try put the title's top and the date exactly where theirs
+        // are — and clear of the bar's fade, which had greyed it.
+        .padding(.top, 34)
         .padding(.bottom, 4)
     }
 }
