@@ -92,6 +92,11 @@ struct ScheduleTab: View {
 
     private var today: String { LectioDates.isoString(from: Date()) }
     private var weekCode: String { LectioDates.weekCode(iso: selectedDate) }
+    private func lessons(on date: String) -> [Lesson] {
+        session.snapshot.weeks[LectioDates.weekCode(iso: date)]?
+            .days.first { $0.date == date }?.lessons ?? []
+    }
+
     /// Changes when the day on screen changes, or its week arrives.
     private var prefetchKey: String {
         selectedDate + (session.snapshot.weeks[weekCode] == nil ? "" : "+") + (weekMode ? "w" : "")
@@ -135,17 +140,18 @@ struct ScheduleTab: View {
                 LectioDates.weekCode(iso: LectioDates.shift(iso: selectedDate, byDays: -7))
             ])
         }
-        // Once a day has settled on screen, its lessons load in the
-        // background so opening one is instant. The pause skips the days a
-        // swipe only passes through; a new day cancels the last one's queue.
+        // The moment a day is on screen its lessons start loading in the
+        // background, so opening one is instant — then the next day's, ready
+        // for the swipe. A new day replaces the queue; nothing piles up.
         .task(id: prefetchKey) {
-            try? await Task.sleep(for: .milliseconds(450))
-            guard !Task.isCancelled, !weekMode,
-                  let day = session.snapshot.weeks[weekCode]?.days.first(where: { $0.date == selectedDate })
-            else { return }
+            guard !weekMode else { return }
+            let next = LectioDates.shift(iso: selectedDate, byDays: 1)
+            let today = lessons(on: selectedDate)
+            let tomorrow = lessons(on: next)
+            guard !today.isEmpty || !tomorrow.isEmpty else { return }
             let cookies = await session.requestCookies()
             guard !Task.isCancelled else { return }
-            LessonCache.shared.prefetch(day.lessons, dayISO: selectedDate, cookies: cookies)
+            LessonCache.shared.prefetch([(selectedDate, today), (next, tomorrow)], cookies: cookies)
         }
         .sensoryFeedback(.selection, trigger: weekMode)
         .sheet(isPresented: $addingEvent) {

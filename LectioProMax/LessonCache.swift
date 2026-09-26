@@ -70,26 +70,13 @@ final class LessonCache {
         loading[link] = nil
     }
 
-    /// A day's lessons, soonest first, two at a time. A new day replaces the
-    /// last one's queue — flicking through a week doesn't pile up requests.
-    func prefetch(_ lessons: [Lesson], dayISO: String, cookies: [HTTPCookie]) {
+    /// Days' lessons in the order given — the day on screen, then the next —
+    /// soonest first within a day, two at a time. A new call replaces the
+    /// last one's queue, so flicking through a week doesn't pile up requests.
+    func prefetch(_ days: [(dayISO: String, lessons: [Lesson])], cookies: [HTTPCookie]) {
         prefetching?.cancel()
-        let now = Lesson.minutes(from: LectioDates.timeString(Date())) ?? 0
-        let isToday = dayISO == LectioDates.isoString(from: Date())
-        let wanted = lessons
-            .filter { !$0.isAllDay && !$0.cancelled && !$0.isPrivateEvent && $0.link != nil }
-            .sorted { a, b in
-                // Today: what's still to come before what's over.
-                let aLater = !isToday || (a.endMinutes ?? 0) >= now
-                let bLater = !isToday || (b.endMinutes ?? 0) >= now
-                if aLater != bLater { return aLater }
-                return (a.startMinutes ?? 0) < (b.startMinutes ?? 0)
-            }
-            .compactMap { lesson -> (String, Bool)? in
-                guard let link = lesson.link else { return nil }
-                // Only a real lesson has an Elevfeedback tab.
-                return (link, lesson.isClassLesson)
-            }
+        let wanted = days.flatMap { Self.queue($0.lessons, dayISO: $0.dayISO) }
+        guard !wanted.isEmpty else { return }
 
         prefetching = Task { @MainActor in
             var index = 0
@@ -105,6 +92,26 @@ final class LessonCache {
                 index += 2
             }
         }
+    }
+
+    /// One day's lessons worth fetching, what's still to come today first.
+    private static func queue(_ lessons: [Lesson], dayISO: String) -> [(String, Bool)] {
+        let now = Lesson.minutes(from: LectioDates.timeString(Date())) ?? 0
+        let isToday = dayISO == LectioDates.isoString(from: Date())
+        return lessons
+            .filter { !$0.isAllDay && !$0.cancelled && !$0.isPrivateEvent && $0.link != nil }
+            .sorted { a, b in
+                // Today: what's still to come before what's over.
+                let aLater = !isToday || (a.endMinutes ?? 0) >= now
+                let bLater = !isToday || (b.endMinutes ?? 0) >= now
+                if aLater != bLater { return aLater }
+                return (a.startMinutes ?? 0) < (b.startMinutes ?? 0)
+            }
+            .compactMap { lesson -> (String, Bool)? in
+                guard let link = lesson.link else { return nil }
+                // Only a real lesson has an Elevfeedback tab.
+                return (link, lesson.isClassLesson)
+            }
     }
 
     private nonisolated static func fetchDetail(_ link: String, _ needed: Bool,
