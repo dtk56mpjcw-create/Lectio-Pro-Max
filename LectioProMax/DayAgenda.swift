@@ -737,8 +737,9 @@ private struct SectionLabel: View {
 }
 
 /// The day's notes, stacked the way Calendar stacks all-day events: each
-/// on its own line, in full, nothing to scroll or wait for. More than
-/// three fold to the first two and "3 more", which opens them in place.
+/// on its own line, in full, nothing to scroll or wait for. With two or
+/// more, only the first shows, with "1 more" / "3 more" to open the rest
+/// in place — the lessons stay near the top.
 private struct AllDayStrip: View {
     let items: [Lesson]
     let dayISO: String
@@ -748,7 +749,7 @@ private struct AllDayStrip: View {
     @State private var expanded = false
 
     private var shown: [Lesson] {
-        items.count > 3 && !expanded ? Array(items.prefix(2)) : items
+        items.count > 1 && !expanded ? Array(items.prefix(1)) : items
     }
 
     var body: some View {
@@ -790,11 +791,11 @@ private struct AllDayStrip: View {
                         .contentShape(Rectangle())
                     }
                 }
-                if items.count > 3 && !expanded {
+                if items.count > 1 && !expanded {
                     Button {
                         withAnimation(.snappy) { expanded = true }
                     } label: {
-                        Text("\(items.count - 2) more")
+                        Text("\(items.count - 1) more")
                             .font(.system(size: 13.5, weight: .semibold))
                             .foregroundStyle(Palette.accent)
                             .padding(.horizontal, 12)
