@@ -13,9 +13,12 @@ enum LectioMessagesService {
         case cannotReply
         case noRecipients
         case sendFailed
+        case attachFailed(String)
 
         var errorDescription: String? {
             switch self {
+            case .attachFailed(let name):
+                return "Lectio didn't take “\(name)”. Nothing was sent."
             case .cannotReply:
                 return "This thread can't be replied to directly."
             case .noRecipients:
@@ -51,6 +54,7 @@ enum LectioMessagesService {
 
     static func reply(to thread: MessageThread,
                       body: String,
+                      attachments: [OutgoingAttachment] = [],
                       cookies: [HTTPCookie]) async throws -> MessageThread {
         // Re-read first: the page's hidden state is per-request.
         var current = try await loadThread(id: thread.id, cookies: cookies)
@@ -66,6 +70,19 @@ enum LectioMessagesService {
             current = LectioParser.parseThread(html, id: thread.id, pageURL: current.pageURL)
         }
         guard !current.composerPrefix.isEmpty else { throw MessageError.cannotReply }
+
+        // Each file goes on the way Lectio's "Vedhæft fil" puts it on: into
+        // the document store, then a postback naming it. The reply's text
+        // rides along each time so the page keeps it.
+        for attachment in attachments {
+            let prefix = current.composerPrefix
+            var fields = current.form
+            fields[prefix + "$EditModeContentBBTB$TbxNAME$tb"] = body
+            let html = try await attach(attachment, composer: prefix, fields: fields,
+                                        pageURL: current.pageURL, cookies: cookies)
+            current = LectioParser.parseThread(html, id: thread.id, pageURL: current.pageURL)
+            guard !current.composerPrefix.isEmpty else { throw MessageError.attachFailed(attachment.filename) }
+        }
 
         var fields = current.form
         fields[current.composerPrefix + "$EditModeContentBBTB$TbxNAME$tb"] = body
@@ -85,6 +102,7 @@ enum LectioMessagesService {
     static func createThread(to recipients: [Recipient],
                              subject: String,
                              body: String,
+                             attachments: [OutgoingAttachment] = [],
                              cookies: [HTTPCookie]) async throws -> Bool {
         guard !recipients.isEmpty else { throw MessageError.noRecipients }
 
@@ -112,7 +130,20 @@ enum LectioMessagesService {
             root = HTMLDocument.parse(html)
         }
 
-        guard let composer = composerPrefix(in: root) else { throw MessageError.sendFailed }
+        guard var composer = composerPrefix(in: root) else { throw MessageError.sendFailed }
+
+        for attachment in attachments {
+            var fields = LectioForms.fields(in: root)
+            fields[composer + "$EditModeHeaderTitleTB$tb"] = subject
+            fields[composer + "$EditModeContentBBTB$TbxNAME$tb"] = body
+            html = try await attach(attachment, composer: composer, fields: fields,
+                                    pageURL: newMessageURL, cookies: cookies)
+            root = HTMLDocument.parse(html)
+            guard let next = composerPrefix(in: root) else {
+                throw MessageError.attachFailed(attachment.filename)
+            }
+            composer = next
+        }
 
         var fields = LectioForms.fields(in: root)
         fields[composer + "$EditModeHeaderTitleTB$tb"] = subject
@@ -130,6 +161,46 @@ enum LectioMessagesService {
         return composerPrefix(in: after) == nil || after.firstWhere {
             $0.hasClass("message-thread-message")
         } != nil
+    }
+
+    // MARK: - Attachments
+
+    /// A file to send with a message.
+    struct OutgoingAttachment: Identifiable, Hashable {
+        let id = UUID()
+        var data: Data
+        var filename: String
+        var mimeType: String
+    }
+
+    /// Lectio's "Vedhæft fil", done by hand: upload the file to
+    /// dokumentupload.aspx (the same store hand-ins use), then post the
+    /// composer back naming it —
+    ///   selectedDocumentId = JSON.stringify(documentInfo)
+    ///   __doPostBack('<composer>$AttachmentDocChooser', 'documentId')
+    /// — which is exactly what the page's script does after its file dialog.
+    private static func attach(_ attachment: OutgoingAttachment,
+                               composer: String,
+                               fields: [String: String],
+                               pageURL: String,
+                               cookies: [HTTPCookie]) async throws -> String {
+        let serializedID = try await LectioHandInService.uploadDocument(
+            data: attachment.data,
+            filename: attachment.filename,
+            mimeType: attachment.mimeType,
+            cookies: cookies)
+
+        let info = (try? JSONSerialization.data(withJSONObject: ["serializedId": serializedID]))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "{\"serializedId\":\"\(serializedID)\"}"
+
+        var form = fields
+        form[composer + "$AttachmentDocChooser$selectedDocumentId"] = info
+        return try await LectioForms.postBack(
+            pageURL: pageURL,
+            fields: form,
+            target: composer + "$AttachmentDocChooser",
+            argument: "documentId",
+            cookies: cookies)
     }
 
     // MARK: - Folders

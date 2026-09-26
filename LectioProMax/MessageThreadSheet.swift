@@ -10,6 +10,7 @@ struct MessageThreadSheet: View {
     @State private var loadError: String?
     @State private var reply = ""
     @State private var includeSignature = true
+    @State private var attachments: [OutgoingAttachment] = []
     @State private var sending = false
     @State private var sendError: String?
     @State private var preview: PreviewDocument?
@@ -132,6 +133,8 @@ struct MessageThreadSheet: View {
 
             SignatureFooter(include: $includeSignature)
 
+            AttachmentTray(attachments: $attachments, disabled: sending)
+
             Button {
                 Task { await send() }
             } label: {
@@ -141,7 +144,7 @@ struct MessageThreadSheet: View {
                     } else {
                         Image(systemName: "paperplane.fill").font(.system(size: 14, weight: .semibold))
                     }
-                    Text(sending ? "Sending…" : "Send reply")
+                    Text(sending ? (attachments.isEmpty ? "Sending…" : "Uploading and sending…") : "Send reply")
                         .font(.system(size: 16.5, weight: .semibold))
                     Spacer()
                 }
@@ -151,8 +154,8 @@ struct MessageThreadSheet: View {
                 .contentCard(radius: Metrics.inner + 2)
             }
             .buttonStyle(PressableCard())
-            .disabled(sending || reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            .opacity(reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
+            .disabled(sending || !hasSomethingToSend)
+            .opacity(hasSomethingToSend ? 1 : 0.45)
         }
     }
 
@@ -169,10 +172,15 @@ struct MessageThreadSheet: View {
         }
     }
 
+    /// Words, or at least a photo or file.
+    private var hasSomethingToSend: Bool {
+        !reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
+    }
+
     private func send() async {
         guard let current = thread else { return }
         let text = reply.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        guard hasSomethingToSend else { return }
 
         sending = true
         sendError = nil
@@ -181,8 +189,10 @@ struct MessageThreadSheet: View {
             thread = try await LectioMessagesService.reply(
                 to: current,
                 body: MessageSignature.apply(to: text, include: includeSignature),
+                attachments: attachments,
                 cookies: cookies)
             reply = ""
+            attachments = []
             includeSignature = true
             await session.loadInbox(force: true)
         } catch {

@@ -12,6 +12,7 @@ struct NewMessageSheet: View {
     @State private var subject = ""
     @State private var body_ = ""
     @State private var includeSignature = true
+    @State private var attachments: [OutgoingAttachment] = []
     @State private var sending = false
     @State private var sendError: String?
     @State private var loadingDirectory = false
@@ -29,7 +30,7 @@ struct NewMessageSheet: View {
     private var canSend: Bool {
         return !chosen.isEmpty
             && !subject.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !body_.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && (!body_.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty)
             && !sending
     }
 
@@ -48,6 +49,8 @@ struct NewMessageSheet: View {
                     field("Message", text: $body_, lines: 6...14)
                     SignatureFooter(include: $includeSignature)
                         .padding(.top, -8)
+                    AttachmentTray(attachments: $attachments, disabled: sending)
+                        .padding(.top, -6)
 
                     sendButton
                 }
@@ -176,7 +179,7 @@ struct NewMessageSheet: View {
                 } else {
                     Image(systemName: "paperplane.fill").font(.system(size: 14, weight: .semibold))
                 }
-                Text(sending ? "Sending…" : "Send message")
+                Text(sending ? (attachments.isEmpty ? "Sending…" : "Uploading and sending…") : "Send message")
                     .font(.system(size: 16.5, weight: .semibold))
                 Spacer()
             }
@@ -202,6 +205,7 @@ struct NewMessageSheet: View {
                 to: chosen,
                 subject: title,
                 body: MessageSignature.apply(to: body_, include: includeSignature),
+                attachments: attachments,
                 cookies: cookies)
             if ok {
                 sending = false
