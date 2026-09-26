@@ -63,6 +63,13 @@ struct DayList: View, Equatable {
     private func agenda(_ day: ScheduleDay, _ clusters: [LessonCluster], now: Date?) -> some View {
         let nowMinutes = now.map { minutes(of: $0) }
         let next = nowMinutes.flatMap { nextLesson(after: $0, in: clusters) }
+        let schoolEnd = Self.schoolEnd(of: day.lessons)
+        // The last card of the school day, where "School's out" goes.
+        let lastSchool = schoolEnd.flatMap { end in
+            clusters.lastIndex { cluster in
+                cluster.lessons.contains { $0.subjectName != nil && !$0.cancelled && $0.endMinutes == end }
+            }
+        }
 
         VStack(alignment: .leading, spacing: 8) {
             DaySummary(lessons: day.lessons)
@@ -75,24 +82,36 @@ struct DayList: View, Equatable {
                 }
 
                 if index > 0 {
-                    gap(before: cluster, after: clusters[index - 1], nowMinutes: nowMinutes, next: next)
+                    gap(before: cluster, after: clusters[index - 1],
+                        schoolEnd: schoolEnd, nowMinutes: nowMinutes, next: next)
                 }
 
                 ClusterView(cluster: cluster, dayISO: day.date, now: now)
-            }
 
-            if let nowMinutes, let last = clusters.compactMap({ clusterEnd($0) }).max(), nowMinutes > last {
-                DoneLine()
+                if index == lastSchool, let nowMinutes, let schoolEnd, nowMinutes >= schoolEnd {
+                    DoneLine()
+                }
             }
         }
     }
 
+    /// When the school day ends: the last lesson in an actual subject.
+    /// Clubs and events in the evening come after it, and the time before
+    /// them isn't a break.
+    static func schoolEnd(of lessons: [Lesson]) -> Int? {
+        lessons.filter { $0.subjectName != nil && !$0.cancelled }
+            .compactMap(\.endMinutes)
+            .max()
+    }
+
     // MARK: Gaps
 
+    /// Breaks only inside the school day: nothing after the last lesson.
     @ViewBuilder
     private func gap(before cluster: LessonCluster, after previous: LessonCluster,
-                     nowMinutes: Int?, next: Lesson?) -> some View {
-        if let end = clusterEnd(previous), let start = clusterStart(cluster), start - end >= 5 {
+                     schoolEnd: Int?, nowMinutes: Int?, next: Lesson?) -> some View {
+        if let end = clusterEnd(previous), let start = clusterStart(cluster), start - end >= 5,
+           let schoolEnd, end < schoolEnd {
             if let nowMinutes, nowMinutes >= end, nowMinutes < start, let next {
                 // You're in this break: say what's next instead of its length.
                 NowLine(text: upNext(next, from: nowMinutes))
@@ -143,14 +162,22 @@ private struct DaySummary: View {
 
     var body: some View {
         let held = lessons.filter { !$0.cancelled }
-        let starts = held.filter { $0.startMinutes != nil }.map(\.start).sorted()
-        let ends = held.filter { $0.endMinutes != nil }.map(\.end).sorted()
+        // The school day's span comes from real lessons; an evening event
+        // doesn't make the day end at 20:00.
+        let school = held.filter { $0.subjectName != nil }
+        let spanFrom = school.isEmpty ? held : school
+        let starts = spanFrom.filter { $0.startMinutes != nil }.map(\.start).sorted()
+        let ends = spanFrom.filter { $0.endMinutes != nil }.map(\.end).sorted()
         let cancelled = lessons.count - held.count
+        let events = held.count - school.count
 
         var bits: [String] = []
-        bits.append(held.count == 1 ? "1 lesson" : "\(held.count) lessons")
+        if !school.isEmpty {
+            bits.append(school.count == 1 ? "1 lesson" : "\(school.count) lessons")
+        }
         if let first = starts.first, let last = ends.last { bits.append(first + "–" + last) }
         if cancelled > 0 { bits.append("\(cancelled) cancelled") }
+        if events > 0 { bits.append(events == 1 ? "1 event" : "\(events) events") }
 
         return Text(bits.joined(separator: " · "))
             .font(.system(size: 13.5, weight: .medium))
@@ -211,7 +238,7 @@ private struct DoneLine: View {
         HStack(spacing: 7) {
             Image(systemName: "checkmark.circle")
                 .font(.system(size: 13.5, weight: .semibold))
-            Text("That's it for today")
+            Text("School's out")
                 .font(.system(size: 14, weight: .semibold))
         }
         .foregroundStyle(.secondary)

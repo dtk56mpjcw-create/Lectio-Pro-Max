@@ -527,9 +527,12 @@ struct WeekOverview: View {
 
     private func dayRow(_ day: ScheduleDay) -> some View {
         let held = day.lessons.filter { !$0.cancelled }
+        let school = held.filter { $0.subjectName != nil }
         let span: String = {
-            let starts = held.filter { $0.startMinutes != nil }.map(\.start).sorted()
-            let ends = held.filter { $0.endMinutes != nil }.map(\.end).sorted()
+            // The school day, not an evening event.
+            let from = school.isEmpty ? held : school
+            let starts = from.filter { $0.startMinutes != nil }.map(\.start).sorted()
+            let ends = from.filter { $0.endMinutes != nil }.map(\.end).sorted()
             guard let first = starts.first, let last = ends.last else { return "" }
             return first + "–" + last
         }()
