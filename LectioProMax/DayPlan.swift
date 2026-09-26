@@ -60,11 +60,19 @@ extension Lesson {
     var endMinutes: Int? { Lesson.minutes(from: end) }
 
     /// The class-and-subject teams in a Hold line, as their subject parts.
+    /// A class is a year and letters — "1j ma", "3g RE 3" — or, at a
+    /// school that writes its classes another way, the shape of your own
+    /// class ("1.a da", "HF1b en"; see ClassNames).
     static func classTeamParts(_ team: String) -> [String] {
-        team.split(separator: ",").compactMap { raw in
+        let patterns = ClassNames.teamPatterns
+        return team.split(separator: ",").compactMap { raw in
             let t = raw.trimmingCharacters(in: .whitespaces)
-            guard let g = Rx.match("^\\d[a-zA-ZæøåÆØÅ]{1,3}\\s+(.+)$", t) else { return nil }
-            return g[1].trimmingCharacters(in: .whitespaces)
+            for pattern in patterns {
+                if let g = Rx.match(pattern, t) {
+                    return g[1].trimmingCharacters(in: .whitespaces)
+                }
+            }
+            return nil
         }
     }
 
@@ -92,8 +100,8 @@ extension Lesson {
     /// items to everyone; "3m, 1i: Tidying up the Foyer" isn't yours if
     /// you're in 1j.
     func isRelevant(toClass className: String) -> Bool {
-        let cls = className.lowercased()
-        guard let year = cls.first, year.isNumber else { return true }
+        let cls = Lesson.compactClass(className)
+        guard let year = ClassNames.year(of: className) else { return true }
         let t = title.trimmingCharacters(in: .whitespaces)
         let head: String
         if let colon = t.firstIndex(of: ":") {
@@ -106,6 +114,61 @@ extension Lesson {
             let compact = token.replacingOccurrences(of: " ", with: "")
             return compact == cls || compact.hasPrefix(String(year) + "g") || compact.hasPrefix(String(year) + ".g")
         }
+    }
+}
+
+// MARK: - Class names
+
+/// How this school writes its classes. Most write a year and letters
+/// ("1j", "3g"); some "1.a", "2.x" or "HF1b". Lessons are told from events
+/// by their team starting with a class, so the pattern is the usual one
+/// plus one in the shape of your own class, learnt from your profile.
+enum ClassNames {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var own = ""
+    nonisolated(unsafe) private static var ownPattern: String?
+
+    /// "1j" and "1i ap la": a year, one to three letters.
+    static let usual = "^\\d[a-zA-ZæøåÆØÅ]{1,3}\\s+(.+)$"
+
+    static var teamPatterns: [String] {
+        lock.lock(); defer { lock.unlock() }
+        return [usual] + (ownPattern.map { [$0] } ?? [])
+    }
+
+    /// Learn the shape of your class: digits stay digits, letters are
+    /// letters, a dot or space may be there or not. Only a shape with a
+    /// year in it — a bare word would match clubs like "MUN leadership".
+    static func use(_ className: String) {
+        let name = className.trimmingCharacters(in: .whitespaces).lowercased()
+        lock.lock(); defer { lock.unlock() }
+        guard name != own else { return }
+        own = name
+        guard name.contains(where: \.isNumber), name.contains(where: \.isLetter) else {
+            ownPattern = nil
+            return
+        }
+        var shape = ""
+        var inLetters = false
+        for ch in name {
+            if ch.isLetter {
+                if !inLetters { shape += "[a-zæøå]{1,4}" }
+                inLetters = true
+                continue
+            }
+            inLetters = false
+            if ch.isNumber { shape += "\\d" }
+            else if ch == "." || ch == "-" { shape += "[.-]?" }
+            else if ch == " " { shape += "\\s?" }
+            else { shape += NSRegularExpression.escapedPattern(for: String(ch)) }
+        }
+        let pattern = "^" + shape + "\\s+(.+)$"
+        ownPattern = pattern == usual ? nil : pattern
+    }
+
+    /// The year of a class: its first digit ("1j" → 1, "HF1b" → 1).
+    static func year(of className: String) -> Character? {
+        className.first(where: \.isNumber)
     }
 }
 
@@ -240,7 +303,7 @@ extension Lesson {
         guard !isClassLesson, !isPrivateEvent, !Lesson.isVoluntary(title) else { return false }
         if namesClass(className) { return true }
         let cls = Lesson.compactClass(className)
-        guard let year = cls.first, year.isNumber else { return false }
+        guard let year = ClassNames.year(of: className) else { return false }
         if let team, !team.isEmpty {
             var years: Set<Character> = []
             for part in team.split(separator: ",") {
@@ -485,6 +548,7 @@ struct DayPlan {
     /// ScheduleWeek.rollingNotes.
     static func build(_ day: ScheduleDay, modules: [ScheduleModule], className: String,
                       rolling: Set<String> = []) -> DayPlan {
+        ClassNames.use(className)
         var plan = DayPlan()
         let dayStart = modules.map(\.startMinutes).min()
         let dayEnd = modules.map(\.endMinutes).max()

@@ -6,7 +6,11 @@ import WebKit
 @MainActor
 final class LectioSession: ObservableObject {
 
-    @Published var snapshot = LectioSnapshot()
+    @Published var snapshot = LectioSnapshot() {
+        // Lessons are told apart from events by their class; learn how this
+        // school writes classes as soon as the profile is known.
+        didSet { ClassNames.use(snapshot.profile.className) }
+    }
     @Published var isLoading = false
     @Published var isLoggedIn = false
     @Published var showLogin = false
