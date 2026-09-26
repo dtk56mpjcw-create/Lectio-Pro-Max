@@ -84,7 +84,7 @@ enum BackgroundCheck {
         snapshot.weeks = base.weeks.merging(fresh.weeks) { _, new in new }
         if snapshot.schedule.isEmpty { snapshot.schedule = base.schedule }
         if snapshot.assignments.isEmpty { snapshot.assignments = base.assignments }
-        snapshot.inbox = session.map(\.threads) ?? base.inbox
+        snapshot.inbox = session.map { $0.threads } ?? base.inbox
 
         session?.adopt(snapshot)
         await SnapshotCache.write(snapshot)

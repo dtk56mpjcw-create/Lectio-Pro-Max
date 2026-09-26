@@ -89,17 +89,17 @@ enum ScheduleWatch {
 
         // The schedule: today and the next school day.
         for iso in watchedDays(now: now) {
-            guard let lessons = lessons(on: iso, in: snapshot, className: className) else {
+            guard let mine = lessons(on: iso, in: snapshot, className: className) else {
                 // That week isn't loaded: keep what we knew.
                 if let kept = old.days[iso] { record.days[iso] = kept }
                 continue
             }
             var seen: [String: Record.Seen] = [:]
-            for (key, lesson) in lessons { seen[key] = look(lesson) }
+            for (key, lesson) in mine { seen[key] = look(lesson) }
             record.days[iso] = seen
 
             guard let before = old.days[iso] else { continue }   // first look at this day
-            let inOrder = lessons.sorted {
+            let inOrder = mine.sorted {
                 (Lesson.minutes(from: $0.value.start) ?? 0, $0.key) < (Lesson.minutes(from: $1.value.start) ?? 0, $1.key)
             }
             for (key, lesson) in inOrder {
