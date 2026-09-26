@@ -123,7 +123,7 @@ struct StudyPlanSheet: View {
                     // Lectio counts a forløb in "moduler" — lesson blocks.
                     Text(modules(phase.estimate))
                         .font(.system(size: 12.5, weight: .medium))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                 }
             }
             if !phase.period.isEmpty {

@@ -177,7 +177,7 @@ struct StudentCardScreen: View {
             }
             Text("The code changes every \(Int(card.qrInterval)) seconds.")
                 .font(.system(size: 13))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
         }
         .padding(18)
         .frame(maxWidth: .infinity)

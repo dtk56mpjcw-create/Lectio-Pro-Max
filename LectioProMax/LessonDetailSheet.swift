@@ -15,12 +15,13 @@ struct LessonDetailContent: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 9) {
                 HStack(spacing: 8) {
-                    SubjectDot(code: lesson.code, size: 9)
-                    Text(lesson.code.uppercased())
+                    SubjectDot(code: lesson.isClassLesson ? lesson.code : "", size: 9)
+                    Text(kicker.uppercased())
                         .font(.system(size: 14, weight: .heavy))
                         .tracking(0.6)
                         .foregroundStyle(.secondary)
-                    if state == .current {
+                        .lineLimit(1)
+                    if state == .current && !lesson.isAllDay {
                         Text("NOW")
                             .font(.system(size: 12.5, weight: .heavy))
                             .foregroundStyle(Palette.accent)
@@ -28,15 +29,19 @@ struct LessonDetailContent: View {
                     if lesson.cancelled {
                         Text("CANCELLED")
                             .font(.system(size: 12.5, weight: .heavy))
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Palette.negative)
+                    } else if lesson.changed && lesson.isClassLesson {
+                        Text("CHANGED")
+                            .font(.system(size: 12.5, weight: .heavy))
+                            .foregroundStyle(Palette.warning)
                     }
                     Spacer()
                 }
-                Text(lesson.displayTitle)
+                Text(bigTitle)
                     .font(.system(size: 31, weight: .bold))
                     .strikethrough(lesson.cancelled)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(LectioDates.longLabel(iso: dayISO) + " · " + lesson.timeRange)
+                Text(LectioDates.longLabel(iso: dayISO) + " · " + when)
                     .font(.system(size: 15.5, weight: .medium))
                     .foregroundStyle(.secondary)
             }
@@ -73,6 +78,29 @@ struct LessonDetailContent: View {
                 }
             }
         }
+    }
+
+    /// Above the title: the subject for a lesson ("Maths · MA"), otherwise
+    /// what kind of thing this is.
+    private var kicker: String {
+        if lesson.isClassLesson {
+            let code = lesson.shortLabel
+            if let name = lesson.subjectName { return name + " · " + code }
+            return code
+        }
+        if lesson.isPrivateEvent { return "Your event" }
+        return lesson.isAllDay ? "All day" : "Event"
+    }
+
+    /// The lesson's topic when it has one ("Start radicals"); otherwise what
+    /// it's called.
+    private var bigTitle: String {
+        lesson.topic ?? lesson.headline
+    }
+
+    private var when: String {
+        if let span = lesson.allDay { return span.isEmpty ? "All day" : span.prefix(1).uppercased() + span.dropFirst() }
+        return lesson.timeRange
     }
 
     private func factTile(_ icon: String, _ label: String, _ value: String) -> some View {
@@ -141,7 +169,7 @@ struct LessonDetailScreen: View {
         // back button isn't floating on its own; the lesson's own name stays
         // large in the page. The editor role keeps the back button to its
         // chevron.
-        .navigationTitle("Lesson")
+        .navigationTitle(lesson.isClassLesson || lesson.isPrivateEvent ? "Lesson" : "Event")
         .toolbarTitleDisplayMode(.inline)
         .toolbarRole(.editor)
     }

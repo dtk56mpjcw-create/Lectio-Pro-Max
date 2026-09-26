@@ -96,7 +96,7 @@ struct NewEventSheet: View {
                 // on the web, so it's worth showing.
                 Text("\(max(titleRemaining, 0)) left")
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(titleRemaining < 0 ? Color.red : Color(.tertiaryLabel))
+                    .foregroundStyle(titleRemaining < 0 ? Palette.negative : Color(.secondaryLabel))
             }
             TextField("Football practice", text: $title)
                 .font(.system(size: 16))

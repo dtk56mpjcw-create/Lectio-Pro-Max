@@ -109,7 +109,7 @@ struct MeTab: View {
             value = percent(total.percentValue)
             if unexplained > 0 {
                 caption = unexplained == 1 ? "1 to explain" : "\(unexplained) to explain"
-                captionTint = .orange
+                captionTint = Palette.warning
             } else {
                 caption = "All explained"
             }

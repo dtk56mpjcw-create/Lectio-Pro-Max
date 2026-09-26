@@ -135,13 +135,13 @@ private struct ModuleRow: View {
         VStack(spacing: 1) {
             Text("\(slot.module.number)")
                 .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(isCurrent ? Palette.accent : (isPast ? Color(.tertiaryLabel) : Color.primary))
+                .foregroundStyle(isCurrent ? Palette.accent : (isPast ? Color(.secondaryLabel) : Color.primary))
             Text(slot.module.shortStart)
                 .font(.system(size: 11.5, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text(slot.module.shortEnd)
                 .font(.system(size: 11.5, weight: .medium))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
         }
         .monospacedDigit()
         .frame(width: 38)
@@ -293,8 +293,8 @@ private struct LessonBlock: View {
             // "changed", and the word stopped meaning anything.
             if lesson.changed && lesson.isClassLesson {
                 HStack(spacing: 3) {
-                    Circle().fill(.orange).frame(width: 6, height: 6)
-                    Text("Changed").foregroundStyle(.orange)
+                    Circle().fill(Palette.warning).frame(width: 6, height: 6)
+                    Text("Changed").foregroundStyle(Palette.warning)
                 }
             }
             Spacer(minLength: 0)
@@ -422,7 +422,7 @@ private struct FreeCard: View {
                     .lineLimit(1)
                 Text("cancelled")
                     .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Palette.negative)
             }
             Spacer(minLength: 0)
         }
@@ -449,7 +449,7 @@ private struct OutsideRow: View {
                     .foregroundStyle(.secondary)
                 Text(short(lesson.end))
                     .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
             .monospacedDigit()
             .frame(width: 38)
@@ -486,7 +486,7 @@ private struct SmallItem: View {
             if lesson.cancelled {
                 Text("Cancelled")
                     .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Palette.negative)
             }
             Spacer(minLength: 4)
             if !lesson.start.isEmpty {

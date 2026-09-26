@@ -133,8 +133,10 @@ struct SearchTab: View {
                             ForEach(lessons, id: \.key) { route in
                                 NavigationLink(value: route) {
                                     row(icon: "calendar",
-                                        code: route.lesson.code,
-                                        title: route.lesson.displayTitle,
+                                        // Events have a list of whole year groups as their
+                                        // "code"; only a real lesson's means anything here.
+                                        code: route.lesson.isClassLesson ? route.lesson.code : "",
+                                        title: route.lesson.topic.map { route.lesson.headline + " · " + $0 } ?? route.lesson.headline,
                                         detail: LectioDates.dayLabel(iso: route.dayISO)
                                             + (route.lesson.start.isEmpty ? "" : " · " + route.lesson.start))
                                 }
@@ -169,7 +171,7 @@ struct SearchTab: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(code.isEmpty ? Color(.tertiaryLabel) : Color.forSubject(code))
+                .foregroundStyle(code.isEmpty ? Color(.secondaryLabel) : Color.forSubject(code))
                 .frame(width: 22)
                 .padding(.top, 1)
             VStack(alignment: .leading, spacing: 2) {

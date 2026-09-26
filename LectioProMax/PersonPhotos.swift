@@ -159,7 +159,7 @@ struct PersonAvatar: View {
                 Circle().fill(Color(.tertiarySystemFill))
                 Text(initials)
                     .font(.system(size: size * 0.38, weight: .semibold))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
         }
         .frame(width: size, height: size)

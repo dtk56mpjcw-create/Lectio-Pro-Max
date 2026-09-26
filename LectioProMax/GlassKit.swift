@@ -22,6 +22,33 @@ enum Palette {
     static var accent: Color { .accentColor }
     /// Destructive and failure states — Sign out, Delete. Apple uses system red.
     static var ember: Color { .red }
+
+    // Status colours for TEXT. The system orange, green and red are made for
+    // fills and icons: as small text on a white card they measure about
+    // 2.2:1, 2.2:1 and 3.6:1 — hard to read outdoors. In light mode these are
+    // the same hues taken darker (about 4.8:1, 5.0:1 and 5.5:1); in dark mode
+    // the system colours already read well and are used as they are.
+
+    /// "Changed", "Due in 2 hours", "2 to explain".
+    static let warning = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? .systemOrange
+            : UIColor(red: 0.70, green: 0.35, blue: 0.0, alpha: 1)
+    })
+
+    /// "Handed in", "Saved".
+    static let positive = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? .systemGreen
+            : UIColor(red: 0.12, green: 0.50, blue: 0.22, alpha: 1)
+    })
+
+    /// "Cancelled", "2 days late".
+    static let negative = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? .systemRed
+            : UIColor(red: 0.80, green: 0.13, blue: 0.13, alpha: 1)
+    })
 }
 
 enum Metrics {
@@ -101,22 +128,6 @@ struct SubjectDot: View {
     }
 }
 
-struct SectionHeading: View {
-    let title: String
-    var subtitle: String? = nil
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title)
-                .font(.system(size: 34, weight: .bold))
-            if let subtitle, !subtitle.isEmpty {
-                Text(subtitle)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
 
 struct EmptyNotice: View {
     let icon: String

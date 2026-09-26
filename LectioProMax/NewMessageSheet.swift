@@ -139,7 +139,7 @@ struct NewMessageSheet: View {
                                 Spacer(minLength: 0)
                                 Text(person.kind.label)
                                     .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                             }
                             .padding(.vertical, 10)
                             .padding(.horizontal, 13)

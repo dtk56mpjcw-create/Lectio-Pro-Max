@@ -107,7 +107,7 @@ struct AbsenceSheet: View {
             Text(subject.percent)
                 .font(.system(size: 15, weight: .semibold))
                 .monospacedDigit()
-                .foregroundStyle(subject.percentValue >= 10 ? Color.orange : Color.primary)
+                .foregroundStyle(subject.percentValue >= 10 ? Palette.warning : Color.primary)
         }
         .padding(.vertical, 11)
         .padding(.horizontal, 15)

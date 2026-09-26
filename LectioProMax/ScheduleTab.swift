@@ -170,13 +170,15 @@ struct ScheduleTab: View {
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
+                // The same size as the other tabs' large titles (34 pt bold),
+                // so switching tabs doesn't make the title jump.
                 Text(title)
-                    .font(.system(size: 30, weight: .bold))
+                    .font(.system(size: 34, weight: .bold))
                     .lineLimit(1)
                     // "Wednesday" next to the Today button was cut to "Wednesd…".
-                    .minimumScaleFactor(0.65)
+                    .minimumScaleFactor(0.6)
                 Text(subtitle)
-                    .font(.system(size: 14.5, weight: .medium))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -216,7 +218,9 @@ struct ScheduleTab: View {
             // The buttons keep their size; a long day name shrinks instead.
             .layoutPriority(1)
         }
-        .padding(.horizontal, Metrics.margin)
+        // The system's large titles sit 16 pt in on an iPhone this size.
+        .padding(.leading, 16)
+        .padding(.trailing, Metrics.margin)
         .padding(.top, 6)
         .padding(.bottom, 10)
     }
@@ -713,7 +717,7 @@ private struct WeekGrid: View {
                 Text(cancelled.shortLabel)
                     .font(.system(size: 12, weight: .semibold))
                     .strikethrough()
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.55)
                     .padding(6)
@@ -781,14 +785,7 @@ private struct WeekGrid: View {
 }
 
 
-// MARK: - Lesson card
-
-/// Which sheet a card in the older timeline layout (DayTimeline) opens. One
-/// `item:` sheet rather than two `isPresented:` ones, which fight each other.
-enum CardSheet: Int, Identifiable {
-    case lesson, event
-    var id: Int { rawValue }
-}
+// MARK: - Loading
 
 /// Shown while a week is still being fetched — and, if the fetch failed, as a
 /// retry instead of a spinner that would otherwise never stop.

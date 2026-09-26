@@ -164,50 +164,6 @@ struct Profile: Codable, Hashable {
     var schoolName: String? = nil
 }
 
-/// Lessons that share a time slot, so the schedule can place them side by side
-/// instead of stacking them as if they were sequential.
-struct LessonCluster: Identifiable {
-    var id: String
-    var lessons: [Lesson]
-
-    static func build(_ lessons: [Lesson]) -> [LessonCluster] {
-        let sorted = lessons.sorted { $0.start < $1.start }
-        var buckets: [[Lesson]] = []
-
-        for lesson in sorted {
-            let start = Lesson.minutes(from: lesson.start)
-            let end = Lesson.minutes(from: lesson.end)
-            var placed = false
-
-            // A long block (a whole-morning event, say) overlaps everything, so
-            // it would drag every lesson into one unreadable row of slivers.
-            let duration = (start != nil && end != nil) ? end! - start! : 0
-            let isLongEvent = duration > 240
-
-            if !isLongEvent, let s = start, let e = end, var last = buckets.last,
-               last.count < 2 {
-                // Require overlap with EVERY member, not just one — otherwise
-                // A/B and B/C chain together into a single giant cluster.
-                let overlapsAll = last.allSatisfy { other in
-                    guard let os = Lesson.minutes(from: other.start),
-                          let oe = Lesson.minutes(from: other.end) else { return false }
-                    let otherLong = (oe - os) > 240
-                    return !otherLong && s < oe && os < e
-                }
-                if overlapsAll {
-                    last.append(lesson)
-                    buckets[buckets.count - 1] = last
-                    placed = true
-                }
-            }
-            if !placed { buckets.append([lesson]) }
-        }
-
-        return buckets.enumerated().map { index, group in
-            LessonCluster(id: "\(index)-\(group.first?.id ?? "")", lessons: group)
-        }
-    }
-}
 
 struct WorkItem: Identifiable, Hashable {
     var id: String { key }

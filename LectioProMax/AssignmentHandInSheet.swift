@@ -130,7 +130,7 @@ struct AssignmentHandInSheet: View {
             HStack(spacing: 9) {
                 Image(systemName: status.isDelivered ? "checkmark.seal.fill" : "exclamationmark.circle")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(status.isDelivered ? Color.green : Color.orange)
+                    .foregroundStyle(status.isDelivered ? Palette.positive : Palette.warning)
                 Text(status.isDelivered ? "Handed in" : "Not handed in")
                     .font(.system(size: 17.5, weight: .semibold))
                 Spacer(minLength: 0)

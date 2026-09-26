@@ -94,7 +94,7 @@ struct HomeworkTab: View {
                 }
             } else {
                 ForEach(groups) { group in
-                    header(group.title, accent: group.isOverdue ? Color.red : nil)
+                    header(group.title, accent: group.isOverdue ? Palette.negative : nil)
                     ForEach(group.items) { item in row(item) }
                 }
                 if !doneItems.isEmpty {
@@ -378,10 +378,10 @@ struct WorkRow: View {
 
     private func color(for tone: DeadlineStatus.Tone) -> Color {
         switch tone {
-        case .done: return .green
+        case .done: return Palette.positive
         case .calm: return Color(.secondaryLabel)
-        case .soon: return .orange
-        case .late: return .red
+        case .soon: return Palette.warning
+        case .late: return Palette.negative
         }
     }
 

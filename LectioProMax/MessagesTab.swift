@@ -535,7 +535,7 @@ struct ThreadRow: View {
                 if !thread.recipients.isEmpty {
                     Text("To " + thread.recipients)
                         .font(.system(size: 13))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
