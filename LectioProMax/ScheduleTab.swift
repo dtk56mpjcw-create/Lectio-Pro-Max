@@ -494,15 +494,16 @@ private struct PageHeading: View {
     let subtitle: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: -2) {
+        VStack(alignment: .leading, spacing: -3) {
             Text(title)
                 .font(.system(size: 34, weight: .bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .accessibilityAddTraits(.isHeader)
-            // The system's large-title subtitle is this small.
+            // The system's large-title subtitle is this small: measured
+            // against "9 things to do" on Homework.
             Text(subtitle)
-                .font(.system(size: 13))
+                .font(.system(size: 11.5))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
@@ -512,7 +513,7 @@ private struct PageHeading: View {
         // Measured against Homework, Messages and Me: 28 pt lower than the
         // first try put the title's top and the date exactly where theirs
         // are — and clear of the bar's fade, which had greyed it.
-        .padding(.top, 34)
+        .padding(.top, 35.5)
         .padding(.bottom, 4)
     }
 }
