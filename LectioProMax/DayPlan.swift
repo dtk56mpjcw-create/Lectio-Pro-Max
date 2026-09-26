@@ -303,7 +303,6 @@ extension Lesson {
     func isFor(className: String) -> Bool {
         guard !isClassLesson, !isPrivateEvent, !Lesson.isVoluntary(title) else { return false }
         if namesClass(className) { return true }
-        let cls = Lesson.compactClass(className)
         guard let year = ClassNames.year(of: className) else { return false }
         if let team, !team.isEmpty {
             var years: Set<Character> = []
