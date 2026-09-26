@@ -787,8 +787,13 @@ enum SnapshotCache {
     }
 
     static func write(_ snapshot: LectioSnapshot) async {
-        guard let target = SnapshotCache.url,
+        guard var target = SnapshotCache.url,
               let data = try? JSONEncoder().encode(snapshot) else { return }
-        try? data.write(to: target, options: .atomic)
+        // Messages, absence and the timetable: encrypted while the phone is
+        // locked after a restart, and not in backups (it's all on Lectio).
+        try? data.write(to: target, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? target.setResourceValues(values)
     }
 }

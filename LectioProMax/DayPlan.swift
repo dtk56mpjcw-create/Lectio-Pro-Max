@@ -63,9 +63,14 @@ extension Lesson {
     /// A class is a year and letters — "1j ma", "3g RE 3" — or, at a
     /// school that writes its classes another way, the shape of your own
     /// class ("1.a da", "HF1b en"; see ClassNames).
+    ///
+    /// Remembered per team: a day's view asks this of every lesson many
+    /// times over (its name, colour, whether it's yours), and the answer
+    /// only changes with the class-name rules (ClassNames clears it then).
     static func classTeamParts(_ team: String) -> [String] {
+        if let known = LessonMemo.teamParts(team) { return known }
         let patterns = ClassNames.teamPatterns
-        return team.split(separator: ",").compactMap { raw in
+        let parts: [String] = team.split(separator: ",").compactMap { raw in
             let t = raw.trimmingCharacters(in: .whitespaces)
             for pattern in patterns {
                 if let g = Rx.match(pattern, t) {
@@ -74,6 +79,8 @@ extension Lesson {
             }
             return nil
         }
+        LessonMemo.remember(parts, forTeam: team)
+        return parts
     }
 
     /// "1g: AP-eksamen" -> "AP-eksamen"; "1i, 1j: NV-eksamen" -> "NV-eksamen".
@@ -117,6 +124,49 @@ extension Lesson {
     }
 }
 
+// MARK: - Remembered answers
+
+/// Answers the day's rules ask for over and over — which class a team is,
+/// what kind of thing a title is — worked out once. Safe from any thread;
+/// emptied if it ever grows past a few thousand (a whole year of weeks is
+/// well under that).
+enum LessonMemo {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var teams: [String: [String]] = [:]
+    nonisolated(unsafe) private static var kinds: [String: Lesson.Kind] = [:]
+    private static let limit = 4000
+
+    static func teamParts(_ team: String) -> [String]? {
+        lock.lock(); defer { lock.unlock() }
+        return teams[team]
+    }
+
+    static func remember(_ parts: [String], forTeam team: String) {
+        lock.lock(); defer { lock.unlock() }
+        if teams.count > limit { teams.removeAll(keepingCapacity: true) }
+        teams[team] = parts
+    }
+
+    static func kind(_ key: String) -> Lesson.Kind? {
+        lock.lock(); defer { lock.unlock() }
+        return kinds[key]
+    }
+
+    static func remember(_ kind: Lesson.Kind, forKind key: String) {
+        lock.lock(); defer { lock.unlock() }
+        if kinds.count > limit { kinds.removeAll(keepingCapacity: true) }
+        kinds[key] = kind
+    }
+
+    /// When the class-name rules change, which teams are classes may too
+    /// (and so what kind a lesson is).
+    static func forgetClasses() {
+        lock.lock(); defer { lock.unlock() }
+        teams.removeAll()
+        kinds.removeAll()
+    }
+}
+
 // MARK: - Class names
 
 /// How this school writes its classes. Most write a year and letters
@@ -145,7 +195,10 @@ enum ClassNames {
         guard name != own else { return }
         own = name
         guard name.contains(where: \.isNumber), name.contains(where: \.isLetter) else {
-            ownPattern = nil
+            if ownPattern != nil {
+                ownPattern = nil
+                LessonMemo.forgetClasses()
+            }
             return
         }
         var shape = ""
@@ -163,7 +216,11 @@ enum ClassNames {
             else { shape += NSRegularExpression.escapedPattern(for: String(ch)) }
         }
         let pattern = "^" + shape + "\\s+(.+)$"
-        ownPattern = pattern == usual ? nil : pattern
+        let newPattern = pattern == usual ? nil : pattern
+        if newPattern != ownPattern {
+            ownPattern = newPattern
+            LessonMemo.forgetClasses()
+        }
     }
 
     /// The year of a class: its first digit ("1j" → 1, "HF1b" → 1).
@@ -359,32 +416,39 @@ extension Lesson {
         "eksamen(?:er)?(?![a-zæøå])|prøver?(?![a-zæøå])|\\btests?\\b(?!\\s+af\\b)|\\bexams?\\b|\\bmocks?\\b|screening|\\bskr\\.? ex\\b"
         + "|prüfung|klausur|abitur"
 
+    private static let staffWords = "personalemøde|lærermøde|lærere møder ind|bestyrelsesmøde|indtastning af"
+    private static let meetingWords = "^\\s*mødetid|^\\s*mødested"
+    // Danish first, then English (IB lines, international schools) and
+    // German (the German minority's gymnasium).
+    private static let readingWords = "læsedag|reading day|study day|studiedag|lesetag|studientag"
+    private static let tripWords = "introtur|studietur|\\btur\\b|\\bture\\b|rejse|ekskursion|excursion|\\btrips?\\b|udveksling|lejrskole|inkursion"
+        + "|exkursion|ausflug|studienfahrt|klassenfahrt|exchange"
+    private static let offWords = "ferie|helligdag|fridag|\\bfri\\b|kristi himmelfart|pinsedag|påskedag|\\bholidays?\\b|no school"
+        + "|(autumn|winter|christmas|easter|spring|summer|half[- ]term|mid[- ]term) break|vacation|feiertag|schulfrei|unterrichtsfrei"
+    private static let observanceWords = "^\\s*(international|den internationale|verdens|world|fn-dag|un day|europæisk sprogdag|welt|internationaler)"
+        + "|\\(unesco\\)"
+
+    /// Remembered per title: up to six patterns per ask, and a day's view
+    /// asks for every item's kind several times per draw.
     var kind: Kind {
-        let t = title
-        if Rx.test("personalemøde|lærermøde|lærere møder ind|bestyrelsesmøde|indtastning af", t) {
-            return .staffOnly
-        }
+        let classLesson = isClassLesson
+        let key = (classLesson ? "c|" : "e|") + title
+        if let known = LessonMemo.kind(key) { return known }
+        let found = Lesson.findKind(title, classLesson: classLesson)
+        LessonMemo.remember(found, forKind: key)
+        return found
+    }
+
+    private static func findKind(_ t: String, classLesson: Bool) -> Kind {
+        if Rx.test(staffWords, t) { return .staffOnly }
         // A class lesson's topic ("Practice test", "Test return") isn't a
         // school exam; the topic is right there on the lesson. Nor is the
         // time to meet for one ("Mødetid AP prøve").
-        if !isClassLesson, !Rx.test("^\\s*mødetid|^\\s*mødested", t), Rx.test(Lesson.examWords, t) {
-            return .exam
-        }
-        // Danish first, then English (IB lines, international schools) and
-        // German (the German minority's gymnasium).
-        if Rx.test("læsedag|reading day|study day|studiedag|lesetag|studientag", t) { return .readingDay }
-        if Rx.test("introtur|studietur|\\btur\\b|\\bture\\b|rejse|ekskursion|excursion|\\btrips?\\b|udveksling|lejrskole|inkursion"
-                   + "|exkursion|ausflug|studienfahrt|klassenfahrt|exchange", t) {
-            return .trip
-        }
-        if Rx.test("ferie|helligdag|fridag|\\bfri\\b|kristi himmelfart|pinsedag|påskedag|\\bholidays?\\b|no school"
-                   + "|(autumn|winter|christmas|easter|spring|summer|half[- ]term|mid[- ]term) break|vacation|feiertag|schulfrei|unterrichtsfrei", t) {
-            return .noSchool
-        }
-        if Rx.test("^\\s*(international|den internationale|verdens|world|fn-dag|un day|europæisk sprogdag|welt|internationaler)"
-                   + "|\\(unesco\\)", t) {
-            return .observance
-        }
+        if !classLesson, !Rx.test(meetingWords, t), Rx.test(examWords, t) { return .exam }
+        if Rx.test(readingWords, t) { return .readingDay }
+        if Rx.test(tripWords, t) { return .trip }
+        if Rx.test(offWords, t) { return .noSchool }
+        if Rx.test(observanceWords, t) { return .observance }
         return .event
     }
 
