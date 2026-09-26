@@ -321,6 +321,17 @@ extension Lesson {
 
     var isExam: Bool { kind == .exam }
 
+    /// The kind a block shows as a colour and tag: an exam, a day off, a
+    /// trip, a reading day. A class lesson only when it's one of those over
+    /// several days (the class's intro trip) — a lesson whose topic says
+    /// "fri" or "trip" is still a lesson.
+    var markKind: Kind? {
+        let k = kind
+        guard k.rawValue < Kind.event.rawValue else { return nil }
+        if isClassLesson && span == nil { return nil }
+        return k
+    }
+
     // MARK: Over several days
 
     /// Where this day is in something over several days, and when it ends:
@@ -405,6 +416,16 @@ struct DayPlan {
         /// Short things of yours in the break after this module: the
         /// meeting time before an exam, a meeting in the lunch break.
         var breakAfter: [Lesson] = []
+        /// Other things of yours at the same time as the block, less
+        /// important than it: the reading day under an exam. Shown inside
+        /// the block, so a module never has two.
+        var alongside: [Lesson] = []
+
+        /// How the block's one item sits in the day ("all", "starts",
+        /// "ends"; see Lesson.dayShape).
+        var dayShape: String? {
+            (main.count == 1 && continuing.isEmpty) ? main[0].dayShape : nil
+        }
 
         var id: Int { module.number }
         var isFree: Bool { main.isEmpty && continuing.isEmpty }
@@ -482,6 +503,32 @@ struct DayPlan {
 
         let isMine: (Lesson) -> Bool = { $0.isClassLesson || $0.isPrivateEvent }
         let isYours: (Lesson) -> Bool = { isMine($0) || $0.isFor(className: className) }
+
+        // A day-long note for your class — "1i, 1j: NV-eksamen", a trip, a
+        // reading day — on a day without lessons of yours is what the day
+        // is: it fills the school day like anything else of yours, instead
+        // of a small note above an empty day. Not when the day already
+        // shows it ("1g: AP-eksamen" beside the exam itself), and not a
+        // week-long note for every class in turn (see rollingNotes).
+        let hasOwnLessons = timed.contains { isMine($0) && !$0.cancelled && $0.startMinutes != nil }
+        if !hasOwnLessons, let dayStart, let dayEnd {
+            let timedNames = timed.flatMap {
+                [Lesson.squashed($0.headline), Lesson.squashed($0.isClassLesson ? $0.title : $0.headline)]
+            }.filter { $0.count >= 4 }
+            notes = notes.filter { note in
+                let name = Lesson.squashed(note.headline)
+                guard (note.allDay ?? "").isEmpty,
+                      [.exam, .trip, .readingDay].contains(note.kind),
+                      note.isFor(className: className),
+                      !rolling.contains(name),
+                      !timedNames.contains(where: { $0 == name || (name.count >= 5 && $0.contains(name)) })
+                else { return true }
+                var whole = DayPlan.timedCopy(note, from: dayStart, to: dayEnd, title: note.title)
+                whole.dayShape = "all"
+                timed.append(whole)
+                return false
+            }
+        }
 
         // 2. Your lesson and the event it's part of are one thing. Lectio
         // lists "Ap Eksamen" on your AP team (with your room) and
@@ -571,20 +618,27 @@ struct DayPlan {
             }
         }
 
-        // Your own lesson keeps its module; an event of yours running
-        // through it — or starting in it — goes to "Also on", so a module
-        // never has two blocks.
+        // One block per module. Your own lesson keeps its module, and an
+        // event of yours at the same time goes to "Also on". Without one,
+        // the most important thing of yours holds it — an exam before a
+        // reading day, whether it starts here or runs on from earlier —
+        // and the rest are noted inside its block.
         for i in slots.indices {
             let lessons = slots[i].main.filter(isMine)
-            let events = slots[i].main.filter { !isMine($0) }
             if !lessons.isEmpty {
+                let events = slots[i].main.filter { !isMine($0) }
                 slots[i].main = lessons
                 slots[i].others = events + slots[i].continuing + slots[i].others
                 slots[i].continuing = []
-            } else if !events.isEmpty {
-                slots[i].others = slots[i].continuing + slots[i].others
-                slots[i].continuing = []
+                continue
             }
+            // Running on first, so a tie keeps the block that's going.
+            let candidates = slots[i].continuing + slots[i].main
+            guard let best = candidates.min(by: { DayPlan.rank($0) < DayPlan.rank($1) }) else { continue }
+            let runsOn = slots[i].continuing.contains { $0.id == best.id }
+            slots[i].main = runsOn ? [] : [best]
+            slots[i].continuing = runsOn ? [best] : []
+            slots[i].alongside = candidates.filter { $0.id != best.id }
         }
 
         // A block that runs on — a double lesson, an exam, a reading day —
@@ -597,6 +651,9 @@ struct DayPlan {
                Set(slot.continuing.map(\.id)).isSubset(of: Set(previous.main.map(\.id))) {
                 previous.through = slot.module
                 previous.others += slot.others
+                for item in slot.alongside where !previous.alongside.contains(where: { $0.id == item.id }) {
+                    previous.alongside.append(item)
+                }
                 // A break inside the block is part of it.
                 previous.others += previous.breakAfter
                 previous.breakAfter = slot.breakAfter
@@ -626,25 +683,6 @@ struct DayPlan {
             .filter { seenAlso.insert($0.id).inserted }
             .sorted { ($0.startMinutes ?? 0) < ($1.startMinutes ?? 0) }
 
-        // 5. A day one thing of yours fills — a reading day, an exam from
-        // 8 to 16, a trip — is that thing: it goes up top as what kind of
-        // day it is, not as one tall block in an empty grid.
-        if modules.count > 1, merged.count == 1, let whole = merged.first,
-           whole.main.count == 1, whole.continuing.isEmpty,
-           whole.module.number == modules.first?.number,
-           whole.last.number == modules.last?.number {
-            var item = whole.main[0]
-            // Something over several days that fills this one — a trip
-            // that goes on overnight — is all day, not "8:00–15:15"; the
-            // row says which day of it this is and when it ends.
-            if item.span != nil {
-                item.start = ""
-                item.end = ""
-            }
-            plan.status.append(item)
-            merged = []
-        }
-
         // Every module up to the last one with something of yours; free
         // ones before that are real free periods.
         if let last = merged.lastIndex(where: { $0.hasContent }) {
@@ -664,10 +702,12 @@ struct DayPlan {
         for slot in plan.slots {
             onTheDay += slot.main + slot.continuing
             onTheDay += slot.cancelled + slot.breakAfter
+            onTheDay += slot.alongside
         }
         let shown: [String] = onTheDay
             .map { Lesson.squashed($0.isClassLesson ? $0.title : $0.headline) }
             .filter { $0.count >= 4 }
+        let shownKinds = Set(plan.slots.flatMap { $0.main + $0.continuing + $0.alongside }.compactMap(\.markKind))
         var chips: [Lesson] = []
         for note in notes {
             let name = Lesson.squashed(note.headline)
@@ -679,9 +719,12 @@ struct DayPlan {
             // ScheduleWeek.rollingNotes) on a day you have your own.
             if rolling.contains(name) && hasLessons { continue }
             let kind = note.kind
-            // Already said: a trip note next to your trip, a reading-day
-            // note next to your reading day.
-            if kind < .event, plan.status.contains(where: { $0.kind == kind }) { continue }
+            // Already said: a trip note next to your trip ("Pre-IB:
+            // Introtur" beside the class's intro trip), a reading-day note
+            // next to your reading day.
+            if kind < .event, shownKinds.contains(kind) || plan.status.contains(where: { $0.kind == kind }) {
+                continue
+            }
             let forYou = note.isFor(className: className)
             if kind == .exam && forYou {
                 // An exam of yours, even with lessons around it.
@@ -700,11 +743,25 @@ struct DayPlan {
 
         // Away all day — a trip, a day off — the school's optional things
         // aren't on for you.
-        if plan.slots.isEmpty, plan.status.contains(where: { $0.kind == .trip || $0.kind == .noSchool }) {
+        let awayInModules = !plan.slots.isEmpty && plan.slots.allSatisfy { slot in
+            slot.main.count == 1 && slot.main[0].markKind == .trip && slot.main[0].dayShape == "all"
+        }
+        let awayAllDay = plan.slots.isEmpty
+            && plan.status.contains(where: { $0.kind == .trip || $0.kind == .noSchool })
+        if awayInModules || awayAllDay {
             plan.also = []
             plan.after = plan.after.filter { isYours($0) }
         }
         return plan
+    }
+
+    /// Which of two things of yours at the same time holds the module:
+    /// the more important kind (exam, day off, trip, reading day, the rest),
+    /// then the one that runs longer.
+    private static func rank(_ item: Lesson) -> (Int, Int) {
+        let kind = item.markKind?.rawValue ?? Lesson.Kind.event.rawValue
+        let length = (item.endMinutes ?? 0) - (item.startMinutes ?? 0)
+        return (kind, -length)
     }
 
     /// Where an all-day item goes on this day.
@@ -733,7 +790,9 @@ struct DayPlan {
         // not "Vinterferie 08:00–15:15".
         let wholeDay: Placement
         if item.isFor(className: className) {
-            wholeDay = .timed(DayPlan.timedCopy(item, from: dayStart, to: dayEnd, title: item.title))
+            var copy = DayPlan.timedCopy(item, from: dayStart, to: dayEnd, title: item.title)
+            copy.dayShape = "all"
+            wholeDay = .timed(copy)
         } else {
             var note = item
             note.allDay = ""
@@ -742,12 +801,16 @@ struct DayPlan {
 
         if let g = Rx.match("^from (\\d{1,2}:\\d{2})$", label), let s = Lesson.minutes(from: g[1]) {
             if s <= dayStart { return wholeDay }
-            return .timed(DayPlan.timedCopy(item, from: s, to: s < dayEnd ? dayEnd : nil, title: item.title))
+            var copy = DayPlan.timedCopy(item, from: s, to: s < dayEnd ? dayEnd : nil, title: item.title)
+            copy.dayShape = "starts"
+            return .timed(copy)
         }
         if let g = Rx.match("^until (\\d{1,2}:\\d{2})$", label), let e = Lesson.minutes(from: g[1]) {
             if e <= dayStart { return .skip }
             if e >= dayEnd { return wholeDay }
-            return .timed(DayPlan.timedCopy(item, from: dayStart, to: e, title: item.title))
+            var copy = DayPlan.timedCopy(item, from: dayStart, to: e, title: item.title)
+            copy.dayShape = "ends"
+            return .timed(copy)
         }
         if label == "all day" { return wholeDay }
         guard label.isEmpty else { return .note(item) }

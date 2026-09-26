@@ -27,6 +27,10 @@ struct Lesson: Identifiable, Codable, Hashable {
     /// it is an item of its own; this keeps the whole. Optional for old
     /// caches.
     var span: String? = nil
+    /// How a day-long thing sits in this day, the way Calendar's list
+    /// labels it: "all" (the whole day), "starts" (begins today, goes on
+    /// past it), "ends" (began earlier, ends today). Nil for the rest.
+    var dayShape: String? = nil
 
     var isAllDay: Bool { allDay != nil }
 

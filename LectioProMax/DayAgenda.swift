@@ -171,7 +171,39 @@ private struct ModuleRow: View {
 
     @ViewBuilder
     private var label: some View {
-        if slot.through == nil {
+        if let shape = slot.dayShape {
+            // Something day-long, labelled the way Calendar's list does:
+            // "All day", or when it starts or ends if it goes on past today.
+            VStack(spacing: 1) {
+                switch shape {
+                case "all":
+                    Text("All\nday")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(numberColour)
+                case "starts":
+                    Text("starts")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Text(slot.hours.shortStart)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(numberColour)
+                default:
+                    Text("ends")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Text(slot.hours.shortEnd)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(numberColour)
+                }
+            }
+            .monospacedDigit()
+            .lineLimit(2)
+            .minimumScaleFactor(0.8)
+            .frame(width: 38)
+            .padding(.top, 12)
+            .accessibilityElement(children: .combine)
+        } else if slot.through == nil {
             // The module's number, big, and its times: the day's rhythm
             // down the side.
             VStack(spacing: 1) {
@@ -216,8 +248,9 @@ private struct ModuleRow: View {
     }
 }
 
-/// A module with something of yours on: each lesson as a block in its
-/// colour. Anything else at the time is in the day's "Also on" list.
+/// A module with something of yours on: its block, in its colour, and —
+/// inside it, underneath — anything else of yours at the same time (the
+/// reading day under an exam). Optional things are in "Also on".
 private struct SlotCard: View {
     let slot: DayPlan.Slot
     let dayISO: String
@@ -227,19 +260,26 @@ private struct SlotCard: View {
 
     var body: some View {
         let lessons = slot.main + slot.continuing
+        let tall = slot.through != nil
         VStack(spacing: 0) {
             ForEach(Array(lessons.enumerated()), id: \.element.id) { index, lesson in
                 if index > 0 { Divider() }
                 OpenButton(lesson: lesson, dayISO: dayISO) {
                     LessonBlock(lesson: lesson,
-                                module: slot.through == nil ? slot.span : slot.hours,
+                                module: tall ? slot.hours : slot.span,
                                 continued: slot.main.isEmpty,
                                 now: isCurrent ? now : nil,
                                 faded: isPast,
-                                topicLines: slot.through == nil ? 1 : 4,
-                                spanNote: lesson.spanNote(on: dayISO))
+                                tall: tall,
+                                dayISO: dayISO)
                 }
                 .frame(maxHeight: .infinity)
+            }
+            ForEach(slot.alongside) { item in
+                Divider()
+                OpenButton(lesson: item, dayISO: dayISO, asRow: true) {
+                    AlongsideLine(lesson: item, dayISO: dayISO)
+                }
             }
         }
         .contentCard(radius: Metrics.inner + 4)
@@ -253,33 +293,58 @@ private struct SlotCard: View {
     }
 }
 
-/// One lesson, in its subject's colour — or an exam's red, the same as the
-/// exam banner — filling its module (or modules) top to bottom.
+/// One thing in its block: a lesson in its subject's colour; an exam, a
+/// day off, a trip or a reading day in its kind's colour with its kind as
+/// a tag; anything else grey. A block over several modules has room for
+/// the whole story — which day of how many, the note — and carries its
+/// kind's symbol, faint, in the corner.
 private struct LessonBlock: View {
     let lesson: Lesson
     let module: ScheduleModule
     let continued: Bool
     let now: Date?
     let faded: Bool
-    /// One line in a single module; more when the block has the room.
-    var topicLines: Int = 1
-    /// For something over several days: "Day 1 of 2 · until Wed 15:15".
-    var spanNote: String? = nil
+    var tall = false
+    var dayISO = ""
 
     @Environment(\.colorScheme) private var scheme
 
+    private var mark: Lesson.Kind? { lesson.markKind }
+    private var isLesson: Bool { lesson.isClassLesson && mark == nil }
+
     private var colour: Color {
-        lesson.isClassLesson ? Color.forSubject(lesson.code) : lesson.kind.blockTint
+        if let mark { return mark.tint }
+        return lesson.isClassLesson ? Color.forSubject(lesson.code) : Color(.systemGray)
     }
     private var stripe: Color {
-        lesson.isClassLesson ? Color.subjectStripe(lesson.code, in: scheme) : lesson.kind.blockTint
+        if let mark { return mark.tint }
+        return lesson.isClassLesson ? Color.subjectStripe(lesson.code, in: scheme) : Color(.systemGray)
     }
 
     /// Only when it isn't simply the module: "13:45–15:15".
     private var ownTimes: String? {
-        guard lesson.start != module.start || lesson.end != module.end,
+        guard lesson.dayShape == nil,
+              lesson.start != module.start || lesson.end != module.end,
               !lesson.start.isEmpty else { return nil }
-        return lesson.start + "–" + lesson.end
+        func short(_ t: String) -> String { t.hasPrefix("0") ? String(t.dropFirst()) : t }
+        return short(lesson.start) + (lesson.end.isEmpty ? "" : "–" + short(lesson.end))
+    }
+
+    /// "Day 1 of 2 · until Wed 15:15".
+    private var spanNote: String? { lesson.spanNote(on: dayISO) }
+
+    /// For anything that isn't a lesson: who it's for, where, with whom —
+    /// "1i, 1j", "062, 064 · AM +4".
+    private var details: String? {
+        var parts: [String] = []
+        let t = lesson.title.trimmingCharacters(in: .whitespaces)
+        if let colon = t.firstIndex(of: ":"), Lesson.audience(String(t[..<colon])) != nil {
+            parts.append(t[..<colon].trimmingCharacters(in: .whitespaces))
+        }
+        if !lesson.room.isEmpty { parts.append(LessonText.abbreviated(lesson.room)) }
+        let who = LessonText.abbreviated(lesson.teacher)
+        if !who.isEmpty { parts.append(who) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     var body: some View {
@@ -295,11 +360,13 @@ private struct LessonBlock: View {
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
-                    Text(lesson.headline)
+                    Text(isLesson ? lesson.headline : dayStatusTitle(lesson))
                         .font(.system(size: 17, weight: .semibold))
-                        .lineLimit(1)
+                        .lineLimit(tall ? 2 : 1)
                     Spacer(minLength: 6)
-                    if !lesson.room.isEmpty {
+                    if let mark {
+                        KindTag(kind: mark)
+                    } else if isLesson, !lesson.room.isEmpty {
                         Text(LessonText.abbreviated(lesson.room))
                             .font(.system(size: 15, weight: .semibold))
                             .monospacedDigit()
@@ -309,27 +376,64 @@ private struct LessonBlock: View {
                     }
                 }
 
-                if continued {
-                    Text("Continues · until " + lesson.end)
-                        .font(.system(size: 14))
+                if isLesson {
+                    if continued {
+                        Text("Continues · until " + lesson.end)
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    } else if let topic = lesson.topic {
+                        Text(LectioDates.tidy(topic))
+                            .font(.system(size: 14.5))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(tall ? 4 : 1)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else if let details {
+                    Text(details)
+                        .font(.system(size: 14.5))
+                        .monospacedDigit()
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                } else if let topic = lesson.topic {
-                    Text(LectioDates.tidy(topic))
-                        .font(.system(size: 14.5))
+                }
+
+                if tall, let spanNote {
+                    Text(spanNote)
+                        .font(.system(size: 14, weight: .medium))
+                        .monospacedDigit()
                         .foregroundStyle(.secondary)
-                        .lineLimit(topicLines)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(1)
                 }
 
                 marks
+
+                // With room to spare, the note itself: what to bring, where
+                // to meet.
+                if tall, !lesson.note.isEmpty {
+                    Text(LectioDates.tidy(lesson.note))
+                        .font(.system(size: 13.5))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(4)
+                        .multilineTextAlignment(.leading)
+                        .padding(.top, 4)
+                        .padding(.trailing, mark == nil ? 0 : 40)
+                }
 
                 if let now { progress(now) }
             }
         }
         .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(alignment: .bottomTrailing) {
+            if tall, let mark {
+                Image(systemName: mark.icon)
+                    .font(.system(size: 42, weight: .regular))
+                    .foregroundStyle(mark.tint.opacity(scheme == .dark ? 0.3 : 0.2))
+                    .padding(14)
+                    .accessibilityHidden(true)
+            }
+        }
         .background(colour.opacity(backgroundStrength))
         .foregroundStyle(.primary)
         .accessibilityElement(children: .combine)
@@ -342,41 +446,43 @@ private struct LessonBlock: View {
         return faded ? base * 0.55 : base
     }
 
+    @ViewBuilder
     private var marks: some View {
-        HStack(spacing: 9) {
-            if !lesson.isClassLesson, lesson.kind.isTagged { KindTag(kind: lesson.kind) }
-            let who = LessonText.abbreviated(lesson.teacher)
-            if !who.isEmpty { Text(who).lineLimit(1) }
-            if let spanNote {
-                Text(spanNote).monospacedDigit().lineLimit(1)
-            } else if let ownTimes {
-                Text(ownTimes).monospacedDigit().lineLimit(1)
-            }
-            if !lesson.homework.isEmpty {
-                HStack(spacing: 3) {
-                    Image(systemName: "book.closed.fill")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(stripe)
-                    Text("Homework")
+        let times = (!tall ? spanNote : nil) ?? ownTimes
+        let hasHomework = !lesson.homework.isEmpty
+        let hasNoteIcon = !lesson.note.isEmpty && !tall
+        let isChanged = lesson.changed && isLesson
+        let teacher = isLesson ? LessonText.abbreviated(lesson.teacher) : ""
+        if times != nil || hasHomework || hasNoteIcon || isChanged || !teacher.isEmpty {
+            HStack(spacing: 9) {
+                if !teacher.isEmpty { Text(teacher).lineLimit(1) }
+                if let times { Text(times).monospacedDigit().lineLimit(1) }
+                if hasHomework {
+                    HStack(spacing: 3) {
+                        Image(systemName: "book.closed.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(stripe)
+                        Text("Homework")
+                    }
                 }
-            }
-            if !lesson.note.isEmpty {
-                Image(systemName: "text.bubble")
-                    .accessibilityLabel("Note")
-            }
-            // Only on your own lessons: on an exam day everything is
-            // "changed", and the word stopped meaning anything.
-            if lesson.changed && lesson.isClassLesson {
-                HStack(spacing: 3) {
-                    Circle().fill(Palette.warning).frame(width: 6, height: 6)
-                    Text("Changed").foregroundStyle(Palette.warning)
+                if hasNoteIcon {
+                    Image(systemName: "text.bubble")
+                        .accessibilityLabel("Note")
                 }
+                // Only on your own lessons: on an exam day everything is
+                // "changed", and the word stopped meaning anything.
+                if isChanged {
+                    HStack(spacing: 3) {
+                        Circle().fill(Palette.warning).frame(width: 6, height: 6)
+                        Text("Changed").foregroundStyle(Palette.warning)
+                    }
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
+            .font(.system(size: 13.5, weight: .medium))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
         }
-        .font(.system(size: 13.5, weight: .medium))
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
     }
 
     private func progress(_ now: Date) -> some View {
@@ -401,6 +507,47 @@ private struct LessonBlock: View {
                 .fixedSize()
         }
         .padding(.top, 4)
+    }
+}
+
+/// Something of yours at the same time as a block, less important than it,
+/// as a line at the foot of the block: "📖 NV-læsedag · Day 2 of 2".
+private struct AlongsideLine: View {
+    let lesson: Lesson
+    let dayISO: String
+
+    var body: some View {
+        let kind = lesson.markKind
+        HStack(spacing: 9) {
+            Image(systemName: kind?.icon ?? "calendar")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(kind?.tint ?? Color(.secondaryLabel))
+                .frame(width: 18)
+            Text(dayStatusTitle(lesson))
+                .font(.system(size: 15, weight: .semibold))
+                .lineLimit(1)
+            Spacer(minLength: 6)
+            Text(when)
+                .font(.system(size: 13, weight: .medium))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .fixedSize()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background((kind?.tint ?? Color(.systemGray)).opacity(0.07))
+        .foregroundStyle(.primary)
+        .contentShape(Rectangle())
+    }
+
+    private var when: String {
+        if let note = lesson.spanNote(on: dayISO) { return note }
+        if lesson.dayShape == "all" { return "All day" }
+        func short(_ t: String) -> String { t.hasPrefix("0") ? String(t.dropFirst()) : t }
+        guard !lesson.start.isEmpty else { return "All day" }
+        return short(lesson.start) + (lesson.end.isEmpty ? "" : "–" + short(lesson.end))
     }
 }
 

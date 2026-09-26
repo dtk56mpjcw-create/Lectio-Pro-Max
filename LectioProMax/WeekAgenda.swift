@@ -150,7 +150,10 @@ private struct WeekRow: Identifiable {
                 if !slot.main.isEmpty {
                     // A block over several modules shows when it starts, not
                     // "1–4".
-                    let side = slot.through == nil ? "\(n)" : slot.hours.shortStart
+                    // All day says itself with its tag; something starting
+                    // later says when.
+                    let side = slot.dayShape == "all" ? ""
+                        : (slot.through == nil && slot.dayShape == nil ? "\(n)" : slot.hours.shortStart)
                     for (k, lesson) in slot.main.enumerated() {
                         out.append(WeekRow(id: "m\(n)|" + lesson.id, kind: .lesson(lesson),
                                            label: k == 0 ? side : "", first: slot.module, last: slot.last))
@@ -387,9 +390,9 @@ private struct WeekLine: View {
 
     private var stripe: Color {
         switch row.kind {
-        case .lesson(let l) where !l.isClassLesson && l.kind.isTagged:
+        case .lesson(let l) where l.markKind != nil:
             // An exam, a trip, a reading day: in its colour, as in the day.
-            return l.kind.tint.opacity(state == .over ? 0.5 : 1)
+            return (l.markKind?.tint ?? .gray).opacity(state == .over ? 0.5 : 1)
         case .lesson(let l) where l.isClassLesson:
             return Color.subjectStripe(l.code, in: scheme).opacity(state == .over ? 0.5 : 1)
         case .lesson, .outside:
@@ -424,12 +427,14 @@ private struct WeekLineMain: View {
                         .font(.system(size: 11.5, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
-                Text(lesson.headline)
+                // The class's trip by what it is ("Pre-IB intro trip"), not
+                // its team ("KL").
+                Text(lesson.markKind != nil ? dayStatusTitle(lesson) : lesson.headline)
                     .font(.system(size: 15.5, weight: .semibold))
                     .foregroundStyle(over ? Color(.secondaryLabel) : Color.primary)
                     .lineLimit(1)
                     .layoutPriority(1)
-                if let topic = topic(lesson) {
+                if lesson.markKind == nil, let topic = topic(lesson) {
                     Text(topic)
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
@@ -485,7 +490,7 @@ private struct WeekLineTrailing: View {
         HStack(spacing: 7) {
             switch row.kind {
             case .lesson(let lesson):
-                if !lesson.isClassLesson, lesson.kind.isTagged { KindTag(kind: lesson.kind) }
+                if let mark = lesson.markKind { KindTag(kind: mark) }
                 if !lesson.homework.isEmpty {
                     Image(systemName: "book.closed.fill")
                         .font(.system(size: 12, weight: .semibold))
