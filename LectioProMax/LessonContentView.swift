@@ -25,6 +25,16 @@ struct LessonContentView: View {
     @State private var feedback: LessonFeedback?
     @State private var showFeedback = false
 
+    init(link: String, placeholder: String = "", feedbackTitle: String = "", feedbackCode: String = "") {
+        self.link = link
+        self.placeholder = placeholder
+        self.feedbackTitle = feedbackTitle
+        self.feedbackCode = feedbackCode
+        // Whatever was fetched ahead of time is there from the first frame.
+        _detail = State(initialValue: LessonCache.shared.detail(link))
+        _feedback = State(initialValue: feedbackTitle.isEmpty ? nil : LessonCache.shared.feedback(link))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if detail == nil && !placeholder.isEmpty {
@@ -176,25 +186,38 @@ struct LessonContentView: View {
         .disabled(downloading != nil)
     }
 
+    /// The page and its Elevfeedback together, through the shared cache: a
+    /// copy fetched ahead is already on screen, and only what's out of date
+    /// is asked for again — quietly, without a spinner over what's shown.
     private func load() async {
-        guard detail == nil, !loading, !link.isEmpty else { return }
-        loading = true
+        guard !link.isEmpty, !loading else { return }
+        let cache = LessonCache.shared
+        let wantFeedback = !feedbackTitle.isEmpty
+        guard !cache.isDetailFresh(link) || (wantFeedback && !cache.isFeedbackFresh(link)) else { return }
+
+        loading = detail == nil
         let cookies = await session.requestCookies()
-        do {
-            detail = try await LectioStudyService.loadLessonDetail(link: link, cookies: cookies)
-        } catch {
-            loadError = error.localizedDescription
-        }
+        await cache.load(link, detail: true, feedback: wantFeedback, cookies: cookies)
         loading = false
-        await loadFeedback(force: false)
+
+        if let fresh = cache.detail(link) {
+            detail = fresh
+        } else if detail == nil {
+            loadError = "Couldn't load this lesson from Lectio."
+        }
+        // A lesson without the tab is normal, not an error worth a banner.
+        if wantFeedback, let fresh = cache.feedback(link) { feedback = fresh }
     }
 
+    /// After the Elevfeedback sheet closes: what was just written, fresh.
     private func loadFeedback(force: Bool) async {
         guard !feedbackTitle.isEmpty, !link.isEmpty else { return }
         guard force || feedback == nil else { return }
         let cookies = await session.requestCookies()
-        // A lesson without the tab is normal, not an error worth a banner.
-        feedback = try? await LectioFeedbackService.load(lessonLink: link, cookies: cookies)
+        if let fresh = try? await LectioFeedbackService.load(lessonLink: link, cookies: cookies) {
+            feedback = fresh
+            LessonCache.shared.store(feedback: fresh, for: link)
+        }
     }
 
     private func open(_ file: LessonFile) async {

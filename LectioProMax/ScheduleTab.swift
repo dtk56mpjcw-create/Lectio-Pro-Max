@@ -92,6 +92,10 @@ struct ScheduleTab: View {
 
     private var today: String { LectioDates.isoString(from: Date()) }
     private var weekCode: String { LectioDates.weekCode(iso: selectedDate) }
+    /// Changes when the day on screen changes, or its week arrives.
+    private var prefetchKey: String {
+        selectedDate + (session.snapshot.weeks[weekCode] == nil ? "" : "+") + (weekMode ? "w" : "")
+    }
 
     var body: some View {
         NavigationStack(path: $opener.path) {
@@ -130,6 +134,18 @@ struct ScheduleTab: View {
                 LectioDates.weekCode(iso: LectioDates.shift(iso: selectedDate, byDays: 7)),
                 LectioDates.weekCode(iso: LectioDates.shift(iso: selectedDate, byDays: -7))
             ])
+        }
+        // Once a day has settled on screen, its lessons load in the
+        // background so opening one is instant. The pause skips the days a
+        // swipe only passes through; a new day cancels the last one's queue.
+        .task(id: prefetchKey) {
+            try? await Task.sleep(for: .milliseconds(450))
+            guard !Task.isCancelled, !weekMode,
+                  let day = session.snapshot.weeks[weekCode]?.days.first(where: { $0.date == selectedDate })
+            else { return }
+            let cookies = await session.requestCookies()
+            guard !Task.isCancelled else { return }
+            LessonCache.shared.prefetch(day.lessons, dayISO: selectedDate, cookies: cookies)
         }
         .sensoryFeedback(.selection, trigger: weekMode)
         .sheet(isPresented: $addingEvent) {
