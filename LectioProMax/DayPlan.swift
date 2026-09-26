@@ -301,8 +301,11 @@ extension Lesson {
             return .staffOnly
         }
         // A class lesson's topic ("Practice test", "Test return") isn't a
-        // school exam; the topic is right there on the lesson.
-        if !isClassLesson, Rx.test(Lesson.examWords, t) { return .exam }
+        // school exam; the topic is right there on the lesson. Nor is the
+        // time to meet for one ("Mødetid AP prøve").
+        if !isClassLesson, !Rx.test("^\\s*mødetid|^\\s*mødested", t), Rx.test(Lesson.examWords, t) {
+            return .exam
+        }
         if Rx.test("læsedag|reading day|study day|studiedag", t) { return .readingDay }
         if Rx.test("introtur|studietur|\\btur\\b|\\bture\\b|rejse|ekskursion|excursion|\\btrips?\\b|udveksling|lejrskole|inkursion", t) {
             return .trip
@@ -646,6 +649,13 @@ struct DayPlan {
         }
         plan.allDay = chips + plan.allDay
         plan.status.sort { $0.kind < $1.kind }
+
+        // Away all day — a trip, a day off — the school's optional things
+        // aren't on for you.
+        if plan.slots.isEmpty, plan.status.contains(where: { $0.kind == .trip || $0.kind == .noSchool }) {
+            plan.also = []
+            plan.after = plan.after.filter { isYours($0) }
+        }
         return plan
     }
 

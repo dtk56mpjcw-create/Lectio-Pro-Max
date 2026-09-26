@@ -387,9 +387,9 @@ private struct WeekLine: View {
 
     private var stripe: Color {
         switch row.kind {
-        case .lesson(let l) where l.isExam:
-            // Exams in the same red as in the day.
-            return Palette.negative.opacity(state == .over ? 0.5 : 1)
+        case .lesson(let l) where !l.isClassLesson && l.kind.isTagged:
+            // An exam, a trip, a reading day: in its colour, as in the day.
+            return l.kind.tint.opacity(state == .over ? 0.5 : 1)
         case .lesson(let l) where l.isClassLesson:
             return Color.subjectStripe(l.code, in: scheme).opacity(state == .over ? 0.5 : 1)
         case .lesson, .outside:
@@ -485,7 +485,7 @@ private struct WeekLineTrailing: View {
         HStack(spacing: 7) {
             switch row.kind {
             case .lesson(let lesson):
-                if lesson.isExam { ExamTag() }
+                if !lesson.isClassLesson, lesson.kind.isTagged { KindTag(kind: lesson.kind) }
                 if !lesson.homework.isEmpty {
                     Image(systemName: "book.closed.fill")
                         .font(.system(size: 12, weight: .semibold))
