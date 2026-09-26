@@ -166,10 +166,12 @@ enum LectioDates {
     /// Lectio writes a forløb's period as "to 13/8-26 - to 20/8-26" — Danish
     /// weekday abbreviations and a d/m-yy date. This is the English reading of
     /// it: "Thu 13 Aug – Thu 20 Aug".
+    private static let periodPattern = try? NSRegularExpression(
+        pattern: "([a-zæøå]{2})\\s+([0-9]{1,2})/([0-9]{1,2})-([0-9]{2,4})", options: [.caseInsensitive])
+
     static func englishPeriod(_ danish: String) -> String {
-        let pattern = "([a-zæøå]{2})\\s+([0-9]{1,2})/([0-9]{1,2})-([0-9]{2,4})"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
-        else { return danish }
+        // Compiled once: the study plan asks for this on every row it draws.
+        guard let regex = periodPattern else { return danish }
 
         let ns = danish as NSString
         let matches = regex.matches(in: danish, range: NSRange(location: 0, length: ns.length))
