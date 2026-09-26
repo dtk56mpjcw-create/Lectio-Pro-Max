@@ -22,6 +22,11 @@ struct Lesson: Identifiable, Codable, Hashable {
     /// Lectio's "Hold:" line as written ("1j ma", "1i ap la, 1j ap la",
     /// "Alle 1. STX-elever, …"); `code` drops the class. Optional for old caches.
     var team: String? = nil
+    /// Something over several days — a trip, an exam period, a holiday —
+    /// as Lectio has it: "2026-09-02 08:00|2026-09-03 16:00". Each day of
+    /// it is an item of its own; this keeps the whole. Optional for old
+    /// caches.
+    var span: String? = nil
 
     var isAllDay: Bool { allDay != nil }
 

@@ -192,7 +192,9 @@ enum LectioParser {
                             changed: parsed.changed,
                             link: absoluteURL(tile.attr("href")),
                             allDay: label,
-                            team: parsed.hold)
+                            team: parsed.hold,
+                            span: parsed.endDate == nil ? nil
+                                : date + " " + padTime(parsed.start) + "|" + last + " " + padTime(parsed.end))
                         byDate[day, default: []].append(item)
                     }
                     day = LectioDates.shift(iso: day, byDays: 1)

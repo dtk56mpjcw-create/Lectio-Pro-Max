@@ -321,6 +321,46 @@ extension Lesson {
 
     var isExam: Bool { kind == .exam }
 
+    // MARK: Over several days
+
+    /// Where this day is in something over several days, and when it ends:
+    /// "Day 1 of 2 · until Thu 16:00", "Day 2 of 2 · until 16:00". Nil for
+    /// anything on one day. Something ending at midnight ("Vinterferie til
+    /// 20/2 00:00") ends the day before.
+    func spanNote(on dayISO: String) -> String? {
+        guard let span, let bar = span.firstIndex(of: "|") else { return nil }
+        let from = String(span[..<bar])
+        let to = String(span[span.index(after: bar)...])
+        guard from.count >= 16, to.count >= 16 else { return nil }
+        let firstDay = String(from.prefix(10))
+        let endDate = String(to.prefix(10))
+        let endTime = String(to.suffix(5))
+        let lastDay = endTime == "00:00" ? LectioDates.shift(iso: endDate, byDays: -1) : endDate
+
+        var days: [String] = []
+        var day = firstDay
+        while day <= lastDay && days.count < 90 {
+            days.append(day)
+            day = LectioDates.shift(iso: day, byDays: 1)
+        }
+        guard days.count >= 2, let index = days.firstIndex(of: dayISO) else { return nil }
+
+        var parts = ["Day \(index + 1) of \(days.count)"]
+        if endTime != "00:00" {
+            let time = endTime.hasPrefix("0") ? String(endTime.dropFirst()) : endTime
+            if dayISO == lastDay {
+                parts.append("until " + time)
+            } else {
+                // "until Thu 16:00" within the week, "until 3 Oct 16:00" beyond.
+                let label = LectioDates.dayLabel(iso: lastDay).split(separator: " ").map(String.init)
+                let near = days.count - index <= 6
+                let when = near ? (label.first ?? "") : label.dropFirst().joined(separator: " ")
+                parts.append("until " + when + " " + time)
+            }
+        }
+        return parts.joined(separator: " · ")
+    }
+
     /// Letters and digits only, lowercased: "AP-eksamen" and "Ap Eksamen"
     /// are both "apeksamen".
     static func squashed(_ s: String) -> String {
@@ -593,7 +633,15 @@ struct DayPlan {
            whole.main.count == 1, whole.continuing.isEmpty,
            whole.module.number == modules.first?.number,
            whole.last.number == modules.last?.number {
-            plan.status.append(whole.main[0])
+            var item = whole.main[0]
+            // Something over several days that fills this one — a trip
+            // that goes on overnight — is all day, not "8:00–15:15"; the
+            // row says which day of it this is and when it ends.
+            if item.span != nil {
+                item.start = ""
+                item.end = ""
+            }
+            plan.status.append(item)
             merged = []
         }
 

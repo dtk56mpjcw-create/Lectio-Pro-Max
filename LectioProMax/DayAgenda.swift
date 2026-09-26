@@ -236,7 +236,8 @@ private struct SlotCard: View {
                                 continued: slot.main.isEmpty,
                                 now: isCurrent ? now : nil,
                                 faded: isPast,
-                                topicLines: slot.through == nil ? 1 : 4)
+                                topicLines: slot.through == nil ? 1 : 4,
+                                spanNote: lesson.spanNote(on: dayISO))
                 }
                 .frame(maxHeight: .infinity)
             }
@@ -262,6 +263,8 @@ private struct LessonBlock: View {
     let faded: Bool
     /// One line in a single module; more when the block has the room.
     var topicLines: Int = 1
+    /// For something over several days: "Day 1 of 2 · until Wed 15:15".
+    var spanNote: String? = nil
 
     @Environment(\.colorScheme) private var scheme
 
@@ -344,7 +347,11 @@ private struct LessonBlock: View {
             if !lesson.isClassLesson, lesson.kind.isTagged { KindTag(kind: lesson.kind) }
             let who = LessonText.abbreviated(lesson.teacher)
             if !who.isEmpty { Text(who).lineLimit(1) }
-            if let ownTimes { Text(ownTimes).monospacedDigit().lineLimit(1) }
+            if let spanNote {
+                Text(spanNote).monospacedDigit().lineLimit(1)
+            } else if let ownTimes {
+                Text(ownTimes).monospacedDigit().lineLimit(1)
+            }
             if !lesson.homework.isEmpty {
                 HStack(spacing: 3) {
                     Image(systemName: "book.closed.fill")
@@ -742,9 +749,11 @@ private struct StatusRow: View {
         }
     }
 
-    /// Who it's for, where, with whom: "1i, 1j", "062, 064 · AM +4".
+    /// Which day of it and until when, who it's for, where, with whom:
+    /// "Day 1 of 2 · until Thu 16:00 · KB +3", "1i, 1j".
     private var subtitle: String? {
         var parts: [String] = []
+        if let note = lesson.spanNote(on: dayISO) { parts.append(note) }
         let t = lesson.title.trimmingCharacters(in: .whitespaces)
         if let colon = t.firstIndex(of: ":"), Lesson.audience(String(t[..<colon])) != nil {
             parts.append(t[..<colon].trimmingCharacters(in: .whitespaces))
