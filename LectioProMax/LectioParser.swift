@@ -29,7 +29,10 @@ enum LectioParser {
     ///    Lærer: Christian Egholm Hattens (Chr)\nLokale: 064\n\nLektier:\n- ..."
     static func parseTooltip(_ raw: String) -> Tooltip {
         var result = Tooltip()
-        let lines = raw.components(separatedBy: "\n")
+        // Lectio escapes the tooltip twice: after the attribute's own
+        // decoding, "Frivillig billedkunst & design" still reads "&amp;".
+        let text = raw.contains("&") ? HTMLDocument.decodeEntities(raw) : raw
+        let lines = text.components(separatedBy: "\n")
         var i = 0
 
         // Lectio prefixes a tooltip with status words: "Aflyst!" (cancelled)
