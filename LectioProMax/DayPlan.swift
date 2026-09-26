@@ -403,6 +403,9 @@ struct DayPlan {
         /// The last module of a block that runs on over several: a double
         /// lesson, an exam, a reading day.
         var through: ScheduleModule? = nil
+        /// Every module the block covers, in order (set when it runs on).
+        var covered: [ScheduleModule] = []
+        var modules: [ScheduleModule] { covered.isEmpty ? [module] : covered }
         /// Yours: your class lessons, your own events, and events meant for
         /// your class (an exam, a reading day).
         var main: [Lesson] = []
@@ -650,6 +653,8 @@ struct DayPlan {
                slot.main.isEmpty, !slot.continuing.isEmpty,
                Set(slot.continuing.map(\.id)).isSubset(of: Set(previous.main.map(\.id))) {
                 previous.through = slot.module
+                if previous.covered.isEmpty { previous.covered = [previous.module] }
+                previous.covered.append(slot.module)
                 previous.others += slot.others
                 for item in slot.alongside where !previous.alongside.contains(where: { $0.id == item.id }) {
                     previous.alongside.append(item)

@@ -165,86 +165,38 @@ private struct ModuleRow: View {
         }
     }
 
-    private var numberColour: Color {
-        isCurrent ? Palette.accent : (isPast ? Color(.secondaryLabel) : Color.primary)
+    /// The time column is always the school's modules — number, start,
+    /// end — at the same place as on an ordinary day, so a block over
+    /// four of them is visibly the size of four lessons. Its own hours
+    /// ("All day", "8:00–11:35", "From 12:00") are in the block.
+    private var label: some View {
+        VStack(spacing: ModuleGrid.gap) {
+            ForEach(slot.modules) { module in
+                moduleLabel(module)
+                    .frame(height: ModuleGrid.height, alignment: .top)
+            }
+        }
     }
 
-    @ViewBuilder
-    private var label: some View {
-        if let shape = slot.dayShape {
-            // Something day-long, labelled the way Calendar's list does:
-            // "All day", or when it starts or ends if it goes on past today.
-            VStack(spacing: 1) {
-                switch shape {
-                case "all":
-                    Text("All\nday")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(numberColour)
-                case "starts":
-                    Text("starts")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                    Text(slot.hours.shortStart)
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundStyle(numberColour)
-                default:
-                    Text("ends")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                    Text(slot.hours.shortEnd)
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundStyle(numberColour)
-                }
-            }
-            .monospacedDigit()
-            .lineLimit(2)
-            .minimumScaleFactor(0.8)
-            .frame(width: 38)
-            .padding(.top, 12)
-            .accessibilityElement(children: .combine)
-        } else if slot.through == nil {
-            // The module's number, big, and its times: the day's rhythm
-            // down the side.
-            VStack(spacing: 1) {
-                Text("\(slot.module.number)")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(numberColour)
-                Text(slot.module.shortStart)
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                Text(slot.module.shortEnd)
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-            .monospacedDigit()
-            .frame(width: 38)
-            .padding(.top, 8)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Module \(slot.module.number), \(slot.module.start) to \(slot.module.end)")
-        } else {
-            // One thing over several modules — an exam, a reading day, a
-            // double lesson: when it starts at its top and when it ends at
-            // its bottom, the way a calendar draws an event. Module numbers
-            // ("1–4") read like four things.
-            let hours = slot.hours
-            VStack(spacing: 0) {
-                Text(hours.shortStart)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundStyle(numberColour)
-                Spacer(minLength: 4)
-                Text(hours.shortEnd)
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(.secondary)
-            }
-            .monospacedDigit()
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            .padding(.vertical, 10)
-            .frame(width: 38, height: ModuleGrid.height(of: slot))
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(hours.start) to \(hours.end)")
+    private func moduleLabel(_ module: ScheduleModule) -> some View {
+        let current = nowMinutes.map { $0 >= module.startMinutes && $0 < module.endMinutes } ?? false
+        let past = nowMinutes.map { $0 >= module.endMinutes } ?? (dayISO < LectioDates.isoString(from: Date()))
+        return VStack(spacing: 1) {
+            Text("\(module.number)")
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundStyle(current ? Palette.accent : (past ? Color(.secondaryLabel) : Color.primary))
+            Text(module.shortStart)
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text(module.shortEnd)
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(.secondary)
         }
+        .monospacedDigit()
+        .frame(width: 38)
+        .padding(.top, 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Module \(module.number), \(module.start) to \(module.end)")
     }
 }
 
@@ -266,20 +218,30 @@ private struct SlotCard: View {
                 if index > 0 { Divider() }
                 OpenButton(lesson: lesson, dayISO: dayISO) {
                     LessonBlock(lesson: lesson,
-                                module: tall ? slot.hours : slot.span,
+                                module: slot.span,
                                 continued: slot.main.isEmpty,
                                 now: isCurrent ? now : nil,
                                 faded: isPast,
                                 tall: tall,
-                                dayISO: dayISO)
+                                dayISO: dayISO,
+                                roomBelow: slot.alongside.isEmpty ? 0 : CGFloat(slot.alongside.count) * 44)
                 }
                 .frame(maxHeight: .infinity)
             }
-            ForEach(slot.alongside) { item in
-                Divider()
-                OpenButton(lesson: item, dayISO: dayISO, asRow: true) {
-                    AlongsideLine(lesson: item, dayISO: dayISO)
+        }
+        // Anything else of yours at the time sits at the foot of the block,
+        // inside its colour — the block stays exactly its modules tall.
+        .overlay(alignment: .bottom) {
+            if !slot.alongside.isEmpty {
+                VStack(spacing: 6) {
+                    ForEach(slot.alongside) { item in
+                        OpenButton(lesson: item, dayISO: dayISO) {
+                            AlongsideLine(lesson: item, dayISO: dayISO)
+                        }
+                    }
                 }
+                .padding(.leading, 27)
+                .padding([.trailing, .bottom], 10)
             }
         }
         .contentCard(radius: Metrics.inner + 4)
@@ -306,6 +268,8 @@ private struct LessonBlock: View {
     let faded: Bool
     var tall = false
     var dayISO = ""
+    /// Kept clear at the foot for the things alongside it.
+    var roomBelow: CGFloat = 0
 
     @Environment(\.colorScheme) private var scheme
 
@@ -333,10 +297,27 @@ private struct LessonBlock: View {
     /// "Day 1 of 2 · until Wed 15:15".
     private var spanNote: String? { lesson.spanNote(on: dayISO) }
 
-    /// For anything that isn't a lesson: who it's for, where, with whom —
-    /// "1i, 1j", "062, 064 · AM +4".
+    /// When, for anything that isn't a lesson — the time column shows the
+    /// modules, not its hours: "All day", "From 12:00", "Until 11:00",
+    /// "8:00–11:35".
+    private var when: String? {
+        func short(_ t: String) -> String { t.hasPrefix("0") ? String(t.dropFirst()) : t }
+        switch lesson.dayShape {
+        case "all": return "All day"
+        case "starts": return "From " + short(lesson.start)
+        case "ends": return "Until " + short(lesson.end)
+        default:
+            guard !lesson.start.isEmpty,
+                  tall || lesson.start != module.start || lesson.end != module.end else { return nil }
+            return short(lesson.start) + (lesson.end.isEmpty ? "" : "–" + short(lesson.end))
+        }
+    }
+
+    /// For anything that isn't a lesson: when, who it's for, where, with
+    /// whom — "All day · 1i, 1j", "8:00–11:35 · 062, 064 · AM +4".
     private var details: String? {
         var parts: [String] = []
+        if let when { parts.append(when) }
         let t = lesson.title.trimmingCharacters(in: .whitespaces)
         if let colon = t.firstIndex(of: ":"), Lesson.audience(String(t[..<colon])) != nil {
             parts.append(t[..<colon].trimmingCharacters(in: .whitespaces))
@@ -414,7 +395,7 @@ private struct LessonBlock: View {
                     Text(LectioDates.tidy(lesson.note))
                         .font(.system(size: 13.5))
                         .foregroundStyle(.secondary)
-                        .lineLimit(4)
+                        .lineLimit(roomBelow > 0 ? 2 : 4)
                         .multilineTextAlignment(.leading)
                         .padding(.top, 4)
                         .padding(.trailing, mark == nil ? 0 : 40)
@@ -424,9 +405,10 @@ private struct LessonBlock: View {
             }
         }
         .padding(12)
+        .padding(.bottom, roomBelow)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(alignment: .bottomTrailing) {
-            if tall, let mark {
+            if tall, roomBelow == 0, let mark {
                 Image(systemName: mark.icon)
                     .font(.system(size: 42, weight: .regular))
                     .foregroundStyle(mark.tint.opacity(scheme == .dark ? 0.3 : 0.2))
@@ -448,7 +430,7 @@ private struct LessonBlock: View {
 
     @ViewBuilder
     private var marks: some View {
-        let times = (!tall ? spanNote : nil) ?? ownTimes
+        let times = (!tall ? spanNote : nil) ?? (isLesson ? ownTimes : nil)
         let hasHomework = !lesson.homework.isEmpty
         let hasNoteIcon = !lesson.note.isEmpty && !tall
         let isChanged = lesson.changed && isLesson
@@ -511,42 +493,45 @@ private struct LessonBlock: View {
 }
 
 /// Something of yours at the same time as a block, less important than it,
-/// as a line at the foot of the block: "📖 NV-læsedag · Day 2 of 2".
+/// as a small inset row at the foot of the block: "📖 NV-læsedag · Day 2
+/// of 2 · until 15:15".
 private struct AlongsideLine: View {
     let lesson: Lesson
     let dayISO: String
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         let kind = lesson.markKind
-        HStack(spacing: 9) {
+        HStack(spacing: 8) {
             Image(systemName: kind?.icon ?? "calendar")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(kind?.tint ?? Color(.secondaryLabel))
-                .frame(width: 18)
             Text(dayStatusTitle(lesson))
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 14.5, weight: .semibold))
                 .lineLimit(1)
-            Spacer(minLength: 6)
+                .layoutPriority(1)
             Text(when)
                 .font(.system(size: 13, weight: .medium))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-                .fixedSize()
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 10)
+        .frame(height: 38)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background((kind?.tint ?? Color(.systemGray)).opacity(0.07))
+        .background {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(.systemBackground).opacity(scheme == .dark ? 0.35 : 0.6))
+        }
         .foregroundStyle(.primary)
         .contentShape(Rectangle())
     }
 
     private var when: String {
         if let note = lesson.spanNote(on: dayISO) { return note }
-        if lesson.dayShape == "all" { return "All day" }
+        if lesson.dayShape == "all" || lesson.start.isEmpty { return "All day" }
         func short(_ t: String) -> String { t.hasPrefix("0") ? String(t.dropFirst()) : t }
-        guard !lesson.start.isEmpty else { return "All day" }
         return short(lesson.start) + (lesson.end.isEmpty ? "" : "–" + short(lesson.end))
     }
 }
