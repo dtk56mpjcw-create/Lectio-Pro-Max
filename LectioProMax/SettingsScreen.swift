@@ -10,6 +10,12 @@ struct SettingsScreen: View {
     @State private var notifications: UNAuthorizationStatus?
     @State private var confirmingSignOut = false
 
+    @AppStorage(NotifyPrefs.changesKey) private var notifyChanges = true
+    @AppStorage(NotifyPrefs.messagesKey) private var notifyMessages = true
+    @AppStorage(NotifyPrefs.workKey) private var notifyWork = true
+    @AppStorage(NotifyPrefs.lessonsKey) private var notifyLessons = false
+    @AppStorage(NotifyPrefs.leadKey) private var lessonLead = 5
+
     private var school: String {
         session.snapshot.profile.schoolName ?? LectioConfig.schoolName
     }
@@ -28,15 +34,31 @@ struct SettingsScreen: View {
                     link("Message signature", "signature", .blue, to: .signature)
                 }
 
-                section("Notifications") {
+                section("Notifications",
+                        footer: "Changes, messages and homework are looked for in the background when iOS allows it, so they can come a little late. Reminders before lessons are always on time.") {
                     Button {
-                        if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+                        if notifications == .notDetermined {
+                            Task { await askIfNeeded() }
+                        } else if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
                             openURL(url)
                         }
                     } label: {
-                        row("Notifications", "bell.badge", .red, value: notificationText, chevron: "arrow.up.right")
+                        row("Notifications", "bell.badge", .red, value: notificationText,
+                            chevron: notifications == .notDetermined ? nil : "arrow.up.right")
                     }
                     .buttonStyle(.plain)
+                    Divider().padding(.leading, 56)
+                    toggleRow("Schedule changes", "calendar.badge.exclamationmark", .orange, isOn: $notifyChanges)
+                    Divider().padding(.leading, 56)
+                    toggleRow("New messages", "envelope.badge", .blue, isOn: $notifyMessages)
+                    Divider().padding(.leading, 56)
+                    toggleRow("New homework", "book.closed", .green, isOn: $notifyWork)
+                    Divider().padding(.leading, 56)
+                    toggleRow("Before each lesson", "clock", .purple, isOn: $notifyLessons)
+                    if notifyLessons {
+                        Divider().padding(.leading, 56)
+                        leadRow
+                    }
                 }
 
                 section("Account") {
@@ -68,6 +90,11 @@ struct SettingsScreen: View {
         .scrollIndicators(.hidden)
         .background { AppBackground() }
         .task { await readNotificationStatus() }
+        .onChange(of: notifyChanges) { _, on in if on { Task { await askIfNeeded() } } }
+        .onChange(of: notifyMessages) { _, on in if on { Task { await askIfNeeded() } } }
+        .onChange(of: notifyWork) { _, on in if on { Task { await askIfNeeded() } } }
+        .onChange(of: notifyLessons) { _, on in Task { await lessonRemindersChanged(asking: on) } }
+        .onChange(of: lessonLead) { _, _ in Task { await lessonRemindersChanged(asking: false) } }
         // Back from the Settings app with notifications switched.
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await readNotificationStatus() } }
@@ -83,7 +110,7 @@ struct SettingsScreen: View {
 
     // MARK: Pieces
 
-    private func section<Content: View>(_ title: String,
+    private func section<Content: View>(_ title: String, footer: String? = nil,
                                         @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title.uppercased())
@@ -93,7 +120,48 @@ struct SettingsScreen: View {
                 .padding(.leading, 4)
             VStack(spacing: 0) { content() }
                 .contentCard()
+            if let footer {
+                Text(footer)
+                    .scaledFont(size: 13)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 4)
+            }
         }
+    }
+
+    /// A row with a switch, the same height as the others.
+    private func toggleRow(_ title: String, _ symbol: String, _ tint: Color,
+                           isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            HStack(spacing: 13) {
+                icon(symbol, tint)
+                Text(title)
+                    .scaledFont(size: 16.5, weight: .medium)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
+    }
+
+    /// How long before a lesson its reminder comes.
+    private var leadRow: some View {
+        HStack(spacing: 13) {
+            icon("timer", .gray)
+            Text("Remind me")
+                .scaledFont(size: 16.5, weight: .medium)
+            Spacer(minLength: 8)
+            Picker("Remind me", selection: $lessonLead) {
+                ForEach(NotifyPrefs.leads, id: \.self) { minutes in
+                    Text("\(minutes) min before").tag(minutes)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
     }
 
     /// Settings' coloured icon square.
@@ -103,6 +171,7 @@ struct SettingsScreen: View {
             .foregroundStyle(.white)
             .frame(width: 29, height: 29)
             .background(tint.gradient, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .accessibilityHidden(true)   // the row's words say it
     }
 
     private func row(_ title: String, _ symbol: String, _ tint: Color,
@@ -164,9 +233,22 @@ struct SettingsScreen: View {
         switch notifications {
         case .authorized, .provisional, .ephemeral: return "On"
         case .denied: return "Off"
-        case .notDetermined: return "Not set up"
+        case .notDetermined: return "Turn on"
         default: return ""
         }
+    }
+
+    /// Asks for permission the first time something is switched on.
+    private func askIfNeeded() async {
+        guard notifications == .notDetermined else { return }
+        _ = await NotificationService.requestPermission()
+        await readNotificationStatus()
+    }
+
+    private func lessonRemindersChanged(asking: Bool) async {
+        if asking { await askIfNeeded() }
+        let feed = WidgetFeedBuilder.latest ?? WidgetFeedBuilder.build(from: session.snapshot)
+        await NotificationService.rescheduleLessons(from: feed)
     }
 
     private func readNotificationStatus() async {

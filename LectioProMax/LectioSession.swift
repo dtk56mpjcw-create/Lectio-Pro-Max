@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import WebKit
 
 /// Holds the app's Lectio state. The session itself lives in WKWebView's own
@@ -83,13 +84,20 @@ final class LectioSession: ObservableObject {
         return WKWebView(frame: .zero, configuration: config)
     }()
 
+    /// The session on screen, for a background check that runs while the
+    /// app is alive, so what it fetches reaches what you'll see.
+    static weak var active: LectioSession?
+
     // MARK: - Lifecycle
 
     func bootstrap() async {
+        LectioSession.active = self
         _ = cookieStoreKeepAlive     // wake WebKit before anyone asks for cookies
         await restoreSavedCookies()
         prepareWeeks()
         loadCache()
+        // The widgets and lesson reminders start from the saved copy.
+        if !snapshot.isEmpty { WidgetFeedBuilder.publish(snapshot) }
 
         // Signed out last time? Normally go straight to login rather than
         // spinning forever — but verify it first. A bad guess used to be
@@ -339,6 +347,12 @@ final class LectioSession: ObservableObject {
             if !visibleWeekCode.isEmpty && visibleWeekCode != fresh.currentWeekCode {
                 startWeekLoad(visibleWeekCode, force: true)
             }
+            // From Friday the next school day is in next week: have it, for
+            // the widgets and for noticing changes to Monday.
+            for iso in ScheduleWatch.watchedDays(now: Date()) {
+                let code = LectioDates.weekCode(iso: iso)
+                if code != fresh.currentWeekCode && code != visibleWeekCode { startWeekLoad(code) }
+            }
             flushDeferredWeeks(failed: false)
         } catch LectioError.needsLogin {
             // Lectio won't accept these cookies. Before believing the session is
@@ -400,6 +414,9 @@ final class LectioSession: ObservableObject {
         // colours, the remembered end of the school day, cached lessons and
         // faces. Appearance settings and the school stay.
         NotificationService.removeAll()
+        ScheduleWatch.forget()
+        WidgetFeedBuilder.signedOut()
+        BackgroundCheck.cancel()
         let defaults = UserDefaults.standard
         for key in defaults.dictionaryRepresentation().keys
         where ["reminders.", "lectio.feedbackDrafts", "messages.", "signature.", "subjectColors",
@@ -768,7 +785,25 @@ final class LectioSession: ObservableObject {
         saveTask = Task {
             try? await Task.sleep(nanoseconds: 900_000_000)
             if Task.isCancelled { return }
+            WidgetFeedBuilder.publish(pending)
+            // What's on screen counts as seen, so a background check doesn't
+            // announce it. Only on screen: a refresh while the app is in the
+            // background hasn't been seen by anyone.
+            if UIApplication.shared.applicationState == .active {
+                ScheduleWatch.absorb(pending)
+            }
             await SnapshotCache.write(pending)
+        }
+    }
+
+    /// What a background check fetched, already merged with what we had.
+    /// The cookies it rolled forward are in the vault and WebKit now, so
+    /// the next request reads them afresh rather than reusing ours.
+    func adopt(_ merged: LectioSnapshot) {
+        snapshot = merged
+        cachedCookies = []
+        if !merged.currentWeekCode.isEmpty {
+            weekFetchedAt[merged.currentWeekCode] = Date()
         }
     }
 
@@ -784,6 +819,11 @@ enum SnapshotCache {
     static var url: URL? {
         let dirs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
         return dirs.first?.appendingPathComponent("lectio-snapshot.json")
+    }
+
+    static func load() -> LectioSnapshot? {
+        guard let url, let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(LectioSnapshot.self, from: data)
     }
 
     static func write(_ snapshot: LectioSnapshot) async {

@@ -23,6 +23,10 @@ struct ContentView: View {
                 if newPhase == .active && session.hasLoadedOnce && !session.showLogin {
                     Task { await session.refresh() }
                 }
+                // Leaving the app: ask iOS to look for news in a while.
+                if newPhase == .background && session.isLoggedIn {
+                    BackgroundCheck.schedule()
+                }
             }
     }
 }

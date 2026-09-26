@@ -21,15 +21,33 @@
 		AA0000000000000000000010 /* LectioProMaxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LectioProMaxTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AA0000000000000000000021 /* Exceptions for "LectioProMax" folder in "LectioProMax" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AA0000000000000000000006 /* LectioProMax */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AA0000000000000000000005 /* LectioProMax */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AA0000000000000000000021 /* Exceptions for "LectioProMax" folder in "LectioProMax" target */,
+			);
 			path = LectioProMax;
 			sourceTree = "<group>";
 		};
 		AA0000000000000000000011 /* LectioProMaxTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = LectioProMaxTests;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000020 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -56,6 +74,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000005 /* LectioProMax */,
+				AA0000000000000000000020 /* Shared */,
 				AA0000000000000000000011 /* LectioProMaxTests */,
 				AA0000000000000000000003 /* Products */,
 			);
@@ -87,6 +106,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				AA0000000000000000000005 /* LectioProMax */,
+				AA0000000000000000000020 /* Shared */,
 			);
 			name = LectioProMax;
 			packageProductDependencies = (
@@ -313,6 +333,7 @@
 				DEVELOPMENT_TEAM = L78DTW7MMS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LectioProMax/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Lectio Pro Max";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -341,6 +362,7 @@
 				DEVELOPMENT_TEAM = L78DTW7MMS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LectioProMax/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Lectio Pro Max";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

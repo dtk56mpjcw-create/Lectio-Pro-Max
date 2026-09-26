@@ -47,23 +47,25 @@
     <ul>
       <li>en kopi af dit skema, dine beskeder og dit fravær, så appen kan vises uden forbindelse;</li>
       <li>billeder af personer, så de ikke skal hentes igen;</li>
-      <li>dine indstillinger: valgt skole, signatur, fagfarver, påmindelser og kladder.</li>
+      <li>dine indstillinger: valgt skole, signatur, fagfarver, påmindelser og kladder;</li>
+      <li>de næste dages skema i en lille fil, som appens widgets læser. Den deles kun mellem appen og dens egne widgets på din telefon.</li>
     </ul>
-    <p>Kopien af dine oplysninger og dit login er krypteret af iOS, når telefonen er låst, og kommer ikke med i sikkerhedskopier. Intet af det sendes til udvikleren eller til andre.</p>
+    <p>Kopien af dine oplysninger og dit login er krypteret af iOS, fra telefonen starter, til du låser den op første gang, og kommer ikke med i sikkerhedskopier. Intet af det sendes til udvikleren eller til andre.</p>
 
     <h3>3. Login</h3>
     <p>Du logger ind på Lectios egen side (med UniLogin, MitID eller din skoles login) inde i appen. Appen ser og gemmer aldrig din adgangskode. Den gemmer kun Lectios login-cookies, krypteret på din telefon, så du bliver ved med at være logget ind. De slettes, når du logger ud.</p>
 
     <h3>4. Brug af oplysningerne</h3>
     <p>Oplysningerne bruges kun til at vise dig dit skoleliv i appen og til det, du selv beder om. Når du sender en besked, en vedhæftet fil, en aflevering, en fraværsårsag, en lektionsevaluering eller opretter en privat aftale, sendes det direkte til Lectio — på samme måde som på Lectios hjemmeside.</p>
-    <p>Påmindelser om lektier og fravær planlægges lokalt på din telefon. Der bruges ingen push-server.</p>
+    <p>Påmindelser om lektier, fravær og timer planlægges lokalt på din telefon. Når iOS tillader det, tjekker appen også Lectio i baggrunden for aflysninger, lokaleændringer, nye beskeder og nye lektier, og giver dig besked på telefonen. Det er din telefon, der spørger Lectio, præcis som når appen er åben. Der bruges ingen push-server, og du kan slå hver slags besked fra under Indstillinger.</p>
 
     <h3>5. Deling med andre</h3>
     <p>Appen har ingen tredjeparts-tjenester: ingen statistik (analytics), ingen reklamer og ingen sporing. Den taler kun med Lectio og, når du logger ind, med din skoles login-tjeneste. Oplysninger i Lectio behandles af din skole og Macom efter deres egne regler.</p>
 
     <h3>6. Tilladelser</h3>
     <ul>
-      <li><strong>Notifikationer</strong> — kun hvis du slår en påmindelse til.</li>
+      <li><strong>Notifikationer</strong> — til påmindelser og nyheder fra baggrundstjekket. Der spørges først, når du slår noget til.</li>
+      <li><strong>Baggrundsopdatering</strong> — så appen kan tjekke Lectio, når den er lukket. Kan slås fra i iOS' Indstillinger.</li>
       <li><strong>Billeder og filer</strong> — kun dem, du selv vælger at vedhæfte. Appen får ikke adgang til hele dit fotobibliotek.</li>
       <li><strong>Skærmens lysstyrke</strong> — skrues op, mens studiekortet vises, så QR-koden kan scannes.</li>
     </ul>
@@ -72,7 +74,7 @@
     <p>Al trafik til Lectio er krypteret (HTTPS). Oplysninger på telefonen er beskyttet af iOS' dataklasser og ligger i appens egen, lukkede lagerplads.</p>
 
     <h3>8. Hvor længe og sletning</h3>
-    <p>Oplysningerne ligger på din telefon, indtil du logger ud eller sletter appen. Når du logger ud, slettes dine oplysninger, dit login, påmindelser, kladder og gemte billeder. Hvis du sletter appen, forsvinder alt. Udvikleren har intet at slette, fordi intet gemmes hos udvikleren.</p>
+    <p>Oplysningerne ligger på din telefon, indtil du logger ud eller sletter appen. Når du logger ud, slettes dine oplysninger, dit login, påmindelser, kladder, gemte billeder og widgets' skema. Hvis du sletter appen, forsvinder alt. Udvikleren har intet at slette, fordi intet gemmes hos udvikleren.</p>
 
     <h3>9. Dine rettigheder</h3>
     <p>Efter databeskyttelsesforordningen (GDPR) har du ret til indsigt, berigtigelse og sletning. Da udvikleren ikke behandler oplysninger om dig, gælder anmodninger om dine data i Lectio din skole, som er dataansvarlig for dem. Du er altid velkommen til at skrive med spørgsmål til <a href="mailto:[kontakt]">[kontakt]</a>. Du kan også klage til Datatilsynet (datatilsynet.dk).</p>
@@ -94,23 +96,25 @@
     <ul>
       <li>a copy of your timetable, messages and absence, so the app works offline;</li>
       <li>photos of people, so they don't have to load again;</li>
-      <li>your settings: chosen school, signature, subject colours, reminders and drafts.</li>
+      <li>your settings: chosen school, signature, subject colours, reminders and drafts;</li>
+      <li>the next few days of your timetable in a small file the app's widgets read. It is shared only between the app and its own widgets on your phone.</li>
     </ul>
-    <p>The copy of your information and your sign-in are encrypted by iOS while the phone is locked and are left out of backups. None of it is sent to the developer or anyone else.</p>
+    <p>The copy of your information and your sign-in are encrypted by iOS from when the phone starts until you first unlock it, and are left out of backups. None of it is sent to the developer or anyone else.</p>
 
     <h3>3. Signing in</h3>
     <p>You sign in on Lectio's own page (with UniLogin, MitID or your school's sign-in) inside the app. The app never sees or stores your password. It keeps only Lectio's sign-in cookies, encrypted on your phone, so you stay signed in. They are deleted when you sign out.</p>
 
     <h3>4. How the information is used</h3>
     <p>Only to show you your school life in the app and to do what you ask. When you send a message, an attachment, a hand-in, an absence reason, lesson feedback or create a private event, it goes directly to Lectio — just as on Lectio's website.</p>
-    <p>Homework and absence reminders are scheduled locally on your phone. No push server is used.</p>
+    <p>Reminders for homework, absence and lessons are scheduled locally on your phone. When iOS allows it, the app also checks Lectio in the background for cancellations, room changes, new messages and new homework, and tells you on the phone. It's your phone asking Lectio, exactly as when the app is open. No push server is used, and each kind of notification can be turned off in Settings.</p>
 
     <h3>5. Sharing</h3>
     <p>The app contains no third-party services: no analytics, no advertising and no tracking. It talks only to Lectio and, while you sign in, your school's sign-in service. Information in Lectio is handled by your school and Macom under their own terms.</p>
 
     <h3>6. Permissions</h3>
     <ul>
-      <li><strong>Notifications</strong> — only if you turn on a reminder.</li>
+      <li><strong>Notifications</strong> — for reminders and news from the background check. Asked for only when you turn one on.</li>
+      <li><strong>Background App Refresh</strong> — so the app can check Lectio while it's closed. Can be turned off in iOS Settings.</li>
       <li><strong>Photos and files</strong> — only the ones you pick to attach. The app gets no access to your whole photo library.</li>
       <li><strong>Screen brightness</strong> — turned up while the student card is shown, so its QR code scans.</li>
     </ul>
@@ -119,7 +123,7 @@
     <p>All traffic to Lectio is encrypted (HTTPS). Information on the phone is protected by iOS data protection and kept in the app's own private storage.</p>
 
     <h3>8. Retention and deletion</h3>
-    <p>Information stays on your phone until you sign out or delete the app. Signing out deletes your information, sign-in, reminders, drafts and saved photos; deleting the app removes everything. The developer has nothing to delete, because nothing is kept by the developer.</p>
+    <p>Information stays on your phone until you sign out or delete the app. Signing out deletes your information, sign-in, reminders, drafts, saved photos and the widgets' timetable; deleting the app removes everything. The developer has nothing to delete, because nothing is kept by the developer.</p>
 
     <h3>9. Your rights</h3>
     <p>Under the GDPR you have the right to access, correct and erase your data. As the developer processes no data about you, requests about your data in Lectio go to your school, which is its data controller. Questions are always welcome at <a href="mailto:[contact]">[contact]</a>. You can also complain to the Danish Data Protection Agency (datatilsynet.dk).</p>

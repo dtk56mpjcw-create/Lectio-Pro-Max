@@ -107,6 +107,12 @@ enum LectioService {
         return URLSession(configuration: config)
     }()
 
+    /// Set only for a background check (see BackgroundCheck): a session
+    /// with a cookie store of its own, which keeps and sends cookies the way
+    /// a browser does. Requests made inside it go through it and let it
+    /// handle the cookies; everything else is exactly as before.
+    @TaskLocal static var browser: URLSession?
+
     static func cookieHeader(_ cookies: [HTTPCookie]) -> String {
         return cookies.map { $0.name + "=" + $0.value }.joined(separator: "; ")
     }
@@ -124,14 +130,17 @@ enum LectioService {
     static func fetchHTML(_ urlString: String, cookies: [HTTPCookie]) async throws -> String {
         guard let url = URL(string: urlString) else { throw LectioError.badURL }
 
+        let client = browser ?? session
         var request = URLRequest(url: url)
-        request.setValue(cookieHeader(cookies), forHTTPHeaderField: "Cookie")
+        if browser == nil {
+            request.setValue(cookieHeader(cookies), forHTTPHeaderField: "Cookie")
+        }
         request.setValue(LectioConfig.userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                          forHTTPHeaderField: "Accept")
         request.setValue("da,en;q=0.8", forHTTPHeaderField: "Accept-Language")
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await client.data(for: request)
 
         if let http = response as? HTTPURLResponse {
             // Keep whatever Lectio just handed back, even on a redirect.

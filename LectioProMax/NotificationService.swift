@@ -1,16 +1,57 @@
 import Foundation
 import UserNotifications
 
-/// On-device reminders for the specific things you've asked to be reminded of.
+/// Which notifications you want (Settings → Notifications). Phone
+/// settings, not the account's: they stay when you sign out.
+enum NotifyPrefs {
+    static let changesKey = "notify.scheduleChanges"
+    static let messagesKey = "notify.messages"
+    static let workKey = "notify.newWork"
+    static let lessonsKey = "notify.lessons"
+    static let leadKey = "notify.lessonLead"
+
+    /// The lead times on offer, in minutes.
+    static let leads = [5, 10, 15]
+
+    private static func flag(_ key: String, default value: Bool) -> Bool {
+        UserDefaults.standard.object(forKey: key) as? Bool ?? value
+    }
+
+    static var changes: Bool { flag(changesKey, default: true) }
+    static var messages: Bool { flag(messagesKey, default: true) }
+    static var work: Bool { flag(workKey, default: true) }
+    /// Off until you turn it on: six a day is a lot to get unasked.
+    static var lessons: Bool { flag(lessonsKey, default: false) }
+    static var lead: Int {
+        let minutes = UserDefaults.standard.integer(forKey: leadKey)
+        return leads.contains(minutes) ? minutes : 5
+    }
+
+    static func allows(_ topic: ChangeAlert.Topic) -> Bool {
+        switch topic {
+        case .schedule: return changes
+        case .messages: return messages
+        case .work: return work
+        }
+    }
+}
+
+/// Notifications, all made on the phone: reminders you asked for, a nudge
+/// before each lesson, and what a background check found (see
+/// BackgroundCheck). No server and no push certificate.
 ///
-/// Everything is scheduled locally from dates the app already knows, so it fires
-/// exactly on time and needs no server and no push certificate. What it
-/// deliberately can't do is tell you about something *new* that arrives while
-/// the app is closed — that needs the app to be woken in the background.
+/// Reminders fire exactly on time, from dates the app already knows. News —
+/// a cancelled lesson, a message — can only be found when iOS lets the app
+/// check in the background, so it can come late.
 enum NotificationService {
 
     private static let workPrefix = "lectio.work."
     private static let absencePrefix = "lectio.absence."
+    private static let lessonPrefix = "lectio.lesson."
+    private static let newsPrefix = "lectio.news."
+
+    /// iOS keeps at most 64 waiting notifications per app.
+    private static let pendingLimit = 64
 
     // MARK: - Permission
 
@@ -141,6 +182,65 @@ enum NotificationService {
         centre.add(UNNotificationRequest(identifier: absencePrefix + record.id,
                                          content: content,
                                          trigger: trigger))
+    }
+
+    // MARK: - Before each lesson
+
+    /// Rebuilds the "Maths in 5 min" reminders from the widgets' feed —
+    /// the same lessons, cancelled ones left out. They're kept within what
+    /// iOS allows, leaving room for homework reminders, soonest first; each
+    /// refresh tops them up.
+    static func rescheduleLessons(from feed: WidgetFeed?) async {
+        let centre = UNUserNotificationCenter.current()
+        let pending = await centre.pendingNotificationRequests()
+        let ours = pending.map(\.identifier).filter { $0.hasPrefix(lessonPrefix) }
+        centre.removePendingNotificationRequests(withIdentifiers: ours)
+
+        guard let feed, feed.signedIn, NotifyPrefs.lessons, await isAuthorized() else { return }
+        let room = max(0, min(40, pendingLimit - (pending.count - ours.count) - 4))
+        let lead = NotifyPrefs.lead
+        let now = Date()
+        var added = 0
+
+        for item in feed.items where !item.cancelled && !item.optional {
+            guard added < room else { break }
+            let fire = item.start.addingTimeInterval(-Double(lead * 60))
+            guard fire > now else { continue }
+
+            let content = UNMutableNotificationContent()
+            content.title = "\(item.title) in \(lead) min"
+            content.body = [item.room, item.teacher].filter { !$0.isEmpty }.joined(separator: " · ")
+            if item.changed { content.subtitle = "Changed" }
+            content.sound = .default
+            content.threadIdentifier = "lessons"
+
+            let trigger = UNCalendarNotificationTrigger(
+                dateMatching: LectioDates.calendar.dateComponents(
+                    [.calendar, .timeZone, .year, .month, .day, .hour, .minute], from: fire),
+                repeats: false)
+            try? await centre.add(UNNotificationRequest(
+                identifier: lessonPrefix + "\(Int(item.start.timeIntervalSince1970))",
+                content: content, trigger: trigger))
+            added += 1
+        }
+    }
+
+    // MARK: - News
+
+    /// What a background check found, shown now.
+    static func post(_ alerts: [ChangeAlert]) async {
+        guard !alerts.isEmpty, await isAuthorized() else { return }
+        let centre = UNUserNotificationCenter.current()
+        for alert in alerts {
+            let content = UNMutableNotificationContent()
+            content.title = alert.title
+            content.subtitle = alert.subtitle
+            content.body = alert.body
+            content.sound = .default
+            content.threadIdentifier = alert.topic.rawValue
+            try? await centre.add(UNNotificationRequest(identifier: newsPrefix + alert.id,
+                                                        content: content, trigger: nil))
+        }
     }
 
     static func cancelAll() {

@@ -40,7 +40,10 @@ enum CookieVault {
                    expires: $0.expiresDate, isSecure: $0.isSecure)
         }
         guard let data = try? JSONEncoder().encode(stored) else { return }
-        try? data.write(to: target, options: [.atomic, .completeFileProtection])
+        // Readable once the phone has been unlocked after a restart, so a
+        // background check can use it while the phone is locked; encrypted
+        // until then, like the rest of the app's data.
+        try? data.write(to: target, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
 
         var values = URLResourceValues()
         values.isExcludedFromBackup = true

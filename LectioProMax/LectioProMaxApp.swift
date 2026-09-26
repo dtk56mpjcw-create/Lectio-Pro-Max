@@ -10,5 +10,9 @@ struct LectioProMaxApp: App {
                 // columns can't hold a time.
                 .dynamicTypeSize(...DynamicTypeSize.accessibility3)
         }
+        // iOS wakes the app now and then to look for news (see BackgroundCheck).
+        .backgroundTask(.appRefresh(BackgroundCheck.taskID)) {
+            await BackgroundCheck.run()
+        }
     }
 }
