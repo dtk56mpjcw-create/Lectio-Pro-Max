@@ -70,6 +70,9 @@ private struct DayContent: View {
                     NowLine(text: line)
                 }
                 ModuleRow(slot: slot, dayISO: dayISO, now: now)
+                ForEach(slot.breakAfter) { item in
+                    OutsideRow(lesson: item, dayISO: dayISO)
+                }
             }
 
             if let nowMinutes, let end = plan.schoolEnd, nowMinutes >= end {

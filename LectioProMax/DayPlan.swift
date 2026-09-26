@@ -151,19 +151,31 @@ extension ScheduleModule {
 // MARK: - Whose it is
 
 extension Lesson {
-    /// An event meant for your class, not merely open to it: its Hold line
-    /// names the class itself ("Alle 1j-elever", "1j"), or its title does
-    /// ("1i, 1j: NV-eksamen"). "Alle 1. STX-elever" alone isn't enough —
-    /// Lectio puts it on auditions, voluntary drama and Musicafe too.
+    /// An event meant for your class, not merely open to it. Its Hold line
+    /// names your class ("Alle 1j-elever", "1j"); or every year group it
+    /// names is yours ("Alle 1. STX-elever, Alle 1i-elever") — something
+    /// your year does, a reading day or an exam; or its title names your
+    /// class ("1i, 1j: NV-eksamen"). An offer to the whole school names
+    /// every year ("Alle 1. STX-elever, Alle 2. STX-elever, …" on
+    /// auditions, voluntary drama, Musicafe) and stays optional.
     func isFor(className: String) -> Bool {
         guard !isClassLesson, !isPrivateEvent, !Lesson.isVoluntary(title) else { return false }
         let cls = className.lowercased().replacingOccurrences(of: " ", with: "")
         guard !cls.isEmpty else { return false }
-        if let team {
+        if let team, !team.isEmpty {
+            var years: Set<Character> = []
             for part in team.split(separator: ",") {
                 let t = part.trimmingCharacters(in: .whitespaces).lowercased()
                 if t == cls || t == "alle \(cls)-elever" { return true }
+                // A year group: "Alle 1. STX-elever", "Alle 1a-elever", "3g".
+                // Groups without a year ("Alle Pre-IB elever", "Forlænget
+                // tid årgang 26-27", "MUN 26/27") don't count either way.
+                if let g = Rx.match("^(?:alle\\s+)?(\\d)(?:\\.|[a-zæøå]{1,3}(?:-elever)?\\b)", t),
+                   let digit = g[1].first {
+                    years.insert(digit)
+                }
             }
+            if let year = cls.first, year.isNumber, years == [year] { return true }
         }
         let t = title.trimmingCharacters(in: .whitespaces)
         if let colon = t.firstIndex(of: ":"), let tokens = Lesson.audience(String(t[..<colon])) {
@@ -229,11 +241,14 @@ struct DayPlan {
         var others: [Lesson] = []
         /// Your lessons in this module that were cancelled.
         var cancelled: [Lesson] = []
+        /// Short things in the break after this module: a meeting in the
+        /// lunch break, the meeting time before an exam.
+        var breakAfter: [Lesson] = []
 
         var id: Int { module.number }
         var isFree: Bool { main.isEmpty && continuing.isEmpty }
         var hasAnything: Bool { !main.isEmpty || !continuing.isEmpty || !cancelled.isEmpty }
-        var hasContent: Bool { hasAnything || !others.isEmpty }
+        var hasContent: Bool { hasAnything || !others.isEmpty || !breakAfter.isEmpty }
 
         var last: ScheduleModule { through ?? module }
         /// "2", or "1–3" for a block over several.
@@ -347,7 +362,16 @@ struct DayPlan {
                 return min(e, m.endMinutes) - max(s, m.startMinutes) >= needed
             }
             guard let first = hits.first else {
-                if s < firstStart { plan.before.append(lesson) } else { plan.after.append(lesson) }
+                if s < firstStart {
+                    plan.before.append(lesson)
+                } else if let i = slots.lastIndex(where: { $0.module.startMinutes <= s }), i < slots.count - 1 {
+                    // Between two modules (or just grazing the end of one:
+                    // "Mødetid AP-prøven 09:30-09:50"): it's in the day,
+                    // not after it.
+                    slots[i].breakAfter.append(lesson)
+                } else {
+                    plan.after.append(lesson)
+                }
                 continue
             }
             let mine = isMine(lesson)
@@ -407,8 +431,13 @@ struct DayPlan {
                 for item in slot.others where !previous.others.contains(where: { $0.id == item.id }) {
                     previous.others.append(item)
                 }
-                // A lesson the exam replaced is still worth a word.
+                // A lesson the exam replaced is still worth a word, and so
+                // is anything in a break inside the block.
                 previous.cancelled += slot.cancelled
+                for item in previous.breakAfter where !previous.others.contains(where: { $0.id == item.id }) {
+                    previous.others.append(item)
+                }
+                previous.breakAfter = slot.breakAfter
                 merged[merged.count - 1] = previous
             } else {
                 merged.append(slot)
@@ -433,6 +462,7 @@ struct DayPlan {
         for slot in plan.slots {
             onTheDay += slot.main + slot.continuing
             onTheDay += slot.others + slot.cancelled
+            onTheDay += slot.breakAfter
         }
         let shown: [String] = onTheDay
             .map { Lesson.squashed($0.isClassLesson ? $0.title : $0.headline) }

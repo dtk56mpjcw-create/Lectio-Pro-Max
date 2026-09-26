@@ -165,6 +165,9 @@ private struct WeekRow: Identifiable {
                     out.append(WeekRow(id: "f\(n)", kind: .free,
                                        label: "\(n)", first: slot.module, last: slot.module))
                 }
+                for item in slot.breakAfter {
+                    out.append(WeekRow(id: "k\(n)|" + item.id, kind: .outside(item)))
+                }
             }
         }
 
