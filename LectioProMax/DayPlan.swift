@@ -181,8 +181,16 @@ struct DayPlan {
         slots.last(where: { !$0.isFree }).map { $0.module.endMinutes }
     }
 
-    static func build(_ day: ScheduleDay, modules: [ScheduleModule], className: String) -> DayPlan {
+    /// Modules starting at 15:00 or later are outside the school day. The
+    /// day's last lessons end by about 15:15; what Lectio puts in the late
+    /// module after that — a maths study hall, a club — is optional, and
+    /// belongs under "After school", not among your lessons.
+    static let schoolDayEndsBy = 15 * 60
+
+    static func build(_ day: ScheduleDay, modules allModules: [ScheduleModule], className: String) -> DayPlan {
         var plan = DayPlan()
+        let within = allModules.filter { $0.startMinutes < schoolDayEndsBy }
+        let modules = within.isEmpty ? allModules : within
 
         // All-day: yours only, each once.
         var seen: Set<String> = []

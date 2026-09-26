@@ -84,18 +84,19 @@ enum LectioParser {
         if let h = Rx.match("Hold:\\s*([^\\n]+)", remainder) {
             result.hold = h[1].trimmingCharacters(in: .whitespaces)
         }
-        if let l = Rx.match("L[æa]rer:\\s*([^\\n]+)", remainder) {
+        // One teacher is "Lærer:", two or more "Lærere:"; one room is
+        // "Lokale:", two or more "Lokaler:" — a joint lesson for two classes
+        // lost its rooms and teachers when only the singular was read.
+        if let l = Rx.match("L[æa]rere?:\\s*([^\\n]+)", remainder) {
             let full = l[1].trimmingCharacters(in: .whitespaces)
-            if let initials = Rx.match("\\(([^)]+)\\)\\s*$", full) {
-                result.teacherInitials = initials[1]
-            } else {
-                result.teacherInitials = full
-            }
+            // "Karen Madsen (KM), Ole Hansen (OH)" -> "KM, OH".
+            let initials = Rx.all("\\(([^)]+)\\)", full)
+            result.teacherInitials = initials.isEmpty ? full : initials.joined(separator: ", ")
             result.teacher = full.replacingOccurrences(
-                of: "\\s*\\([^)]*\\)\\s*$", with: "", options: .regularExpression
+                of: "\\s*\\([^)]*\\)", with: "", options: .regularExpression
             ).trimmingCharacters(in: .whitespaces)
         }
-        if let r = Rx.match("Lokale:\\s*([^\\n]+)", remainder) {
+        if let r = Rx.match("Lokaler?:\\s*([^\\n]+)", remainder) {
             result.room = r[1].trimmingCharacters(in: .whitespaces)
         }
         // Everything after the first blank line is detail; Lectio labels it

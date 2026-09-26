@@ -34,6 +34,17 @@ enum Rx {
         return groups
     }
 
+    /// The first capture group of every match, in order.
+    static func all(_ pattern: String, _ input: String) -> [String] {
+        guard let re = regex(pattern) else { return [] }
+        let ns = input as NSString
+        return re.matches(in: input, options: [], range: NSRange(location: 0, length: ns.length))
+            .compactMap { m in
+                guard m.numberOfRanges > 1, m.range(at: 1).location != NSNotFound else { return nil }
+                return ns.substring(with: m.range(at: 1))
+            }
+    }
+
     static func test(_ pattern: String, _ input: String) -> Bool {
         guard let re = regex(pattern) else { return false }
         let ns = input as NSString

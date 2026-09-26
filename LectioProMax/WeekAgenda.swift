@@ -424,6 +424,13 @@ private struct WeekLineMain: View {
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(over ? Color(.secondaryLabel) : Color.primary)
                     .lineLimit(1)
+                    .layoutPriority(1)
+                if let topic = topic(item) {
+                    Text(topic)
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             case .free:
                 Text("Free")
                     .font(.system(size: 15))

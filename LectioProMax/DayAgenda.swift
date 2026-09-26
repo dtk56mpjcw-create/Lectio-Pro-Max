@@ -487,6 +487,14 @@ private struct SmallItem: View {
                 .strikethrough(lesson.cancelled)
                 .foregroundStyle(lesson.cancelled ? Color(.secondaryLabel) : Color.primary)
                 .lineLimit(1)
+                .layoutPriority(1)
+            // A study hall after school says what it is: "Maths · Lektiecafé".
+            if !lesson.cancelled, let topic = lesson.topic {
+                Text(LectioDates.tidy(topic).components(separatedBy: "\n").first ?? "")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
             if lesson.cancelled {
                 Text("Cancelled")
                     .font(.system(size: 12.5, weight: .semibold))
