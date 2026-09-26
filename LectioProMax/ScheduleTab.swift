@@ -484,7 +484,7 @@ private struct DayPage: View {
                                 subtitle: ScheduleTab.daySubtitle(date))
                     if let week = session.snapshot.weeks[code] {
                         DayList(day: week.days.first { $0.date == date },
-                                modules: week.resolvedModules,
+                                modules: week.dayModules,
                                 className: session.snapshot.profile.className)
                             .equatable()
                     } else {

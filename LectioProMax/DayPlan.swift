@@ -118,6 +118,54 @@ extension ScheduleWeek {
         if let modules, !modules.isEmpty { return modules }
         return ScheduleModule.derive(from: days.flatMap(\.lessons))
     }
+
+    /// The modules of your school day: all of them but the late ones your
+    /// timetable hardly uses. Worked out from your own lessons — a module
+    /// you have lessons in on two days of the week or more is part of the
+    /// day — so a school whose lessons do run late keeps them, while a
+    /// maths study hall once a week at 15:20 is "After school".
+    ///
+    /// A week with too few lessons to tell (exams, holidays, a timetable not
+    /// out yet) goes by the last ordinary week, or failing that by the
+    /// clock: modules starting at 15:00 or later.
+    var dayModules: [ScheduleModule] {
+        let modules = resolvedModules
+        guard modules.count > 1 else { return modules }
+
+        var daysIn: [Int: Set<String>] = [:]
+        for day in days {
+            for lesson in day.lessons where lesson.isClassLesson && !lesson.cancelled {
+                guard let s = lesson.startMinutes, let e = lesson.endMinutes else { continue }
+                for m in modules where min(e, m.endMinutes) - max(s, m.startMinutes) >= 15 {
+                    daysIn[m.number, default: []].insert(day.date)
+                }
+            }
+        }
+        let busiest = daysIn.values.map(\.count).max() ?? 0
+        if busiest >= 3, let last = modules.last(where: { (daysIn[$0.number]?.count ?? 0) >= 2 }) {
+            ScheduleWeek.rememberDayEnd(last.number)
+            return modules.filter { $0.number <= last.number }
+        }
+        if let remembered = ScheduleWeek.rememberedDayEnd,
+           modules.contains(where: { $0.number == remembered }) {
+            return modules.filter { $0.number <= remembered }
+        }
+        let byClock = modules.filter { $0.startMinutes < DayPlan.schoolDayEndsBy }
+        return byClock.isEmpty ? modules : byClock
+    }
+
+    private static let dayEndKey = "schedule.dayEndModule"
+
+    fileprivate static var rememberedDayEnd: Int? {
+        let n = UserDefaults.standard.integer(forKey: dayEndKey)
+        return n > 0 ? n : nil
+    }
+
+    fileprivate static func rememberDayEnd(_ number: Int) {
+        if UserDefaults.standard.integer(forKey: dayEndKey) != number {
+            UserDefaults.standard.set(number, forKey: dayEndKey)
+        }
+    }
 }
 
 extension ScheduleModule {
@@ -260,6 +308,16 @@ struct DayPlan {
         }
         var startMinutes: Int { module.startMinutes }
         var endMinutes: Int { last.endMinutes }
+
+        /// What the side of a block over several modules shows: its own
+        /// hours ("12:00–15:15", "08:00–16:00"), not module numbers.
+        var hours: ScheduleModule {
+            guard through != nil else { return module }
+            if main.count == 1, let lesson = main.first, !lesson.start.isEmpty, !lesson.end.isEmpty {
+                return ScheduleModule(number: module.number, start: lesson.start, end: lesson.end)
+            }
+            return span
+        }
     }
 
     /// An exam for your class with no time given ("1i, 1j: NV-eksamen"):
@@ -269,22 +327,23 @@ struct DayPlan {
     var before: [Lesson] = []
     var slots: [Slot] = []
     var after: [Lesson] = []
+    /// On a day with nothing of yours (a holiday, a week whose timetable
+    /// isn't out yet): what's on anyway, instead of a column of Free.
+    var extras: [Lesson] = []
 
     /// When the last block with something of yours ends.
     var schoolEnd: Int? {
         slots.last(where: { !$0.isFree }).map { $0.endMinutes }
     }
 
-    /// Modules starting at 15:00 or later are outside the school day. The
-    /// day's last lessons end by about 15:15; what Lectio puts in the late
-    /// module after that — a maths study hall, a club — is optional, and
-    /// belongs under "After school", not among your lessons.
+    /// When there's nothing better to go by (see ScheduleWeek.dayModules):
+    /// modules starting at 15:00 or later are after school.
     static let schoolDayEndsBy = 15 * 60
 
-    static func build(_ day: ScheduleDay, modules allModules: [ScheduleModule], className: String) -> DayPlan {
+    /// `modules` are the school day's (ScheduleWeek.dayModules); anything
+    /// later lands under "After school".
+    static func build(_ day: ScheduleDay, modules: [ScheduleModule], className: String) -> DayPlan {
         var plan = DayPlan()
-        let within = allModules.filter { $0.startMinutes < schoolDayEndsBy }
-        let modules = within.isEmpty ? allModules : within
         let dayStart = modules.map(\.startMinutes).min()
         let dayEnd = modules.map(\.endMinutes).max()
 
@@ -444,9 +503,14 @@ struct DayPlan {
             }
         }
 
-        // Every module up to the last one with something in it; free ones
-        // before that are real free periods.
-        if let last = merged.lastIndex(where: { $0.hasContent }) {
+        if !merged.contains(where: { $0.hasAnything }) {
+            // Nothing of yours all day: no column of Free modules, just
+            // what's on.
+            plan.extras = merged.flatMap { $0.others + $0.breakAfter }
+                .sorted { ($0.startMinutes ?? 0) < ($1.startMinutes ?? 0) }
+        } else if let last = merged.lastIndex(where: { $0.hasContent }) {
+            // Every module up to the last one with something in it; free
+            // ones before that are real free periods.
             plan.slots = Array(merged[...last])
         }
 
@@ -458,7 +522,7 @@ struct DayPlan {
         // the general word for it ("Læsedag" in "AP-læsedag"), never the
         // other way round.
         var onTheDay: [Lesson] = plan.before + plan.after
-        onTheDay += plan.allDay
+        onTheDay += plan.allDay + plan.extras
         for slot in plan.slots {
             onTheDay += slot.main + slot.continuing
             onTheDay += slot.others + slot.cancelled

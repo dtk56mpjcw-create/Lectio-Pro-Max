@@ -19,7 +19,7 @@ struct WeekAgenda: View {
     var body: some View {
         let today = LectioDates.isoString(from: Date())
         let dates = Self.dates(in: week, monday: monday)
-        let modules = week.resolvedModules
+        let modules = week.dayModules
         let plans = dates.map { Self.plan(for: $0, in: week, modules: modules, className: className) }
         // Past days fold only while something in this week is still to
         // come; looking back at a finished week, you want all of it.
@@ -70,7 +70,7 @@ struct WeekAgenda: View {
         guard let week else { return nil }
         let days = Self.dates(in: week, monday: monday)
         guard let first = days.first, let last = days.last else { return nil }
-        let modules = week.resolvedModules
+        let modules = week.dayModules
         let lessons = days
             .flatMap { Self.plan(for: $0, in: week, modules: modules, className: className).slots }
             .flatMap(\.main)
@@ -97,7 +97,7 @@ struct WeekAgenda: View {
 
 private extension DayPlan {
     var isEmpty: Bool {
-        banners.isEmpty && allDay.isEmpty && before.isEmpty && after.isEmpty
+        banners.isEmpty && allDay.isEmpty && before.isEmpty && after.isEmpty && extras.isEmpty
             && !slots.contains(where: \.hasAnything)
     }
 }
@@ -141,9 +141,12 @@ private struct WeekRow: Identifiable {
             for slot in plan.slots[from...to] {
                 let n = slot.module.number
                 if !slot.main.isEmpty {
+                    // A block over several modules shows when it starts, not
+                    // "1–4".
+                    let side = slot.through == nil ? "\(n)" : slot.hours.shortStart
                     for (k, lesson) in slot.main.enumerated() {
                         out.append(WeekRow(id: "m\(n)|" + lesson.id, kind: .lesson(lesson),
-                                           label: k == 0 ? slot.label : "", first: slot.module, last: slot.last))
+                                           label: k == 0 ? side : "", first: slot.module, last: slot.last))
                     }
                 } else if !slot.continuing.isEmpty {
                     for lesson in slot.continuing {
@@ -151,7 +154,7 @@ private struct WeekRow: Identifiable {
                             if case .lesson(let l) = row.kind { return l.id == lesson.id }
                             return false
                         }) {
-                            out[j].label = "\(out[j].first?.number ?? n)–\(n)"
+                            out[j].label = out[j].first?.shortStart ?? "\(n)"
                             out[j].last = slot.module
                         } else {
                             out.append(WeekRow(id: "c\(n)|" + lesson.id, kind: .lesson(lesson),
@@ -171,7 +174,7 @@ private struct WeekRow: Identifiable {
             }
         }
 
-        for item in plan.after { out.append(WeekRow(id: "z|" + item.id, kind: .outside(item))) }
+        for item in plan.extras + plan.after { out.append(WeekRow(id: "z|" + item.id, kind: .outside(item))) }
         return out
     }
 }
@@ -258,7 +261,7 @@ private struct WeekDayCard: View {
     private var hours: String? {
         let busy = plan.slots.filter { !$0.isFree }
         guard let first = busy.first, let last = busy.last else { return nil }
-        return first.module.shortStart + "–" + last.last.shortEnd
+        return first.hours.shortStart + "–" + last.hours.shortEnd
     }
 
     // MARK: Lines

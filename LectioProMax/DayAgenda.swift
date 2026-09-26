@@ -79,13 +79,22 @@ private struct DayContent: View {
                 DoneLine()
             }
 
-            if !plan.after.isEmpty {
-                Text("AFTER SCHOOL")
-                    .font(.system(size: 12.5, weight: .heavy))
-                    .tracking(0.7)
+            if plan.slots.isEmpty && plan.before.isEmpty {
+                Text("No lessons")
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(.secondary)
-                    .padding(.leading, 4)
-                    .padding(.top, 6)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 18)
+            }
+            if !plan.extras.isEmpty {
+                SectionLabel(text: "ALSO ON")
+                ForEach(plan.extras) { item in
+                    OutsideRow(lesson: item, dayISO: dayISO)
+                }
+            }
+
+            if !plan.after.isEmpty {
+                SectionLabel(text: "AFTER SCHOOL")
                 ForEach(plan.after) { item in
                     OutsideRow(lesson: item, dayISO: dayISO)
                 }
@@ -137,26 +146,46 @@ private struct ModuleRow: View {
     }
 
     /// The module's number, big, and its times: the day's rhythm down the side.
+    @ViewBuilder
     private var label: some View {
-        VStack(spacing: 1) {
-            // "2", or "1–3" for a block over several modules.
-            Text(slot.label)
-                .font(.system(size: slot.through == nil ? 22 : 17, weight: .bold, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .foregroundStyle(isCurrent ? Palette.accent : (isPast ? Color(.secondaryLabel) : Color.primary))
-            Text(slot.module.shortStart)
-                .font(.system(size: 11.5, weight: .semibold))
-                .foregroundStyle(.secondary)
-            Text(slot.last.shortEnd)
-                .font(.system(size: 11.5, weight: .medium))
-                .foregroundStyle(.secondary)
+        if slot.through == nil {
+            VStack(spacing: 1) {
+                Text("\(slot.module.number)")
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundStyle(isCurrent ? Palette.accent : (isPast ? Color(.secondaryLabel) : Color.primary))
+                Text(slot.module.shortStart)
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text(slot.module.shortEnd)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .monospacedDigit()
+            .frame(width: 38)
+            .padding(.top, 8)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Module \(slot.module.number), \(slot.module.start) to \(slot.module.end)")
+        } else {
+            // One thing over several modules — an exam, a reading day, a
+            // double lesson: its hours, the way a calendar shows an event.
+            // Module numbers ("1–4") read like four things.
+            let hours = slot.hours
+            VStack(spacing: 2) {
+                Text(hours.shortStart)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(isCurrent ? Palette.accent : (isPast ? Color(.secondaryLabel) : Color.primary))
+                Text(hours.shortEnd)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .frame(width: 38)
+            .padding(.top, 12)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(hours.start) to \(hours.end)")
         }
-        .monospacedDigit()
-        .frame(width: 38)
-        .padding(.top, 8)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Module \(slot.label), \(slot.module.start) to \(slot.last.end)")
     }
 }
 
@@ -175,7 +204,7 @@ private struct SlotCard: View {
                 if index > 0 { Divider() }
                 OpenButton(lesson: lesson, dayISO: dayISO) {
                     LessonBlock(lesson: lesson,
-                                module: slot.span,
+                                module: slot.through == nil ? slot.span : slot.hours,
                                 continued: slot.main.isEmpty,
                                 now: isCurrent ? now : nil,
                                 faded: isPast)
@@ -470,7 +499,7 @@ private struct OutsideRow: View {
             .padding(.top, 10)
 
             OpenButton(lesson: lesson, dayISO: dayISO) {
-                SmallItem(lesson: lesson)
+                SmallItem(lesson: lesson, showsTime: false)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -485,6 +514,8 @@ private struct OutsideRow: View {
 /// One line for something small: colour mark, name, time, room.
 private struct SmallItem: View {
     let lesson: Lesson
+    /// Off where the row already shows the times on its left.
+    var showsTime = true
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
@@ -511,11 +542,14 @@ private struct SmallItem: View {
                     .foregroundStyle(Palette.negative)
             }
             Spacer(minLength: 4)
-            if !lesson.start.isEmpty {
-                Text(lesson.end.isEmpty ? lesson.start : lesson.start + "–" + lesson.end)
+            // Times and room never squeeze: the name gives way, with "…".
+            if showsTime, !lesson.start.isEmpty {
+                Text(short(lesson.start) + (lesson.end.isEmpty ? "" : "–" + short(lesson.end)))
                     .font(.system(size: 12.5, weight: .medium))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .fixedSize()
             }
             if !lesson.room.isEmpty {
                 Text(LessonText.abbreviated(lesson.room))
@@ -523,9 +557,25 @@ private struct SmallItem: View {
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .fixedSize()
             }
         }
         .contentShape(Rectangle())
+    }
+
+    private func short(_ t: String) -> String { t.hasPrefix("0") ? String(t.dropFirst()) : t }
+}
+
+/// A small heading over a list in the day: "ALSO ON", "AFTER SCHOOL".
+private struct SectionLabel: View {
+    let text: String
+    var body: some View {
+        Text(text)
+            .font(.system(size: 12.5, weight: .heavy))
+            .tracking(0.7)
+            .foregroundStyle(.secondary)
+            .padding(.leading, 4)
+            .padding(.top, 6)
     }
 }
 
