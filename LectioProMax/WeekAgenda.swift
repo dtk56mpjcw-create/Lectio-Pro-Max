@@ -101,7 +101,7 @@ struct WeekAgenda: View {
 
 private extension DayPlan {
     var isEmpty: Bool {
-        banners.isEmpty && allDay.isEmpty && before.isEmpty && after.isEmpty && extras.isEmpty
+        status.isEmpty && allDay.isEmpty && before.isEmpty && after.isEmpty
             && !slots.contains(where: \.hasAnything)
     }
 }
@@ -111,6 +111,8 @@ private extension DayPlan {
 /// One line of a day card.
 private struct WeekRow: Identifiable {
     enum Kind {
+        /// What kind of day it is: an exam, no school, a trip, a reading day.
+        case status(Lesson)
         case allDay(Lesson)
         case lesson(Lesson)
         case cancelled(Lesson)
@@ -127,7 +129,7 @@ private struct WeekRow: Identifiable {
 
     var lesson: Lesson? {
         switch kind {
-        case .allDay(let l), .lesson(let l), .cancelled(let l), .outside(let l): return l
+        case .status(let l), .allDay(let l), .lesson(let l), .cancelled(let l), .outside(let l): return l
         case .free: return nil
         }
     }
@@ -137,7 +139,8 @@ private struct WeekRow: Identifiable {
     /// between says so; a double is one line), then after school.
     static func rows(_ plan: DayPlan) -> [WeekRow] {
         var out: [WeekRow] = []
-        for item in plan.banners + plan.allDay { out.append(WeekRow(id: "a|" + item.id, kind: .allDay(item))) }
+        for item in plan.status { out.append(WeekRow(id: "s|" + item.id, kind: .status(item))) }
+        for item in plan.allDay { out.append(WeekRow(id: "a|" + item.id, kind: .allDay(item))) }
         for item in plan.before { out.append(WeekRow(id: "b|" + item.id, kind: .outside(item))) }
 
         let busy = plan.slots.indices.filter { plan.slots[$0].hasAnything }
@@ -178,7 +181,7 @@ private struct WeekRow: Identifiable {
             }
         }
 
-        for item in plan.extras + plan.after { out.append(WeekRow(id: "z|" + item.id, kind: .outside(item))) }
+        for item in plan.after { out.append(WeekRow(id: "z|" + item.id, kind: .outside(item))) }
         return out
     }
 }
@@ -243,7 +246,8 @@ private struct WeekDayCard: View {
                     .font(.system(size: 15))
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 6)
-                Text(hours ?? (rows.isEmpty ? "Nothing on" : ""))
+                // Your hours; on a day that's one thing, what it is.
+                Text(hours ?? plan.status.first?.kind.label ?? (rows.isEmpty ? "Nothing on" : ""))
                     .font(.system(size: 14, weight: .medium))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
@@ -362,7 +366,12 @@ private struct WeekLine: View {
     /// The module number; a calendar for an all-day item.
     @ViewBuilder
     private var side: some View {
-        if case .allDay = row.kind {
+        if case .status(let item) = row.kind {
+            let kind = item.kind
+            Image(systemName: kind.icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(kind.tint)
+        } else if case .allDay = row.kind {
             Image(systemName: "calendar")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.secondary)
@@ -387,7 +396,7 @@ private struct WeekLine: View {
             return Color(.systemGray3)
         case .cancelled:
             return Color(.systemGray4)
-        case .allDay, .free:
+        case .status, .allDay, .free:
             return .clear
         }
     }
@@ -401,9 +410,13 @@ private struct WeekLineMain: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             switch row.kind {
+            case .status(let item):
+                Text(dayStatusTitle(item))
+                    .font(.system(size: 15.5, weight: .semibold))
+                    .lineLimit(1)
             case .allDay(let item):
                 Text(item.headline)
-                    .font(.system(size: 15, weight: item.isAddressedExam ? .semibold : .medium))
+                    .font(.system(size: 15, weight: .medium))
                     .lineLimit(1)
             case .lesson(let lesson):
                 if lesson.isPrivateEvent {
@@ -494,8 +507,9 @@ private struct WeekLineTrailing: View {
                         .foregroundStyle(.secondary)
                         .fixedSize()
                 }
+            case .status(let item):
+                KindTag(kind: item.kind)
             case .allDay(let item):
-                if item.isAddressedExam { ExamTag() }
                 if let span = item.allDay, !span.isEmpty {
                     Text(span)
                         .font(.system(size: 13, weight: .medium))

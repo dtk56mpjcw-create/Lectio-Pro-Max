@@ -57,8 +57,13 @@ private struct DayContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: ModuleGrid.gap) {
-            ForEach(plan.banners) { item in
-                ExamBanner(lesson: item, dayISO: dayISO)
+            // What kind of day it is, when it isn't an ordinary one: the
+            // most important thing as a card, anything else as a line.
+            if let first = plan.status.first {
+                DayStatusCard(lesson: first, dayISO: dayISO)
+                ForEach(plan.status.dropFirst()) { item in
+                    DayStatusLine(lesson: item, dayISO: dayISO)
+                }
             }
             if !plan.allDay.isEmpty {
                 AllDayStrip(items: plan.allDay, dayISO: dayISO)
@@ -82,16 +87,18 @@ private struct DayContent: View {
                 DoneLine()
             }
 
-            if plan.slots.isEmpty && plan.before.isEmpty {
+            if plan.slots.isEmpty && plan.status.isEmpty && plan.before.isEmpty {
                 Text("No lessons")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 18)
             }
-            if !plan.extras.isEmpty {
+
+            // Optional things in school hours: one list, with times.
+            if !plan.also.isEmpty {
                 SectionLabel(text: "ALSO ON")
-                ForEach(plan.extras) { item in
+                ForEach(plan.also) { item in
                     OutsideRow(lesson: item, dayISO: dayISO)
                 }
             }
@@ -101,6 +108,16 @@ private struct DayContent: View {
                 ForEach(plan.after) { item in
                     OutsideRow(lesson: item, dayISO: dayISO)
                 }
+            }
+
+            // Awareness days: worth knowing, not worth a chip.
+            if !plan.observances.isEmpty {
+                Text("Also today: " + plan.observances.map(\.headline).joined(separator: " · "))
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 4)
+                    .padding(.top, 6)
             }
         }
     }
@@ -217,8 +234,8 @@ private struct ModuleRow: View {
     }
 }
 
-/// A module with something on: each lesson as a block in its colour, and
-/// anything else in the module behind a small "more" button.
+/// A module with something of yours on: each lesson as a block in its
+/// colour. Anything else at the time is in the day's "Also on" list.
 private struct SlotCard: View {
     let slot: DayPlan.Slot
     let dayISO: String
@@ -228,7 +245,6 @@ private struct SlotCard: View {
 
     var body: some View {
         let lessons = slot.main + slot.continuing
-        let rest = slot.others + slot.cancelled
         VStack(spacing: 0) {
             ForEach(Array(lessons.enumerated()), id: \.element.id) { index, lesson in
                 if index > 0 { Divider() }
@@ -238,20 +254,13 @@ private struct SlotCard: View {
                                 continued: slot.main.isEmpty,
                                 now: isCurrent ? now : nil,
                                 faded: isPast,
-                                topicLines: slot.through == nil ? 1 : 4,
-                                roomForMore: !rest.isEmpty && index == lessons.count - 1)
+                                topicLines: slot.through == nil ? 1 : 4)
                 }
                 .frame(maxHeight: .infinity)
             }
         }
         .contentCard(radius: Metrics.inner + 4)
         .clipShape(RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous))
-        .overlay(alignment: .bottomTrailing) {
-            if !rest.isEmpty {
-                AlsoMenu(items: rest, dayISO: dayISO)
-                    .padding(8)
-            }
-        }
         .overlay {
             if isCurrent {
                 RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous)
@@ -271,8 +280,6 @@ private struct LessonBlock: View {
     let faded: Bool
     /// One line in a single module; more when the block has the room.
     var topicLines: Int = 1
-    /// Keeps the bottom-right corner clear for the "more" button.
-    var roomForMore: Bool = false
 
     @Environment(\.colorScheme) private var scheme
 
@@ -334,7 +341,6 @@ private struct LessonBlock: View {
                 }
 
                 marks
-                    .padding(.trailing, roomForMore ? 78 : 0)
 
                 if let now { progress(now) }
             }
@@ -411,92 +417,19 @@ private struct LessonBlock: View {
     }
 }
 
-/// Everything else in a module — optional things, clubs, events, your
-/// cancelled lessons — behind one button, so the module keeps its height:
-/// a small "3 more" on a lesson, or a line of their names on a free module.
-private struct AlsoMenu: View {
-    let items: [Lesson]
-    let dayISO: String
-    var asLine = false
-
-    @Environment(LessonOpener.self) private var opener: LessonOpener?
-
-    /// Each name once: Lectio can list the same event twice.
-    private var summary: String {
-        var seen: Set<String> = []
-        return items.map { $0.headline + ($0.cancelled ? " cancelled" : "") }
-            .filter { seen.insert($0.lowercased()).inserted }
-            .joined(separator: " · ")
-    }
-
-    var body: some View {
-        Menu {
-            Section("Also on") {
-                ForEach(items) { item in
-                    Button {
-                        opener?.open(LessonRoute(lesson: item, dayISO: dayISO))
-                    } label: {
-                        Text(item.headline + (item.cancelled ? " · cancelled" : ""))
-                        if !item.start.isEmpty {
-                            Text(short(item.start) + (item.end.isEmpty ? "" : "–" + short(item.end)))
-                        }
-                    }
-                }
-            }
-        } label: {
-            if asLine {
-                HStack(spacing: 7) {
-                    Image(systemName: "plus.circle")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text(summary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    Spacer(minLength: 4)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .font(.system(size: 13.5, weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-            } else {
-                HStack(spacing: 4) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .bold))
-                    Text("\(items.count) more")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(Color(.systemBackground).opacity(0.75)))
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Also on: " + summary)
-    }
-
-    private func short(_ t: String) -> String { t.hasPrefix("0") ? String(t.dropFirst()) : t }
-}
-
-/// A free module: plainly free, with what was cancelled and anything else
-/// on at the time — the same height as a lesson.
+/// A free module: plainly free, with the lesson of yours that was
+/// cancelled — the same height as a lesson.
 private struct FreeCard: View {
     let slot: DayPlan.Slot
     let dayISO: String
 
     var body: some View {
-        let rest = slot.others + slot.cancelled.dropFirst()
         VStack(alignment: .leading, spacing: 2) {
             // The cancelled lesson still opens: its note says why.
             if let cancelled = slot.cancelled.first {
                 OpenButton(lesson: cancelled, dayISO: dayISO) { header }
             } else {
                 header
-            }
-            if !rest.isEmpty {
-                AlsoMenu(items: Array(rest), dayISO: dayISO, asLine: true)
-                    .padding(.horizontal, 14)
             }
             Spacer(minLength: 0)
         }
@@ -579,7 +512,10 @@ private struct SmallItem: View {
             Circle()
                 .fill(lesson.isClassLesson ? Color.subjectStripe(lesson.code, in: scheme) : Color(.systemGray2))
                 .frame(width: 7, height: 7)
-            Text(lesson.headline)
+            // "Frivillig drama AFLYST": the word is Lectio's own "cancelled",
+            // which the row already says.
+            Text(lesson.headline.replacingOccurrences(of: "\\s*\\bAFLYST\\b", with: "",
+                                                      options: [.regularExpression, .caseInsensitive]))
                 .font(.system(size: 15, weight: .medium))
                 .strikethrough(lesson.cancelled)
                 .foregroundStyle(lesson.cancelled ? Color(.secondaryLabel) : Color.primary)
@@ -596,6 +532,9 @@ private struct SmallItem: View {
                 Text("Cancelled")
                     .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(Palette.negative)
+            } else if lesson.isExam {
+                // "1g: Matematikscreening" during your English lesson.
+                ExamTag()
             }
             Spacer(minLength: 4)
             // Times and room never squeeze: the name gives way, with "…".
@@ -672,39 +611,95 @@ private struct AllDayStrip: View {
     }
 }
 
-// MARK: - Exams
+// MARK: - What kind of day
 
-/// "Exam", small and red: on an exam block, a test, and the banner.
-struct ExamTag: View {
+extension Lesson.Kind {
+    var icon: String {
+        switch self {
+        case .exam: return "pencil.and.list.clipboard"
+        case .noSchool: return "sun.max.fill"
+        case .trip: return "bus.fill"
+        case .readingDay: return "book.fill"
+        default: return "calendar"
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .exam: return "Exam"
+        case .noSchool: return "No school"
+        case .trip: return "Trip"
+        case .readingDay: return "Reading day"
+        default: return "Event"
+        }
+    }
+
+    /// Red for an exam (the same as an exam block in the day), green for
+    /// a day off, blue for a trip, indigo for a reading day.
+    var tint: Color {
+        switch self {
+        case .exam: return Palette.negative
+        case .noSchool: return Palette.positive
+        case .trip: return Palette.accent
+        case .readingDay: return .indigo
+        default: return Color(.systemGray)
+        }
+    }
+}
+
+/// "Exam", "Reading day", …: small, in the kind's colour.
+struct KindTag: View {
+    let kind: Lesson.Kind
+
     var body: some View {
-        Text("Exam")
+        Text(kind.label)
             .font(.system(size: 12, weight: .bold))
-            .foregroundStyle(Palette.negative)
+            .foregroundStyle(kind == .event ? Color(.secondaryLabel) : kind.tint)
             .padding(.horizontal, 6)
             .padding(.vertical, 1.5)
-            .background(Capsule().fill(Palette.negative.opacity(0.12)))
+            .background(Capsule().fill(kind.tint.opacity(0.14)))
+            .lineLimit(1)
             .fixedSize()
     }
 }
 
-/// An exam for your class that Lectio gives no time for ("1i, 1j:
-/// NV-eksamen"): a banner on top of the day, not a grey chip among the
-/// others.
-private struct ExamBanner: View {
+struct ExamTag: View {
+    var body: some View { KindTag(kind: .exam) }
+}
+
+/// What the status card and line call a thing: a class lesson that's the
+/// whole day ("KL") by what it is ("Pre-IB intro trip").
+func dayStatusTitle(_ lesson: Lesson) -> String {
+    if lesson.isClassLesson, let topic = lesson.topic {
+        return LectioDates.tidy(topic).components(separatedBy: "\n").first ?? lesson.headline
+    }
+    return lesson.headline
+}
+
+func dayStatusTimes(_ lesson: Lesson) -> String {
+    func short(_ t: String) -> String { t.hasPrefix("0") ? String(t.dropFirst()) : t }
+    guard !lesson.start.isEmpty else { return "All day" }
+    return short(lesson.start) + (lesson.end.isEmpty ? "" : "–" + short(lesson.end))
+}
+
+/// What kind of day it is: an exam, no school, a trip, a reading day, or
+/// another day-long thing of yours — first on the page, in its colour.
+private struct DayStatusCard: View {
     let lesson: Lesson
     let dayISO: String
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
+        let kind = lesson.kind
         OpenButton(lesson: lesson, dayISO: dayISO) {
             HStack(spacing: 12) {
-                Image(systemName: "pencil.and.list.clipboard")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Palette.negative)
-                    .frame(width: 26)
+                Image(systemName: kind.icon)
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(kind.tint)
+                    .frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(lesson.headline)
-                        .font(.system(size: 16.5, weight: .semibold))
+                    Text(dayStatusTitle(lesson))
+                        .font(.system(size: 17, weight: .semibold))
                         .lineLimit(2)
                     Text(subtitle)
                         .font(.system(size: 13.5, weight: .medium))
@@ -712,28 +707,65 @@ private struct ExamBanner: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 6)
-                ExamTag()
+                KindTag(kind: kind)
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.vertical, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
-                // The same red as an exam block.
                 RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous)
-                    .fill(Palette.negative.opacity(scheme == .dark ? 0.24 : 0.13))
+                    .fill(kind.tint.opacity(scheme == .dark ? 0.24 : 0.13))
             }
             .foregroundStyle(.primary)
             .contentShape(Rectangle())
         }
     }
 
-    /// "All day · 1i, 1j": who it's for, as Lectio says it.
+    /// "8:00–16:00 · 062, 064 · MJ", or "All day · 1i, 1j".
     private var subtitle: String {
+        var parts = [dayStatusTimes(lesson)]
         let t = lesson.title.trimmingCharacters(in: .whitespaces)
         if let colon = t.firstIndex(of: ":"), Lesson.audience(String(t[..<colon])) != nil {
-            return "All day · " + t[..<colon].trimmingCharacters(in: .whitespaces)
+            parts.append(t[..<colon].trimmingCharacters(in: .whitespaces))
         }
-        return "All day"
+        if !lesson.room.isEmpty { parts.append(LessonText.abbreviated(lesson.room)) }
+        let who = LessonText.abbreviated(lesson.teacher)
+        if !who.isEmpty { parts.append(who) }
+        return parts.joined(separator: " · ")
+    }
+}
+
+/// The day's other status under the card: "NV-læsedag 8:00–15:15" under
+/// the NV exam.
+private struct DayStatusLine: View {
+    let lesson: Lesson
+    let dayISO: String
+
+    var body: some View {
+        let kind = lesson.kind
+        OpenButton(lesson: lesson, dayISO: dayISO) {
+            HStack(spacing: 10) {
+                Image(systemName: kind.icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(kind.tint)
+                    .frame(width: 22)
+                Text(dayStatusTitle(lesson))
+                    .font(.system(size: 15.5, weight: .semibold))
+                    .lineLimit(1)
+                Spacer(minLength: 6)
+                Text(dayStatusTimes(lesson))
+                    .font(.system(size: 13.5, weight: .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentCard(radius: Metrics.inner + 2)
+            .foregroundStyle(.primary)
+            .contentShape(Rectangle())
+        }
     }
 }
 
