@@ -180,9 +180,21 @@ struct FeedbackSheet: View {
                         .fill(on ? Palette.accent : Color.clear)
                 )
                 .contentCard(radius: 9)
+                // Apple's minimum touch target around the small key.
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(PressableCard())
+        .accessibilityLabel(Self.formatNames[icon] ?? icon)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
+
+    /// What VoiceOver calls each formatting key.
+    private static let formatNames: [String: String] = [
+        "bold": "Bold", "italic": "Italic", "underline": "Underline",
+        "strikethrough": "Strikethrough", "list.bullet": "Bulleted list",
+        "list.number": "Numbered list",
+    ]
 
     private var attachRow: some View {
         HStack(spacing: 9) {
@@ -255,6 +267,7 @@ struct FeedbackSheet: View {
                         .contentCard(radius: Metrics.inner + 2)
                 }
                 .buttonStyle(PressableCard())
+                .accessibilityLabel("Export")
                 .disabled(busy != nil)
             }
         }

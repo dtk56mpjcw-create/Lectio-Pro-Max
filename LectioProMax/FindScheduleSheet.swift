@@ -330,14 +330,18 @@ struct TargetScheduleSheet: View {
             Button { step(-1) } label: {
                 Image(systemName: "chevron.left").scaledFont(size: 14, weight: .bold)
                     .frame(width: 34, height: 34).contentCard(radius: 17)
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
             }
             .buttonStyle(PressableCard())
+            .accessibilityLabel("Previous week")
             Spacer()
             Button { step(1) } label: {
                 Image(systemName: "chevron.right").scaledFont(size: 14, weight: .bold)
                     .frame(width: 34, height: 34).contentCard(radius: 17)
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
             }
             .buttonStyle(PressableCard())
+            .accessibilityLabel("Next week")
         }
     }
 
