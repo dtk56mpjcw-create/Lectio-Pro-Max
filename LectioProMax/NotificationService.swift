@@ -37,6 +37,14 @@ enum NotificationService {
         }
     }
 
+    /// Every reminder of ours, pending or shown: for signing out, so the
+    /// last account's homework doesn't keep ringing.
+    static func removeAll() {
+        let centre = UNUserNotificationCenter.current()
+        centre.removeAllPendingNotificationRequests()
+        centre.removeAllDeliveredNotifications()
+    }
+
     // MARK: - Scheduling
 
     /// Rebuilds every reminder we own from the store. Cheap, and it keeps things

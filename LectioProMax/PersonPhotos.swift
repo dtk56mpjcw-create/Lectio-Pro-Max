@@ -47,6 +47,15 @@ final class PersonPhotos: ObservableObject {
 
     func image(for id: String) -> UIImage? { images[id] }
 
+    /// For signing out: other people's faces go with the account.
+    func clear() {
+        images.removeAll()
+        withoutPhoto.removeAll()
+        if let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) {
+            files.forEach { try? FileManager.default.removeItem(at: $0) }
+        }
+    }
+
     func load(_ id: String, cookies: [HTTPCookie]) async {
         guard images[id] == nil, !withoutPhoto.contains(id), !inFlight.contains(id) else { return }
         inFlight.insert(id)

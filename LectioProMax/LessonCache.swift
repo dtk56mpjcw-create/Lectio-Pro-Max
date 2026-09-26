@@ -27,6 +27,16 @@ final class LessonCache {
 
     private init() {}
 
+    /// Everything, for signing out: a lesson's feedback is someone's own.
+    func clear() {
+        prefetching?.cancel()
+        prefetching = nil
+        loading.values.forEach { $0.cancel() }
+        loading.removeAll()
+        details.removeAll()
+        feedbacks.removeAll()
+    }
+
     // MARK: Reading
 
     func detail(_ link: String) -> LessonDetail? { details[link]?.value }

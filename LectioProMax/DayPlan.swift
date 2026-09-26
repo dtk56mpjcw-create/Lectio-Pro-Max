@@ -232,7 +232,8 @@ extension ScheduleWeek {
         return Set(datesByName.filter { $0.value.count >= 3 }.map(\.key))
     }
 
-    private static let dayEndKey = "schedule.dayEndModule"
+    /// Per school: a school you switch to has its own day.
+    private static var dayEndKey: String { "schedule.dayEndModule." + LectioConfig.schoolID }
 
     fileprivate static var rememberedDayEnd: Int? {
         let n = UserDefaults.standard.integer(forKey: dayEndKey)
@@ -356,7 +357,8 @@ extension Lesson {
     /// "Matematikscreening"). The word has to end there: "Eksamensplan
     /// offentliggøres" is news about exams, not one.
     static let examWords =
-        "eksamen(?:er)?(?![a-zæøå])|prøver?(?![a-zæøå])|\\btests?\\b|\\bexams?\\b|\\bmocks?\\b|screening|\\bskr\\.? ex\\b"
+        "eksamen(?:er)?(?![a-zæøå])|prøver?(?![a-zæøå])|\\btests?\\b(?!\\s+af\\b)|\\bexams?\\b|\\bmocks?\\b|screening|\\bskr\\.? ex\\b"
+        + "|prüfung|klausur|abitur"
 
     var kind: Kind {
         let t = title
@@ -369,14 +371,19 @@ extension Lesson {
         if !isClassLesson, !Rx.test("^\\s*mødetid|^\\s*mødested", t), Rx.test(Lesson.examWords, t) {
             return .exam
         }
-        if Rx.test("læsedag|reading day|study day|studiedag", t) { return .readingDay }
-        if Rx.test("introtur|studietur|\\btur\\b|\\bture\\b|rejse|ekskursion|excursion|\\btrips?\\b|udveksling|lejrskole|inkursion", t) {
+        // Danish first, then English (IB lines, international schools) and
+        // German (the German minority's gymnasium).
+        if Rx.test("læsedag|reading day|study day|studiedag|lesetag|studientag", t) { return .readingDay }
+        if Rx.test("introtur|studietur|\\btur\\b|\\bture\\b|rejse|ekskursion|excursion|\\btrips?\\b|udveksling|lejrskole|inkursion"
+                   + "|exkursion|ausflug|studienfahrt|klassenfahrt|exchange", t) {
             return .trip
         }
-        if Rx.test("ferie|helligdag|fridag|\\bfri\\b|kristi himmelfart|pinsedag|påskedag|\\bholiday|no school", t) {
+        if Rx.test("ferie|helligdag|fridag|\\bfri\\b|kristi himmelfart|pinsedag|påskedag|\\bholidays?\\b|no school"
+                   + "|(autumn|winter|christmas|easter|spring|summer|half[- ]term|mid[- ]term) break|vacation|feiertag|schulfrei|unterrichtsfrei", t) {
             return .noSchool
         }
-        if Rx.test("^\\s*(international|den internationale|verdens|fn-dag|europæisk sprogdag)|\\(unesco\\)", t) {
+        if Rx.test("^\\s*(international|den internationale|verdens|world|fn-dag|un day|europæisk sprogdag|welt|internationaler)"
+                   + "|\\(unesco\\)", t) {
             return .observance
         }
         return .event

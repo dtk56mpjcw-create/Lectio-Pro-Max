@@ -395,6 +395,20 @@ final class LectioSession: ObservableObject {
         clearCache()
         CookieVault.clear()
         cachedCookies = []
+        // What belongs to the account, not the phone: reminders (and their
+        // notifications), drafts, the Deleted list, the signature, subject
+        // colours, the remembered end of the school day, cached lessons and
+        // faces. Appearance settings and the school stay.
+        NotificationService.removeAll()
+        let defaults = UserDefaults.standard
+        for key in defaults.dictionaryRepresentation().keys
+        where ["reminders.", "lectio.feedbackDrafts", "messages.", "signature.", "subjectColors",
+               "schedule.dayEndModule"].contains(where: { key.hasPrefix($0) }) {
+            defaults.removeObject(forKey: key)
+        }
+        ReminderBook.shared.forgetAll()
+        LessonCache.shared.clear()
+        PersonPhotos.shared.clear()
         loadingWeeks.removeAll()
         failedWeeks.removeAll()
         weekErrors.removeAll()

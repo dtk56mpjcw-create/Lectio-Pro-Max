@@ -293,6 +293,7 @@ private struct LessonBlock: View {
     /// Kept clear at the foot for the things alongside it.
     var roomBelow: CGFloat = 0
 
+    @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.colorScheme) private var scheme
 
     private var mark: Lesson.Kind? { lesson.markKind }
@@ -438,8 +439,11 @@ private struct LessonBlock: View {
 
     /// Enough colour to tell subjects apart at a glance, not so much that
     /// the text stops reading as text.
+    /// With Increase Contrast on, stronger — the blocks still tell apart
+    /// when the system makes everything else crisper.
     private var backgroundStrength: Double {
-        let base = scheme == .dark ? 0.24 : 0.13
+        var base = scheme == .dark ? 0.24 : 0.13
+        if contrast == .increased { base *= 1.8 }
         return faded ? base * 0.55 : base
     }
 
@@ -800,7 +804,9 @@ private struct AllDayStrip: View {
                             .font(.system(size: 13.5, weight: .semibold))
                             .foregroundStyle(Palette.accent)
                             .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
+                            // Apple's minimum touch target, without the
+                            // link looking any bigger.
+                            .frame(minHeight: 44)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -897,6 +903,7 @@ private struct StatusRow: View {
     let lesson: Lesson
     let dayISO: String
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         let kind = lesson.kind
@@ -927,7 +934,7 @@ private struct StatusRow: View {
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(tint.opacity(scheme == .dark ? 0.24 : 0.13))
+                .background(tint.opacity((scheme == .dark ? 0.24 : 0.13) * (contrast == .increased ? 1.8 : 1)))
                 .contentCard(radius: Metrics.inner + 4)
                 .clipShape(RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous))
                 .foregroundStyle(.primary)

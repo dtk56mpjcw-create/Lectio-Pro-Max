@@ -176,6 +176,13 @@ enum SubjectNames {
         "ol": "Classical studies", "ps": "Psychology", "it": "IT",
         "in": "Informatics", "ge": "Geography", "me": "Media",
         "ki": "Chinese", "ar": "Arabic", "ru": "Russian",
+        // HHX, HTX and HF.
+        "af": "Marketing", "vø": "Business economics",
+        "io": "International economics", "ej": "Business law", "øk": "Economics",
+        "te": "Technology", "tk": "Technical subject", "ks": "Culture & society (KS)",
+        "nf": "Natural science (NF)", "pr": "Programming", "ko": "Communication & IT",
+        "bt": "Biotechnology", "ja": "Japanese", "as": "Astronomy",
+        "so": "Sociology",
     ]
 
     static func name(forKey key: String) -> String {

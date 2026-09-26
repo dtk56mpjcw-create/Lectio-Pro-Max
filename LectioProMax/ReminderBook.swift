@@ -21,6 +21,11 @@ final class ReminderBook {
         return RemindersStore.timing(for: key)
     }
 
+    /// For signing out: the store is emptied; the bells go at once.
+    func forgetAll() {
+        version += 1
+    }
+
     /// Sets or clears a reminder. False when notifications are off for the
     /// app, in which case nothing is changed.
     func set(_ timing: ReminderTiming?, for key: String) async -> Bool {
