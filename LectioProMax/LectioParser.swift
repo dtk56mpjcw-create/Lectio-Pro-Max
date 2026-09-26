@@ -177,6 +177,9 @@ enum LectioParser {
                         if parsed.endDate != nil {
                             if day == date { label = "from " + parsed.start }
                             else if day == last { label = "until " + parsed.end }
+                            // The days between: the whole school day (see
+                            // DayPlan.timedPart), not a note.
+                            else { label = "all day" }
                         }
                         let item = Lesson(
                             code: holdToCode(parsed.hold),

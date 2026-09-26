@@ -97,7 +97,8 @@ struct WeekAgenda: View {
 
 private extension DayPlan {
     var isEmpty: Bool {
-        allDay.isEmpty && before.isEmpty && after.isEmpty && !slots.contains(where: \.hasAnything)
+        banners.isEmpty && allDay.isEmpty && before.isEmpty && after.isEmpty
+            && !slots.contains(where: \.hasAnything)
     }
 }
 
@@ -132,7 +133,7 @@ private struct WeekRow: Identifiable {
     /// between says so; a double is one line), then after school.
     static func rows(_ plan: DayPlan) -> [WeekRow] {
         var out: [WeekRow] = []
-        for item in plan.allDay { out.append(WeekRow(id: "a|" + item.id, kind: .allDay(item))) }
+        for item in plan.banners + plan.allDay { out.append(WeekRow(id: "a|" + item.id, kind: .allDay(item))) }
         for item in plan.before { out.append(WeekRow(id: "b|" + item.id, kind: .outside(item))) }
 
         let busy = plan.slots.indices.filter { plan.slots[$0].hasAnything }
@@ -142,7 +143,7 @@ private struct WeekRow: Identifiable {
                 if !slot.main.isEmpty {
                     for (k, lesson) in slot.main.enumerated() {
                         out.append(WeekRow(id: "m\(n)|" + lesson.id, kind: .lesson(lesson),
-                                           label: k == 0 ? "\(n)" : "", first: slot.module, last: slot.module))
+                                           label: k == 0 ? slot.label : "", first: slot.module, last: slot.last))
                     }
                 } else if !slot.continuing.isEmpty {
                     for lesson in slot.continuing {
@@ -254,7 +255,7 @@ private struct WeekDayCard: View {
     private var hours: String? {
         let busy = plan.slots.filter { !$0.isFree }
         guard let first = busy.first, let last = busy.last else { return nil }
-        return first.module.shortStart + "–" + last.module.shortEnd
+        return first.module.shortStart + "–" + last.last.shortEnd
     }
 
     // MARK: Lines
@@ -389,7 +390,7 @@ private struct WeekLineMain: View {
             switch row.kind {
             case .allDay(let item):
                 Text(item.headline)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 15, weight: item.isExam ? .semibold : .medium))
                     .lineLimit(1)
             case .lesson(let lesson):
                 if lesson.isPrivateEvent {
@@ -458,6 +459,7 @@ private struct WeekLineTrailing: View {
         HStack(spacing: 7) {
             switch row.kind {
             case .lesson(let lesson):
+                if lesson.isExam { ExamTag() }
                 if !lesson.homework.isEmpty {
                     Image(systemName: "book.closed.fill")
                         .font(.system(size: 12, weight: .semibold))
@@ -473,13 +475,14 @@ private struct WeekLineTrailing: View {
                 room(lesson)
             case .outside(let item):
                 if !item.start.isEmpty {
-                    Text(short(item.start) + "–" + short(item.end))
+                    Text(item.end.isEmpty ? short(item.start) : short(item.start) + "–" + short(item.end))
                         .font(.system(size: 13.5, weight: .medium))
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                         .fixedSize()
                 }
             case .allDay(let item):
+                if item.isExam { ExamTag() }
                 if let span = item.allDay, !span.isEmpty {
                     Text(span)
                         .font(.system(size: 13, weight: .medium))

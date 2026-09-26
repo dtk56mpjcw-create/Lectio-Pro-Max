@@ -54,6 +54,9 @@ private struct DayContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            ForEach(plan.banners) { item in
+                ExamBanner(lesson: item, dayISO: dayISO)
+            }
             if !plan.allDay.isEmpty {
                 AllDayStrip(items: plan.allDay, dayISO: dayISO)
             }
@@ -93,7 +96,7 @@ private struct DayContent: View {
         let slot = plan.slots[index]
         guard !slot.isFree, nowMinutes < slot.module.startMinutes else { return nil }
         // Only for the first module still to come.
-        let earlierAhead = plan.slots[..<index].contains { !$0.isFree && nowMinutes < $0.module.endMinutes }
+        let earlierAhead = plan.slots[..<index].contains { !$0.isFree && nowMinutes < $0.endMinutes }
         guard !earlierAhead else { return nil }
         guard let lesson = (slot.main + slot.continuing).first else { return nil }
         let start = lesson.startMinutes ?? slot.module.startMinutes
@@ -112,10 +115,10 @@ private struct ModuleRow: View {
     private var nowMinutes: Int? { now.map { DayList.minutes(of: $0) } }
     private var isCurrent: Bool {
         guard let nowMinutes else { return false }
-        return nowMinutes >= slot.module.startMinutes && nowMinutes < slot.module.endMinutes
+        return nowMinutes >= slot.startMinutes && nowMinutes < slot.endMinutes
     }
     private var isPast: Bool {
-        if let nowMinutes { return nowMinutes >= slot.module.endMinutes }
+        if let nowMinutes { return nowMinutes >= slot.endMinutes }
         return dayISO < LectioDates.isoString(from: Date())
     }
 
@@ -133,13 +136,16 @@ private struct ModuleRow: View {
     /// The module's number, big, and its times: the day's rhythm down the side.
     private var label: some View {
         VStack(spacing: 1) {
-            Text("\(slot.module.number)")
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+            // "2", or "1–3" for a block over several modules.
+            Text(slot.label)
+                .font(.system(size: slot.through == nil ? 22 : 17, weight: .bold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
                 .foregroundStyle(isCurrent ? Palette.accent : (isPast ? Color(.secondaryLabel) : Color.primary))
             Text(slot.module.shortStart)
                 .font(.system(size: 11.5, weight: .semibold))
                 .foregroundStyle(.secondary)
-            Text(slot.module.shortEnd)
+            Text(slot.last.shortEnd)
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(.secondary)
         }
@@ -147,7 +153,7 @@ private struct ModuleRow: View {
         .frame(width: 38)
         .padding(.top, 8)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Module \(slot.module.number), \(slot.module.start) to \(slot.module.end)")
+        .accessibilityLabel("Module \(slot.label), \(slot.module.start) to \(slot.last.end)")
     }
 }
 
@@ -166,7 +172,7 @@ private struct SlotCard: View {
                 if index > 0 { Divider() }
                 OpenButton(lesson: lesson, dayISO: dayISO) {
                     LessonBlock(lesson: lesson,
-                                module: slot.module,
+                                module: slot.span,
                                 continued: slot.main.isEmpty,
                                 now: isCurrent ? now : nil,
                                 faded: isPast)
@@ -274,6 +280,7 @@ private struct LessonBlock: View {
 
     private var marks: some View {
         HStack(spacing: 9) {
+            if lesson.isExam { ExamTag() }
             let who = LessonText.abbreviated(lesson.teacher)
             if !who.isEmpty { Text(who).lineLimit(1) }
             if let ownTimes { Text(ownTimes).monospacedDigit().lineLimit(1) }
@@ -502,7 +509,7 @@ private struct SmallItem: View {
             }
             Spacer(minLength: 4)
             if !lesson.start.isEmpty {
-                Text(lesson.start + "–" + lesson.end)
+                Text(lesson.end.isEmpty ? lesson.start : lesson.start + "–" + lesson.end)
                     .font(.system(size: 12.5, weight: .medium))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
@@ -553,6 +560,69 @@ private struct AllDayStrip: View {
             }
             .scrollIndicators(.hidden)
         }
+    }
+}
+
+// MARK: - Exams
+
+/// "Exam", small and red: on an exam block, a test, and the banner.
+struct ExamTag: View {
+    var body: some View {
+        Text("Exam")
+            .font(.system(size: 12, weight: .bold))
+            .foregroundStyle(Palette.negative)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 1.5)
+            .background(Capsule().fill(Palette.negative.opacity(0.12)))
+            .fixedSize()
+    }
+}
+
+/// An exam for your class that Lectio gives no time for ("1i, 1j:
+/// NV-eksamen"): a banner on top of the day, not a grey chip among the
+/// others.
+private struct ExamBanner: View {
+    let lesson: Lesson
+    let dayISO: String
+
+    var body: some View {
+        OpenButton(lesson: lesson, dayISO: dayISO) {
+            HStack(spacing: 12) {
+                Image(systemName: "pencil.and.list.clipboard")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Palette.negative)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(lesson.headline)
+                        .font(.system(size: 16.5, weight: .semibold))
+                        .lineLimit(2)
+                    Text(subtitle)
+                        .font(.system(size: 13.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 6)
+                ExamTag()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous)
+                    .fill(Palette.negative.opacity(0.1))
+            }
+            .foregroundStyle(.primary)
+            .contentShape(Rectangle())
+        }
+    }
+
+    /// "All day · 1i, 1j": who it's for, as Lectio says it.
+    private var subtitle: String {
+        let t = lesson.title.trimmingCharacters(in: .whitespaces)
+        if let colon = t.firstIndex(of: ":"), Lesson.audience(String(t[..<colon])) != nil {
+            return "All day · " + t[..<colon].trimmingCharacters(in: .whitespaces)
+        }
+        return "All day"
     }
 }
 

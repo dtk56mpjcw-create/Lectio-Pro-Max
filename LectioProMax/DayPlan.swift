@@ -148,20 +148,73 @@ extension ScheduleModule {
     var shortEnd: String { end.hasPrefix("0") ? String(end.dropFirst()) : end }
 }
 
+// MARK: - Whose it is
+
+extension Lesson {
+    /// An event meant for your class, not merely open to it: its Hold line
+    /// names the class itself ("Alle 1j-elever", "1j"), or its title does
+    /// ("1i, 1j: NV-eksamen"). "Alle 1. STX-elever" alone isn't enough —
+    /// Lectio puts it on auditions, voluntary drama and Musicafe too.
+    func isFor(className: String) -> Bool {
+        guard !isClassLesson, !isPrivateEvent, !Lesson.isVoluntary(title) else { return false }
+        let cls = className.lowercased().replacingOccurrences(of: " ", with: "")
+        guard !cls.isEmpty else { return false }
+        if let team {
+            for part in team.split(separator: ",") {
+                let t = part.trimmingCharacters(in: .whitespaces).lowercased()
+                if t == cls || t == "alle \(cls)-elever" { return true }
+            }
+        }
+        let t = title.trimmingCharacters(in: .whitespaces)
+        if let colon = t.firstIndex(of: ":"), let tokens = Lesson.audience(String(t[..<colon])) {
+            return tokens.contains { $0.replacingOccurrences(of: " ", with: "") == cls }
+        }
+        return false
+    }
+
+    /// "Frivillig drama", "Frivillig billedkunst & design".
+    static func isVoluntary(_ title: String) -> Bool {
+        Rx.test("^\\s*frivillig", title)
+    }
+
+    /// An exam the school holds: "AP-eksamen", "1i, 1j: NV-eksamen",
+    /// "Sygeeksamen AP". Not a class lesson's topic — "Practice test",
+    /// "Revision for screening test" and "Test return" say "test" too, and
+    /// the topic is right there on the lesson anyway.
+    var isExam: Bool {
+        guard !isClassLesson else { return false }
+        return Rx.test("eksamen|prøve|\\btest\\b|\\bexam", title)
+    }
+
+    /// Letters and digits only, lowercased: "AP-eksamen" and "Ap Eksamen"
+    /// are both "apeksamen".
+    static func squashed(_ s: String) -> String {
+        var out = String.UnicodeScalarView()
+        for u in s.lowercased().unicodeScalars where CharacterSet.alphanumerics.contains(u) {
+            out.append(u)
+        }
+        return String(out)
+    }
+}
+
 // MARK: - A day, sorted into modules
 
-/// A day as the module view draws it: all-day items on top, the school's
-/// modules in order with what's in each, and anything outside them before
-/// or after.
+/// A day as the module view draws it: exam banners and all-day notes on
+/// top, the school's modules in order with what's in each, and anything
+/// outside them before or after.
 struct DayPlan {
     struct Slot: Identifiable {
         let module: ScheduleModule
-        /// Yours: class lessons and your own events. When a module has none
-        /// of those, the events in it (an exam, a trip) take their place.
+        /// The last module of a block that runs on over several: a double
+        /// lesson, an exam, a reading day ("1–3").
+        var through: ScheduleModule? = nil
+        /// Yours: your class lessons, your own events, and events meant for
+        /// your class (an exam, a reading day).
         var main: [Lesson] = []
         /// Something that started in an earlier module and is still going.
         var continuing: [Lesson] = []
-        /// Everything else in the module: optional things, clubs, events.
+        /// Everything else in the module: optional things, clubs, events
+        /// that are open to you but not for you.
         var others: [Lesson] = []
         /// Your lessons in this module that were cancelled.
         var cancelled: [Lesson] = []
@@ -169,16 +222,31 @@ struct DayPlan {
         var id: Int { module.number }
         var isFree: Bool { main.isEmpty && continuing.isEmpty }
         var hasAnything: Bool { !main.isEmpty || !continuing.isEmpty || !cancelled.isEmpty }
+        var hasContent: Bool { hasAnything || !others.isEmpty }
+
+        var last: ScheduleModule { through ?? module }
+        /// "2", or "1–3" for a block over several.
+        var label: String { through.map { "\(module.number)–\($0.number)" } ?? "\(module.number)" }
+        /// The whole block as one module: from the first's start to the
+        /// last's end.
+        var span: ScheduleModule {
+            ScheduleModule(number: module.number, start: module.start, end: last.end)
+        }
+        var startMinutes: Int { module.startMinutes }
+        var endMinutes: Int { last.endMinutes }
     }
 
+    /// An exam for your class with no time given ("1i, 1j: NV-eksamen"):
+    /// too important for a grey chip.
+    var banners: [Lesson] = []
     var allDay: [Lesson] = []
     var before: [Lesson] = []
     var slots: [Slot] = []
     var after: [Lesson] = []
 
-    /// When the last module with something of yours ends.
+    /// When the last block with something of yours ends.
     var schoolEnd: Int? {
-        slots.last(where: { !$0.isFree }).map { $0.module.endMinutes }
+        slots.last(where: { !$0.isFree }).map { $0.endMinutes }
     }
 
     /// Modules starting at 15:00 or later are outside the school day. The
@@ -191,25 +259,72 @@ struct DayPlan {
         var plan = DayPlan()
         let within = allModules.filter { $0.startMinutes < schoolDayEndsBy }
         let modules = within.isEmpty ? allModules : within
+        let dayStart = modules.map(\.startMinutes).min()
+        let dayEnd = modules.map(\.endMinutes).max()
 
-        // All-day: yours only, each once.
-        var seen: Set<String> = []
-        for item in day.lessons where item.isAllDay && item.isRelevant(toClass: className) {
-            let key = item.headline.lowercased()
-            if seen.insert(key).inserted { plan.allDay.append(item) }
+        // 1. Sort out what has a time. All-day items that do have hours —
+        // the first and last day of something running over several days,
+        // or a note naming its time or module — are placed like anything
+        // else. Lectio also draws some tiles twice; each counts once.
+        var timed: [Lesson] = []
+        var notes: [Lesson] = []
+        var seenTiles: Set<String> = []
+        for item in day.lessons {
+            let tileKey = item.id + "|" + (item.allDay ?? "~") + "|" + (item.team ?? "")
+            guard seenTiles.insert(tileKey).inserted else { continue }
+            if item.isAllDay {
+                guard item.isRelevant(toClass: className) else { continue }
+                if let placed = timedPart(of: item, dayStart: dayStart, dayEnd: dayEnd, modules: modules) {
+                    timed.append(placed)
+                } else {
+                    notes.append(item)
+                }
+            } else {
+                timed.append(item)
+            }
         }
 
-        let timed = day.lessons.filter { !$0.isAllDay }
-            .sorted { ($0.startMinutes ?? 0) < ($1.startMinutes ?? 0) }
+        let isMine: (Lesson) -> Bool = { $0.isClassLesson || $0.isPrivateEvent }
+        let isYours: (Lesson) -> Bool = { isMine($0) || $0.isFor(className: className) }
+
+        // 2. Your lesson and the event it's part of are one thing. Lectio
+        // lists "Ap Eksamen" on your AP team (with your room) and
+        // "AP-eksamen" for the whole year (08:00–11:35, fifteen rooms):
+        // one block, with the event's name and hours and your room.
+        var absorbed: Set<String> = []
+        for i in timed.indices where timed[i].isFor(className: className) && !timed[i].cancelled {
+            let name = Lesson.squashed(timed[i].headline)
+            guard name.count >= 4,
+                  let s = timed[i].startMinutes, let e = timed[i].endMinutes else { continue }
+            let candidates = timed
+            for lesson in candidates where isMine(lesson) && !lesson.cancelled && !absorbed.contains(lesson.id) {
+                guard let ls = lesson.startMinutes, let le = lesson.endMinutes,
+                      ls < e, s < le,
+                      Lesson.squashed(lesson.title) == name else { continue }
+                absorbed.insert(lesson.id)
+                if !lesson.room.isEmpty { timed[i].room = lesson.room }
+                if !lesson.teacher.isEmpty { timed[i].teacher = lesson.teacher }
+                if timed[i].note.isEmpty { timed[i].note = lesson.note }
+                if timed[i].homework.isEmpty { timed[i].homework = lesson.homework }
+                if let link = lesson.link { timed[i].link = link }
+            }
+        }
+        timed.removeAll { absorbed.contains($0.id) }
+        timed.sort { ($0.startMinutes ?? 0) < ($1.startMinutes ?? 0) }
+
+        // 3. Into the modules.
         var slots = modules.map { Slot(module: $0) }
-        guard let firstStart = modules.map(\.startMinutes).min() else {
+        var seenNames: Set<String> = []
+        guard let firstStart = dayStart else {
             plan.after = timed
+            plan.allDay = notes
             return plan
         }
 
         for lesson in timed {
             guard let s = lesson.startMinutes, let e = lesson.endMinutes else {
-                plan.after.append(lesson)
+                if let s = lesson.startMinutes, s < firstStart { plan.before.append(lesson) }
+                else { plan.after.append(lesson) }
                 continue
             }
             // A module holds a lesson that fills a good part of it: 15
@@ -223,52 +338,158 @@ struct DayPlan {
                 if s < firstStart { plan.before.append(lesson) } else { plan.after.append(lesson) }
                 continue
             }
-            // An event across three modules or more (an audition day, a
-            // trip) isn't something in each module; it goes up top with the
-            // all-day items, with its hours.
-            if hits.count >= 3 && !lesson.isClassLesson && !lesson.isPrivateEvent && !lesson.cancelled {
+            let mine = isMine(lesson)
+            let yours = isYours(lesson)
+            // Something optional across three modules or more (an audition
+            // day) isn't something in each module; it goes up top with its
+            // hours. Anything of yours stays in the modules, however long.
+            if hits.count >= 3 && !yours && !lesson.cancelled {
                 var spanning = lesson
                 spanning.allDay = lesson.start + "–" + lesson.end
-                if seen.insert(spanning.headline.lowercased()).inserted {
+                if seenNames.insert(Lesson.squashed(spanning.headline)).inserted {
                     plan.allDay.append(spanning)
                 }
                 continue
             }
             for i in hits {
-                let mine = lesson.isClassLesson || lesson.isPrivateEvent
                 if lesson.cancelled {
                     if i == first {
                         if mine { slots[i].cancelled.append(lesson) } else { slots[i].others.append(lesson) }
                     }
+                } else if !yours {
+                    // Optional: noted once, where it starts.
+                    if i == first { slots[i].others.append(lesson) }
                 } else if i != first {
                     slots[i].continuing.append(lesson)
-                } else if mine {
-                    slots[i].main.append(lesson)
                 } else {
-                    slots[i].others.append(lesson)
+                    slots[i].main.append(lesson)
                 }
             }
         }
 
-        // A module with nothing of yours: its events are what's on.
-        for i in slots.indices where slots[i].main.isEmpty && slots[i].continuing.isEmpty {
-            let held = slots[i].others.filter { !$0.cancelled }
-            if !held.isEmpty {
-                slots[i].main = held
-                slots[i].others.removeAll { !$0.cancelled }
+        // Your own lesson keeps its module. An event of yours running
+        // through it — or starting in it — is noted underneath, so a module
+        // never has two big blocks.
+        for i in slots.indices {
+            let lessons = slots[i].main.filter(isMine)
+            let events = slots[i].main.filter { !isMine($0) }
+            if !lessons.isEmpty {
+                slots[i].main = lessons
+                slots[i].others = events + slots[i].continuing + slots[i].others
+                slots[i].continuing = []
+            } else if !events.isEmpty {
+                slots[i].others = slots[i].continuing + slots[i].others
+                slots[i].continuing = []
             }
         }
-        // A continuing event under a module's own lesson is just noise there.
-        for i in slots.indices where !slots[i].main.isEmpty {
-            slots[i].others += slots[i].continuing
-            slots[i].continuing = []
+
+        // A block that runs on — a double lesson, an exam, a reading day —
+        // is one block across its modules, not a card in each.
+        var merged: [Slot] = []
+        for slot in slots {
+            if var previous = merged.last,
+               !previous.main.isEmpty,
+               slot.main.isEmpty, !slot.continuing.isEmpty,
+               Set(slot.continuing.map(\.id)).isSubset(of: Set(previous.main.map(\.id))) {
+                previous.through = slot.module
+                for item in slot.others where !previous.others.contains(where: { $0.id == item.id }) {
+                    previous.others.append(item)
+                }
+                // A lesson the exam replaced is still worth a word.
+                previous.cancelled += slot.cancelled
+                merged[merged.count - 1] = previous
+            } else {
+                merged.append(slot)
+            }
         }
 
         // Every module up to the last one with something in it; free ones
         // before that are real free periods.
-        if let last = slots.lastIndex(where: { $0.hasAnything }) {
-            plan.slots = Array(slots[...last])
+        if let last = merged.lastIndex(where: { $0.hasContent }) {
+            plan.slots = Array(merged[...last])
         }
+
+        // 4. The notes left: an exam for your class becomes a banner; the
+        // rest stay as chips — unless the day already shows the same thing
+        // ("1g: AP-eksamen" next to the exam itself, "1g: Læsedag" next to
+        // the AP reading day). A lesson is matched by its title (its topic),
+        // anything else by its name; the note has to be the same thing or
+        // the general word for it ("Læsedag" in "AP-læsedag"), never the
+        // other way round.
+        var onTheDay: [Lesson] = plan.before + plan.after
+        onTheDay += plan.allDay
+        for slot in plan.slots {
+            onTheDay += slot.main + slot.continuing
+            onTheDay += slot.others + slot.cancelled
+        }
+        let shown: [String] = onTheDay
+            .map { Lesson.squashed($0.isClassLesson ? $0.title : $0.headline) }
+            .filter { $0.count >= 4 }
+        var chips: [Lesson] = []
+        for note in notes {
+            let name = Lesson.squashed(note.headline)
+            let repeated = name.count >= 4 && shown.contains { other in
+                other == name || (name.count >= 5 && other.contains(name))
+            }
+            guard !repeated, seenNames.insert(name).inserted else { continue }
+            if note.isExam { plan.banners.append(note) } else { chips.append(note) }
+        }
+        plan.allDay = chips + plan.allDay
         return plan
+    }
+
+    /// The hours an all-day item actually has, as an ordinary timed item —
+    /// or nil for a plain note. Multi-day things: "from 12:00" runs to the
+    /// end of the school day, "until 15:15" from its start, the days
+    /// between are the whole school day. Notes that say when: "Nørre
+    /// Skriver (13:40-15:00)", "DELF Master Class (4. modul)".
+    static func timedPart(of item: Lesson, dayStart: Int?, dayEnd: Int?,
+                          modules: [ScheduleModule]) -> Lesson? {
+        let label = item.allDay ?? ""
+        var start: Int?
+        var end: Int?
+        var title = item.title
+
+        if let g = Rx.match("^from (\\d{1,2}:\\d{2})$", label) {
+            start = Lesson.minutes(from: g[1])
+            if let s = start, let dayEnd, s < dayEnd { end = dayEnd }
+        } else if let g = Rx.match("^until (\\d{1,2}:\\d{2})$", label) {
+            end = Lesson.minutes(from: g[1])
+            if let e = end, let dayStart, dayStart < e { start = dayStart }
+        } else if label == "all day" {
+            start = dayStart
+            end = dayEnd
+        } else if label.isEmpty {
+            let timePattern = "\\s*\\((\\d{1,2})[:.](\\d{2})\\s*[-–]\\s*(\\d{1,2})[:.](\\d{2})\\)"
+            let modulePattern = "\\s*\\((\\d{1,2})\\.\\s*modul\\)"
+            if let g = Rx.match(timePattern, title),
+               let h1 = Int(g[1]), let m1 = Int(g[2]), let h2 = Int(g[3]), let m2 = Int(g[4]) {
+                start = h1 * 60 + m1
+                end = h2 * 60 + m2
+                title = title.replacingOccurrences(of: timePattern, with: "", options: .regularExpression)
+            } else if let g = Rx.match(modulePattern, title), let n = Int(g[1]),
+                      let module = modules.first(where: { $0.number == n }) {
+                start = module.startMinutes
+                end = module.endMinutes
+                title = title.replacingOccurrences(of: modulePattern, with: "",
+                                                   options: [.regularExpression, .caseInsensitive])
+            } else {
+                return nil
+            }
+        } else {
+            return nil
+        }
+
+        guard let s = start else { return nil }
+        var copy = item
+        copy.allDay = nil
+        copy.title = title.trimmingCharacters(in: .whitespaces)
+        copy.start = clock(s)
+        copy.end = end.map { $0 > s ? clock($0) : "" } ?? ""
+        return copy
+    }
+
+    private static func clock(_ minutes: Int) -> String {
+        String(format: "%02d:%02d", minutes / 60, minutes % 60)
     }
 }
