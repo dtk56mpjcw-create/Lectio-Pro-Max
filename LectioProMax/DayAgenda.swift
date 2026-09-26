@@ -753,9 +753,8 @@ private struct SectionLabel: View {
 
 /// The day's notes, stacked the way Calendar stacks all-day events: each
 /// on its own line, in full, nothing to scroll or wait for. With two or
-/// more, only the first shows, with "1 more" / "3 more" to open the rest
-/// in place and "Show less" to fold them again — the lessons stay near
-/// the top.
+/// more, only the first shows, with a "+1" / "+3" key beside it to open
+/// the rest in place and fold them again — the lessons stay near the top.
 private struct AllDayStrip: View {
     let items: [Lesson]
     let dayISO: String
@@ -781,50 +780,71 @@ private struct AllDayStrip: View {
                 .accessibilityHidden(!showsLabel)
 
             VStack(alignment: .leading, spacing: 6) {
-                ForEach(shown) { item in
-                    OpenButton(lesson: item, dayISO: dayISO) {
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Text(item.headline)
-                                .scaledFont(size: 14.5, weight: .semibold)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
-                                .fixedSize(horizontal: false, vertical: true)
-                            if let span = item.allDay, !span.isEmpty {
-                                Text(span)
-                                    .scaledFont(size: 13, weight: .medium)
-                                    .monospacedDigit()
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .fixedSize()
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color(.tertiarySystemFill)))
-                        .foregroundStyle(.primary)
-                        .contentShape(Rectangle())
+                ForEach(Array(shown.enumerated()), id: \.element.id) { index, item in
+                    // The "+1" sits beside the first note, the same height,
+                    // so folding costs no extra line.
+                    HStack(spacing: 6) {
+                        note(item)
+                        if index == 0 && items.count > 1 { toggle }
                     }
-                }
-                if items.count > 1 {
-                    Button {
-                        withAnimation(.snappy) { expanded.toggle() }
-                    } label: {
-                        Text(expanded ? "Show less" : "\(items.count - 1) more")
-                            .scaledFont(size: 13.5, weight: .semibold)
-                            .foregroundStyle(Palette.accent)
-                            .padding(.horizontal, 12)
-                            // Apple's minimum touch target, without the
-                            // link looking any bigger.
-                            .frame(minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
+    }
+
+    private func note(_ item: Lesson) -> some View {
+        OpenButton(lesson: item, dayISO: dayISO) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(item.headline)
+                    .scaledFont(size: 14.5, weight: .semibold)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let span = item.allDay, !span.isEmpty {
+                    Text(span)
+                        .scaledFont(size: 13, weight: .medium)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(.tertiarySystemFill)))
+            .foregroundStyle(.primary)
+            .contentShape(Rectangle())
+        }
+    }
+
+    /// "+2" to open the rest, a chevron to fold them again: a small key
+    /// the size of a touch.
+    private var toggle: some View {
+        Button {
+            withAnimation(.snappy) { expanded.toggle() }
+        } label: {
+            Group {
+                if expanded {
+                    Image(systemName: "chevron.up")
+                        .scaledFont(size: 13, weight: .bold)
+                } else {
+                    Text("+\(items.count - 1)")
+                        .scaledFont(size: 14.5, weight: .semibold)
+                        .monospacedDigit()
+                }
+            }
+            .foregroundStyle(Palette.accent)
+            .frame(minWidth: 44, minHeight: 44, maxHeight: .infinity)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(.tertiarySystemFill)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressableCard())
+        .accessibilityLabel(expanded ? "Show less" : "Show \(items.count - 1) more")
     }
 }
 
