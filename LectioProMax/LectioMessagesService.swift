@@ -220,8 +220,8 @@ enum LectioMessagesService {
     // Read state is two commands, not a toggle: a thread you haven't read
     // offers READMESSAGE_, one you have offers UNREADMESSAGE_ (always sending
     // READMESSAGE_ is why "Mark as unread" did nothing). Deleting is
-    // HIDEMESSAGE_ — Lectio's "Slet/gendan": it moves the thread to Deleted,
-    // and the same command there brings it back.
+    // HIDEMESSAGE_ — Lectio's "Slet": it moves the thread to Deleted, where
+    // the row offers UNHIDEMESSAGE_ ("Gendan") to bring it back.
     //
     // The command is posted to the folder the thread is showing in: ASP.NET
     // only accepts a command the page it came from actually offered.
@@ -240,11 +240,16 @@ enum LectioMessagesService {
         return try await folderCommand("FLAGMESSAGE_" + threadID, in: folder, cookies: cookies)
     }
 
-    /// Deletes a thread — or, from the Deleted folder, restores it.
-    static func toggleDeleted(threadID: String,
-                              in folder: MessageFolder,
-                              cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
-        return try await folderCommand("HIDEMESSAGE_" + threadID, in: folder, cookies: cookies)
+    /// Deletes a thread (HIDEMESSAGE_) or brings it back (UNHIDEMESSAGE_ —
+    /// what a row in Alle slettede offers; it isn't the same command twice).
+    /// Lectio has no way to delete for good: deleted threads leave that
+    /// folder on their own after three months.
+    static func setDeleted(threadID: String,
+                           deleted: Bool,
+                           in folder: MessageFolder,
+                           cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
+        let command = (deleted ? "HIDEMESSAGE_" : "UNHIDEMESSAGE_") + threadID
+        return try await folderCommand(command, in: folder, cookies: cookies)
     }
 
     private static func folderCommand(_ argument: String,
