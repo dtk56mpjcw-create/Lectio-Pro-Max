@@ -11,6 +11,9 @@ enum LectioParser {
         var start: String = ""
         var end: String = ""
         var allDay: Bool = false
+        /// For an item running over several days ("6/10-2026 12:00 til
+        /// 7/10-2026 15:15"): the last day, ISO.
+        var endDate: String? = nil
         var hold: String = ""
         var teacher: String = ""
         var teacherInitials: String = ""
@@ -62,6 +65,11 @@ enum LectioParser {
             let rest = g[4]
             if Rx.test("Hele dagen", rest) {
                 result.allDay = true
+            } else if let m = Rx.match("(\\d{1,2}:\\d{2})\\s+til\\s+(\\d{1,2})/(\\d{1,2})-(\\d{4})\\s+(\\d{1,2}:\\d{2})", rest),
+                      let d2 = Int(m[2]), let m2 = Int(m[3]), let y2 = Int(m[4]) {
+                result.start = m[1]
+                result.end = m[5]
+                result.endDate = String(format: "%04d-%02d-%02d", y2, m2, d2)
             } else if let t = Rx.match("(\\d{1,2}:\\d{2})\\s+til\\s+(\\d{1,2}:\\d{2})", rest) {
                 result.start = t[1]
                 result.end = t[2]
@@ -112,6 +120,11 @@ enum LectioParser {
     }
 
     /// "1j hi" -> "hi", "1ij enB" -> "enB" (the per-subject code used for colours).
+    /// "8:00" -> "08:00", so times sort and compare as text.
+    static func padTime(_ t: String) -> String {
+        t.count == 4 ? "0" + t : t
+    }
+
     static func holdToCode(_ hold: String) -> String {
         let parts = hold.trimmingCharacters(in: .whitespaces)
             .split(whereSeparator: { $0 == " " || $0 == "\t" })
@@ -140,10 +153,46 @@ enum LectioParser {
         let tiles = root.allWhere { $0.name == "a" && $0.hasClass("s2skemabrik") }
 
         var byDate: [String: [Lesson]] = [:]
+        // A multi-day or all-day item is drawn once per day column, each
+        // copy with the same tooltip; keep one per day.
+        var seenSpans: Set<String> = []
         for tile in tiles {
             let tooltip = tile.attr("data-tooltip") ?? ""
             let parsed = parseTooltip(tooltip)
-            guard let date = parsed.date, !parsed.allDay else { continue }
+            guard let date = parsed.date else { continue }
+
+            if parsed.allDay || parsed.endDate != nil {
+                let last = parsed.endDate ?? date
+                var day = date
+                var guardCount = 0
+                while day <= last && guardCount < 14 {
+                    let key = day + "|" + tooltip
+                    if !seenSpans.contains(key) {
+                        seenSpans.insert(key)
+                        var label = ""
+                        if parsed.endDate != nil {
+                            if day == date { label = "from " + parsed.start }
+                            else if day == last { label = "until " + parsed.end }
+                        }
+                        let item = Lesson(
+                            code: holdToCode(parsed.hold),
+                            title: parsed.title,
+                            teacher: parsed.teacherInitials,
+                            room: parsed.room,
+                            homework: parsed.homework,
+                            note: parsed.note,
+                            cancelled: tile.hasClass("s2cancelled") || parsed.cancelled,
+                            changed: parsed.changed,
+                            link: absoluteURL(tile.attr("href")),
+                            allDay: label,
+                            team: parsed.hold)
+                        byDate[day, default: []].append(item)
+                    }
+                    day = LectioDates.shift(iso: day, byDays: 1)
+                    guardCount += 1
+                }
+                continue
+            }
 
             let lesson = Lesson(
                 start: parsed.start,
@@ -156,10 +205,21 @@ enum LectioParser {
                 note: parsed.note,
                 cancelled: tile.hasClass("s2cancelled") || parsed.cancelled,
                 changed: parsed.changed,
-                link: absoluteURL(tile.attr("href"))
+                link: absoluteURL(tile.attr("href")),
+                team: parsed.hold
             )
             byDate[date, default: []].append(lesson)
         }
+
+        // The school's modules, from the left column: "1. modul8:00 - 9:35".
+        var modules: [ScheduleModule] = []
+        for info in root.allWithClass("s2module-info") {
+            guard let g = Rx.match("(\\d+)\\.\\s*modul\\s*(\\d{1,2}:\\d{2})\\s*-\\s*(\\d{1,2}:\\d{2})", info.text),
+                  let number = Int(g[1]) else { continue }
+            if modules.contains(where: { $0.number == number }) { continue }
+            modules.append(ScheduleModule(number: number, start: padTime(g[2]), end: padTime(g[3])))
+        }
+        if !modules.isEmpty { result.week.modules = modules.sorted { $0.number < $1.number } }
 
         // Keep every day Lectio shows for the week, weekends included.
         result.week.days = byDate.keys.sorted().map { iso in

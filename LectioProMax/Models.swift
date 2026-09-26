@@ -15,6 +15,15 @@ struct Lesson: Identifiable, Codable, Hashable {
     var cancelled: Bool = false
     var changed: Bool = false
     var link: String? = nil
+    /// Set for things that aren't a timed block on this day: Lectio's "Hele
+    /// dagen" items ("" ) and the days of a multi-day item ("from 12:00",
+    /// "until 15:15"). Optional so a cache written before it existed loads.
+    var allDay: String? = nil
+    /// Lectio's "Hold:" line as written ("1j ma", "1i ap la, 1j ap la",
+    /// "Alle 1. STX-elever, …"); `code` drops the class. Optional for old caches.
+    var team: String? = nil
+
+    var isAllDay: Bool { allDay != nil }
 
     var timeRange: String {
         if start.isEmpty && end.isEmpty { return "" }
@@ -77,6 +86,20 @@ struct ScheduleWeek: Identifiable, Codable, Hashable {
     var label: String = ""       // "Week 39"
     var dateRange: String = ""   // "21/9-27/9"
     var days: [ScheduleDay] = []
+    /// The school's modules ("1. modul 8:00 - 9:35"), from the page's left
+    /// column. Optional so a cached week without them still loads.
+    var modules: [ScheduleModule]? = nil
+}
+
+/// One of the school's fixed lesson slots.
+struct ScheduleModule: Codable, Hashable, Identifiable {
+    var id: Int { number }
+    var number: Int
+    var start: String          // "08:00"
+    var end: String            // "09:35"
+
+    var startMinutes: Int { Lesson.minutes(from: start) ?? 0 }
+    var endMinutes: Int { Lesson.minutes(from: end) ?? 0 }
 }
 
 struct ScheduleDay: Identifiable, Codable, Hashable {
@@ -237,7 +260,9 @@ struct LectioSnapshot: Codable {
     /// The next school day at or after today that still has lessons.
     func nextDay(reference: Date = Date()) -> ScheduleDay? {
         let iso = LectioDates.isoString(from: reference)
-        let upcoming = schedule.filter { $0.date >= iso && !$0.lessons.isEmpty }
+        let upcoming = schedule.filter { day in
+            day.date >= iso && day.lessons.contains { !$0.isAllDay }
+        }
         return upcoming.sorted { $0.date < $1.date }.first
     }
 

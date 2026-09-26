@@ -347,7 +347,7 @@ struct TargetScheduleSheet: View {
                 .font(.system(size: 12.5, weight: .heavy))
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
-            ForEach(day.lessons) { lesson in
+            ForEach(day.lessons.filter { !$0.isAllDay }) { lesson in
                 HStack(alignment: .top, spacing: 10) {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(lesson.start)

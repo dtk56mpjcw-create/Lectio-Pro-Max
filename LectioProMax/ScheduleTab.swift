@@ -151,7 +151,8 @@ struct ScheduleTab: View {
                 Text(title)
                     .font(.system(size: 30, weight: .bold))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    // "Wednesday" next to the Today button was cut to "Wednesd…".
+                    .minimumScaleFactor(0.65)
                 Text(subtitle)
                     .font(.system(size: 14.5, weight: .medium))
                     .foregroundStyle(.secondary)
@@ -459,7 +460,10 @@ private struct DayPage: View {
             VStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 10) {
                     if let week = session.snapshot.weeks[code] {
-                        DayList(day: week.days.first { $0.date == date }).equatable()
+                        DayList(day: week.days.first { $0.date == date },
+                                modules: week.resolvedModules,
+                                className: session.snapshot.profile.className)
+                            .equatable()
                     } else {
                         WeekPlaceholder(weekCode: code)
                     }
@@ -486,7 +490,7 @@ private struct WeekPage: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                WeekOverview(weekCode: LectioDates.weekCode(iso: monday), onPick: onPick)
+                WeekOverview(weekCode: LectioDates.weekCode(iso: monday), monday: monday, onPick: onPick)
                     .padding(.top, 8)
                     .padding(.bottom, bottomInset + 24)
                 }
@@ -498,120 +502,262 @@ private struct WeekPage: View {
 
 // MARK: - Week overview (calendar button)
 
+/// The week as a timetable: the days across, the school's modules down,
+/// each lesson a block in its subject's colour. Tap a day (or any block in
+/// it) to open that day.
 struct WeekOverview: View {
     @EnvironmentObject private var session: LectioSession
     let weekCode: String
+    let monday: String
     var onPick: (String) -> Void
 
     private var week: ScheduleWeek? { session.snapshot.weeks[weekCode] }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        Group {
             if let week {
-                ForEach(week.days) { day in
-                    Button {
-                        onPick(day.date)
-                    } label: {
-                        dayRow(day)
-                            .contentShape(RoundedRectangle(cornerRadius: Metrics.inner + 3, style: .continuous))
-                            .foregroundStyle(.primary)
-                    }
-                    .buttonStyle(PressableCard())
-                }
+                WeekGrid(week: week,
+                         monday: monday,
+                         className: session.snapshot.profile.className,
+                         onPick: onPick)
             } else {
                 WeekPlaceholder(weekCode: weekCode)
             }
         }
         .padding(.horizontal, Metrics.margin)
     }
+}
 
-    private func dayRow(_ day: ScheduleDay) -> some View {
-        let held = day.lessons.filter { !$0.cancelled }
-        let school = held.filter { $0.subjectName != nil }
-        let span: String = {
-            // The school day, not an evening event.
-            let from = school.isEmpty ? held : school
-            let starts = from.filter { $0.startMinutes != nil }.map(\.start).sorted()
-            let ends = from.filter { $0.endMinutes != nil }.map(\.end).sorted()
-            guard let first = starts.first, let last = ends.last else { return "" }
-            return first + "–" + last
-        }()
-        let today = isToday(day)
+private struct WeekGrid: View {
+    let week: ScheduleWeek
+    let monday: String
+    let className: String
+    var onPick: (String) -> Void
 
-        return VStack(alignment: .leading, spacing: 9) {
-            HStack(alignment: .firstTextBaseline, spacing: 7) {
-                Text(dayName(day).uppercased())
-                    .font(.system(size: 13, weight: .heavy))
-                    .tracking(0.7)
-                    .foregroundStyle(today ? Palette.accent : Color(.secondaryLabel))
-                Text(dayNum(day))
-                    .font(.system(size: 18.5, weight: .bold))
-                    .foregroundStyle(today ? Palette.accent : Color.primary)
-                Spacer()
-                Text(day.lessons.isEmpty ? "Free" : span)
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+    @Environment(\.colorScheme) private var scheme
+
+    private static let labelWidth: CGFloat = 24
+    private static let gap: CGFloat = 4
+
+    /// Monday to Friday always; the weekend only when something's on.
+    private var dates: [String] {
+        var out = (0..<5).map { LectioDates.shift(iso: monday, byDays: $0) }
+        for extra in [5, 6] {
+            let date = LectioDates.shift(iso: monday, byDays: extra)
+            if week.days.contains(where: { $0.date == date && $0.lessons.contains { !$0.isAllDay } }) {
+                out.append(date)
             }
-            if !day.lessons.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(day.lessons.prefix(6)) { lesson in
-                        HStack(spacing: 8) {
-                            SubjectDot(code: lesson.code, size: 7)
-                                .opacity(lesson.cancelled ? 0.35 : 1)
-                            Text(lesson.start)
-                                .font(.system(size: 13, weight: .medium))
-                                .monospacedDigit()
-                                .foregroundStyle(.secondary)
-                                .frame(width: 40, alignment: .leading)
-                            Text(lesson.headline)
-                                .font(.system(size: 14.5, weight: .medium))
-                                .lineLimit(1)
-                                .strikethrough(lesson.cancelled)
-                                .foregroundStyle(lesson.cancelled ? Color(.secondaryLabel) : Color.primary)
-                            if !lesson.homework.isEmpty && !lesson.cancelled {
-                                Image(systemName: "book.closed.fill")
-                                    .font(.system(size: 10.5))
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 4)
-                            if lesson.cancelled {
-                                Text("Cancelled")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(.red)
-                            } else if !lesson.room.isEmpty {
-                                Text(LessonText.abbreviated(lesson.room))
-                                    .font(.system(size: 12.5, weight: .medium))
-                                    .foregroundStyle(.secondary)
-                                    .monospacedDigit()
-                                    .lineLimit(1)
-                            }
+        }
+        return out
+    }
+
+    var body: some View {
+        let modules = week.resolvedModules
+        let today = LectioDates.isoString(from: Date())
+        var plans: [String: DayPlan] = [:]
+        for date in dates {
+            let day = week.days.first { $0.date == date }
+                ?? ScheduleDay(date: date, label: LectioDates.dayLabel(iso: date), lessons: [])
+            plans[date] = DayPlan.build(day, modules: modules, className: className)
+        }
+        let lastUsed = plans.values.compactMap { $0.slots.last?.module.number }.max() ?? 0
+        let shown = modules.filter { $0.number <= max(lastUsed, min(4, modules.count)) }
+        let hasAllDay = plans.values.contains { !$0.allDay.isEmpty }
+        let hasAfter = plans.values.contains { !$0.after.isEmpty }
+
+        return TimelineView(.everyMinute) { context in
+            let nowMinutes = DayList.minutes(of: context.date)
+            VStack(spacing: Self.gap + 2) {
+                HStack(spacing: Self.gap) {
+                    Color.clear.frame(width: Self.labelWidth, height: 1)
+                    ForEach(dates, id: \.self) { date in
+                        Button { onPick(date) } label: { dayHeader(date, isToday: date == today) }
+                            .buttonStyle(.plain)
+                    }
+                }
+
+                if hasAllDay {
+                    HStack(spacing: Self.gap) {
+                        sideLabel("All\nday")
+                        ForEach(dates, id: \.self) { date in
+                            allDayCell(plans[date]?.allDay ?? [])
                         }
                     }
-                    if day.lessons.count > 6 {
-                        Text("+\(day.lessons.count - 6) more")
-                            .font(.system(size: 12.5, weight: .medium))
-                            .foregroundStyle(.secondary)
+                }
+
+                ForEach(shown) { module in
+                    HStack(spacing: Self.gap) {
+                        VStack(spacing: 0) {
+                            Text("\(module.number)")
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                            Text(module.shortStart)
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .monospacedDigit()
+                        .frame(width: Self.labelWidth)
+
+                        ForEach(dates, id: \.self) { date in
+                            let slot = plans[date]?.slots.first { $0.module.number == module.number }
+                            let current = date == today
+                                && nowMinutes >= module.startMinutes && nowMinutes < module.endMinutes
+                            Button { onPick(date) } label: { cell(slot, current: current) }
+                                .buttonStyle(PressableCard())
+                        }
+                    }
+                }
+
+                if hasAfter {
+                    HStack(spacing: Self.gap) {
+                        sideLabel("After")
+                        ForEach(dates, id: \.self) { date in
+                            afterCell(plans[date]?.after ?? [])
+                        }
                     }
                 }
             }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentCard(radius: Metrics.inner + 3)
+        .padding(.top, 4)
+    }
+
+    // MARK: Pieces
+
+    private func dayHeader(_ date: String, isToday: Bool) -> some View {
+        let parts = LectioDates.dayLabel(iso: date).split(separator: " ").map(String.init)
+        return VStack(spacing: 3) {
+            Text(parts.first ?? "")
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(isToday ? Palette.accent : Color(.secondaryLabel))
+            Text(parts.count > 1 ? parts[1] : "")
+                .font(.system(size: 16, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(isToday ? Color.white : Color.primary)
+                .frame(width: 30, height: 30)
+                .background { if isToday { Circle().fill(Palette.accent) } }
+        }
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+    }
+
+    private func sideLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 9.5, weight: .bold))
+            .multilineTextAlignment(.center)
+            .foregroundStyle(.secondary)
+            .frame(width: Self.labelWidth)
+    }
+
+    /// One module on one day: a block in the lesson's colour, blank when free.
+    private func cell(_ slot: DayPlan.Slot?, current: Bool) -> some View {
+        let lesson = slot?.main.first ?? slot?.continuing.first
+        let cancelled = lesson == nil ? slot?.cancelled.first : nil
+        let extra = (slot?.main.count ?? 0) + (slot?.continuing.count ?? 0) - 1
+        let colour = lesson.map { $0.isClassLesson ? Color.forSubject($0.code) : Color(.systemGray) }
+        let stripe = lesson.map { $0.isClassLesson ? Color.subjectStripe($0.code, in: scheme) : Color(.systemGray) }
+
+        return ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+            if let colour {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(colour.opacity(scheme == .dark ? 0.32 : 0.2))
+            }
+            if let stripe {
+                Capsule().fill(stripe)
+                    .frame(width: 3)
+                    .padding(.vertical, 6)
+                    .padding(.leading, 3)
+            }
+
+            if let lesson {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(lesson.shortLabel)
+                        .font(.system(size: 13, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.55)
+                    if !lesson.room.isEmpty {
+                        Text(LessonText.abbreviated(lesson.room))
+                            .font(.system(size: 10.5, weight: .medium))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                }
+                .padding(.leading, 9)
+                .padding(.trailing, 3)
+                .padding(.top, 6)
+            } else if let cancelled {
+                Text(cancelled.shortLabel)
+                    .font(.system(size: 12, weight: .semibold))
+                    .strikethrough()
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.55)
+                    .padding(6)
+            }
+        }
+        .frame(height: 50)
+        .frame(maxWidth: .infinity)
+        .overlay(alignment: .bottomTrailing) {
+            HStack(spacing: 2) {
+                if extra > 0 {
+                    Text("+\(extra)").font(.system(size: 9, weight: .bold))
+                }
+                if let lesson, !lesson.homework.isEmpty {
+                    Image(systemName: "book.closed.fill").font(.system(size: 8.5))
+                }
+                if let lesson, lesson.changed && lesson.isClassLesson {
+                    Circle().fill(.orange).frame(width: 5, height: 5)
+                }
+            }
+            .foregroundStyle(.secondary)
+            .padding(4)
+        }
         .overlay {
-            if today {
-                RoundedRectangle(cornerRadius: Metrics.inner + 3, style: .continuous)
-                    .strokeBorder(Palette.accent.opacity(0.55), lineWidth: 1.5)
+            if current {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .strokeBorder(Palette.accent, lineWidth: 2)
+            }
+        }
+        .foregroundStyle(.primary)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(lesson.map { $0.headline + ($0.room.isEmpty ? "" : ", room " + $0.room) }
+                            ?? (cancelled.map { $0.headline + " cancelled" } ?? "Free"))
+    }
+
+    private func allDayCell(_ items: [Lesson]) -> some View {
+        Group {
+            if let first = items.first {
+                Text(first.headline + (items.count > 1 ? " +\(items.count - 1)" : ""))
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .padding(.horizontal, 4)
+                    .frame(maxWidth: .infinity, minHeight: 20)
+                    .background(Capsule().fill(Color(.tertiarySystemFill)))
+            } else {
+                Color.clear.frame(maxWidth: .infinity, minHeight: 20)
             }
         }
     }
 
-    private func parts(_ d: ScheduleDay) -> [String] { d.label.split(separator: " ").map(String.init) }
-    private func dayName(_ d: ScheduleDay) -> String { parts(d).first ?? "" }
-    private func dayNum(_ d: ScheduleDay) -> String { parts(d).count > 1 ? parts(d)[1] : "" }
-    private func isToday(_ d: ScheduleDay) -> Bool { d.date == LectioDates.isoString(from: Date()) }
+    private func afterCell(_ items: [Lesson]) -> some View {
+        Group {
+            if let first = items.first {
+                Text(first.headline + (items.count > 1 ? " +\(items.count - 1)" : ""))
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .frame(maxWidth: .infinity, minHeight: 20)
+            } else {
+                Color.clear.frame(maxWidth: .infinity, minHeight: 20)
+            }
+        }
+    }
 }
+
 
 // MARK: - Lesson card
 
