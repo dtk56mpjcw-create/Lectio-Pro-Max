@@ -260,12 +260,13 @@ struct ScheduleTab: View {
         } action: { inset in
             safeBottom = inset
         }
-        // The bottom of the area the tab bar leaves free. Whichever frame
-        // this sees — the one inside the safe area or the one the pagers
-        // stretch to — taking off what it reports as under the bar lands on
-        // the same line.
+        // The bottom of the area the tab bar leaves free: this frame is the
+        // one inside the safe area (the pagers only draw past it), so its
+        // bottom edge is the top of the bar. Taking the reported inset off
+        // as well counted the bar twice — 84 pt of empty space under the
+        // last lesson.
         .onGeometryChange(for: CGFloat.self) { geometry in
-            (geometry.frame(in: .global).maxY - geometry.safeAreaInsets.bottom).rounded()
+            geometry.frame(in: .global).maxY.rounded()
         } action: { line in
             barLine = line
         }
