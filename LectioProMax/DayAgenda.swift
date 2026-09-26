@@ -588,9 +588,11 @@ private struct DoneLine: View {
 // MARK: - Opening
 
 /// Opens a lesson (pushed) or, for your own private event, its editor.
-private struct OpenButton<Content: View>: View {
+/// A card shrinks under the finger; a row in a list (`asRow`) lights up.
+struct OpenButton<Content: View>: View {
     let lesson: Lesson
     let dayISO: String
+    var asRow = false
     @ViewBuilder var label: () -> Content
 
     @EnvironmentObject private var session: LectioSession
@@ -598,7 +600,7 @@ private struct OpenButton<Content: View>: View {
     @State private var editingEvent = false
 
     var body: some View {
-        Button {
+        let button = Button {
             if lesson.isPrivateEvent {
                 editingEvent = true
             } else {
@@ -607,7 +609,13 @@ private struct OpenButton<Content: View>: View {
         } label: {
             label()
         }
-        .buttonStyle(PressableCard())
+        Group {
+            if asRow {
+                button.buttonStyle(RowPress())
+            } else {
+                button.buttonStyle(PressableCard())
+            }
+        }
         .sheet(isPresented: $editingEvent) {
             NewEventSheet(dayISO: dayISO, eventID: lesson.privateEventID) {
                 session.retryWeek(LectioDates.weekCode(iso: dayISO))
