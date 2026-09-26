@@ -60,6 +60,10 @@ struct MeTab: View {
     private var content: some View {
         ScrollView {
             VStack(spacing: 10) {
+                if profile.isStudent == false {
+                    Banner(text: "Lectio Pro Max is made for student accounts. The schedule and messages work, "
+                           + "but the class, grades, absence and student card are a student's.")
+                }
                 // Grid rather than LazyVGrid: it makes the two tiles in a row
                 // the same height.
                 Grid(horizontalSpacing: 10, verticalSpacing: 10) {

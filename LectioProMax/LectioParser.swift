@@ -420,8 +420,10 @@ enum LectioParser {
             if let g = Rx.match("Eleven\\s+(.+?),\\s*(.+?)(?:\\s+-\\s+|\\s*$)", text) {
                 profile.name = g[1].trimmingCharacters(in: .whitespaces)
                 profile.className = g[2].trimmingCharacters(in: .whitespaces)
+                profile.isStudent = true
             } else {
                 profile.name = text
+                profile.isStudent = text.isEmpty ? nil : false
             }
         }
 
