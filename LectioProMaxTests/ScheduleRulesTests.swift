@@ -1,0 +1,313 @@
+import Foundation
+import Testing
+@testable import LectioProMax
+
+/// The schedule's rules, checked against the real weeks they were built
+/// from (1j at Nørre Gymnasium, autumn 2026): what's yours and what's
+/// optional, exams over reading days, days that are one thing, multi-day
+/// items, notes that repeat the day, the end of the school day, other
+/// schools' class names, Danish time, and the absence tables.
+///
+/// Run with ⌘U. Each test builds a small Lectio page the way SkemaNy.aspx
+/// writes it and reads it through the app's own parser, so a change to
+/// the parser or the day's layout rules that breaks one of these days
+/// shows up here before it shows up on a phone.
+///
+/// Serialized: the class-name rules are shared state (see ClassNames).
+@Suite(.serialized)
+struct ScheduleRulesTests {
+
+    // MARK: - Building pages
+
+    /// Nørre's modules, with the late one after school.
+    static let moduleHTML = [
+        "1. modul<br>8:00 - 9:35", "2. modul<br>9:50 - 11:25", "3. modul<br>11:55 - 13:30",
+        "4. modul<br>13:40 - 15:15", "5. modul<br>15:20 - 16:55",
+    ].map { "<div class='s2module-info'>\($0)</div>" }.joined()
+
+    /// One schedule tile, its tooltip as Lectio writes it.
+    static func tile(_ tooltip: String, cancelled: Bool = false) -> String {
+        let escaped = tooltip
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "'", with: "&#39;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+        return "<a class='s2skemabrik\(cancelled ? " s2cancelled" : "")' data-tooltip='\(escaped)'>x</a>"
+    }
+
+    static func week(_ tiles: [String]) -> ScheduleWeek {
+        LectioParser.parseSchedule("<html><body>" + moduleHTML + tiles.joined() + "</body></html>").week
+    }
+
+    /// A day's plan with the school day's four modules.
+    static func plan(_ date: String, in week: ScheduleWeek, className: String = "1j") -> DayPlan {
+        let modules = (week.modules ?? []).filter { $0.number <= 4 }
+        let day = week.days.first { $0.date == date }
+            ?? ScheduleDay(date: date, label: "", lessons: [])
+        return DayPlan.build(day, modules: modules, className: className)
+    }
+
+    static let firstYears = "Alle 1. STX-elever, Alle 1i-elever, Alle 1j-elever"
+    static let wholeSchool = "Alle 1. IB-elever, Alle 1. STX-elever, Alle 2. IB-elever, Alle 2. STX-elever, Alle 3. STX-elever, Alle Pre-IB elever"
+
+    // MARK: - Exam week (week 41)
+
+    static let examWeek = week([
+        tile("1g: Læsedag\n5/10-2026 Hele dagen"),
+        tile("International læredag (UNESCO)\n5/10-2026 Hele dagen"),
+        tile("Ændret!\nAP-læsedag\n5/10-2026 08:00 til 15:15\nHold: \(firstYears)"),
+        tile("1g: AP-eksamen\n6/10-2026 Hele dagen"),
+        tile("Ændret!\nMødetid AP prøve\n6/10-2026 07:40 til 08:00\nHold: Alle 1a-elever, Alle 1i-elever, Alle 1j-elever, Forlænget tid årgang 26-27\nLærere: KF, MI"),
+        tile("Ændret!\nAP-eksamen\n6/10-2026 08:00 til 11:35\nHold: \(firstYears)\nLærere: KF, MI, MLo\nLokaler: 060, 061, 062, 063, 064, 114"),
+        tile("Ændret!\nAp Eksamen\n6/10-2026 08:00 til 09:35\nHold: 1i ap la, 1j ap la\nLærere: AM, KF, LS, Mar, MI\nLokaler: 062, 064"),
+        tile("Ændret!\nNV-læsedag\n6/10-2026 12:00 til 7/10-2026 15:15\nHold: \(firstYears)"),
+        tile("1i, 1j: NV-eksamen\n7/10-2026 Hele dagen"),
+        tile("1g: Læsedag\n7/10-2026 Hele dagen"),
+        tile("Nørre Skriver (13:40-15:00)\n7/10-2026 Hele dagen"),
+        tile("Frivillig drama\n7/10-2026 13:40 til 15:15\nHold: \(wholeSchool), Frivillig Drama\nLærer: Julie Skov Nikolajsen (JN)\nLokale: 050"),
+        tile("MUN\n7/10-2026 13:45 til 15:15\nHold: MUN 26/27, MUN leadership\nLærere: Gr, Mar\nLokaler: 132, 134"),
+        tile("Ændret!\nNV-eksamen\n8/10-2026 08:00 til 16:00\nHold: \(firstYears), Alle Biologi-lærer\nLærer: MJ"),
+        tile("Efterårsferie\n10/10-2026 Hele dagen"),
+    ])
+
+    @Test func readingDayFillsTheDay() {
+        let plan = Self.plan("2026-10-05", in: Self.examWeek)
+        #expect(plan.slots.count == 1)
+        #expect(plan.slots.first?.main.first?.headline == "AP-læsedag")
+        #expect(plan.slots.first?.through?.number == 4)
+        #expect(plan.slots.first?.main.first?.markKind == .readingDay)
+        // "1g: Læsedag" repeats the block; the UNESCO day is a quiet note.
+        #expect(!plan.allDay.contains { $0.headline == "Læsedag" })
+        #expect(plan.observances.map(\.headline) == ["International læredag (UNESCO)"])
+    }
+
+    @Test func examThenReadingDay() {
+        let plan = Self.plan("2026-10-06", in: Self.examWeek)
+        #expect(plan.before.map(\.headline) == ["Mødetid AP prøve"])
+        #expect(plan.before.first?.isExam == false)
+        #expect(plan.slots.count == 2)
+
+        // Your AP lesson and the year's AP exam are one block, in your rooms.
+        let exam = plan.slots[0]
+        #expect(exam.main.first?.headline == "AP-eksamen")
+        #expect(exam.main.first?.room == "062, 064")
+        #expect(exam.main.first?.markKind == .exam)
+        #expect(exam.through?.number == 2)
+        #expect(exam.hours.start == "08:00" && exam.hours.end == "11:35")
+
+        // The reading day that starts at noon and goes on tomorrow.
+        let reading = plan.slots[1]
+        #expect(reading.main.first?.headline == "NV-læsedag")
+        #expect(reading.main.first?.dayShape == "starts")
+        #expect(reading.module.number == 3 && reading.through?.number == 4)
+        #expect(reading.main.first?.spanNote(on: "2026-10-06") == "Day 1 of 2 · until Wed 15:15")
+
+        #expect(!plan.allDay.contains { $0.headline == "AP-eksamen" })
+    }
+
+    @Test func examOverReadingDay() {
+        let plan = Self.plan("2026-10-07", in: Self.examWeek)
+        #expect(plan.slots.count == 1)
+        let block = plan.slots[0]
+        // The "Hele dagen" exam note for 1i, 1j is the day; the reading day
+        // is noted inside it.
+        #expect(block.main.first?.headline == "NV-eksamen")
+        #expect(block.main.first?.dayShape == "all")
+        #expect(block.through?.number == 4)
+        #expect(block.alongside.map(\.headline) == ["NV-læsedag"])
+        // Optional things are listed, not blocks.
+        let also = Set(plan.also.map(\.headline))
+        #expect(also.isSuperset(of: ["Frivillig drama", "MUN", "Nørre Skriver"]))
+        #expect(!plan.allDay.contains { $0.headline == "Læsedag" })
+    }
+
+    @Test func examRunsPastTheSchoolDay() {
+        let plan = Self.plan("2026-10-08", in: Self.examWeek)
+        #expect(plan.slots.count == 1)
+        #expect(plan.slots[0].main.first?.headline == "NV-eksamen")
+        #expect(plan.slots[0].through?.number == 4)
+        // 16:00 is 45 minutes past module 4's end: the block grows by it.
+        #expect(plan.slots[0].overrunAfter == 45)
+        #expect(plan.slots[0].hours.end == "16:00")
+    }
+
+    @Test func holidayIsTheDay() {
+        let plan = Self.plan("2026-10-10", in: Self.examWeek)
+        #expect(plan.slots.isEmpty)
+        #expect(plan.status.first?.headline == "Efterårsferie")
+        #expect(plan.status.first?.kind == .noSchool)
+    }
+
+    // MARK: - An ordinary day (Wednesday, week 38)
+
+    static let ordinaryWeek = week([
+        tile("Aflyst!\nSpansk\n16/9-2026 08:00 til 09:35\nHold: 1j SP 2\nLærer: Ana Garcia (AG)\nLokale: 062", cancelled: true),
+        tile("Intro to history 5\n16/9-2026 09:50 til 11:25\nHold: 1j hi\nLærer: Christian Egholm Hattens (Chr)\nLokale: 064"),
+        tile("Cells\n16/9-2026 11:55 til 13:30\nHold: 1j nv\nLærer: Jakob Damgaard (Ja)\nLokale: 012"),
+        tile("Frivillig billedkunst &amp; design\n16/9-2026 13:40 til 15:15\nHold: Alle 1. STX-elever, Alle 2. STX-elever, Alle 2i-elever, Alle 3. STX-elever\nLokale: 002"),
+        tile("Aflyst!\nFrivillig drama AFLYST\n16/9-2026 13:40 til 15:15\nHold: \(wholeSchool)", cancelled: true),
+        tile("MUN\n16/9-2026 13:45 til 15:15\nHold: MUN 26/27, MUN leadership"),
+        tile("1g og pre-IB: AP-stjerneløb\n16/9-2026 Hele dagen"),
+    ])
+
+    @Test func ordinaryDay() {
+        let plan = Self.plan("2026-09-16", in: Self.ordinaryWeek)
+        // Free (Spanish cancelled), History, Science; module 4 has only
+        // optional things, so the day ends after 3.
+        #expect(plan.slots.count == 3)
+        #expect(plan.slots[0].isFree)
+        #expect(plan.slots[0].cancelled.first?.headline == "Spanish")
+        #expect(plan.slots[1].main.first?.headline == "History")
+        #expect(plan.slots[2].main.first?.headline == "Science (NV)")
+
+        let also = plan.also.map(\.headline)
+        #expect(also.contains("Frivillig billedkunst & design"))   // "&amp;" decoded
+        #expect(also.contains("MUN"))
+        #expect(plan.allDay.map(\.headline) == ["AP-stjerneløb"])
+    }
+
+    // MARK: - The end of the school day
+
+    @Test func lateModuleIsAfterSchool() {
+        var tiles: [String] = []
+        let days = ["21/9", "22/9", "23/9", "24/9", "25/9"]
+        let modules = [("08:00", "09:35"), ("09:50", "11:25"), ("11:55", "13:30"), ("13:40", "15:15")]
+        for day in days {
+            for (n, m) in modules.enumerated() {
+                tiles.append(Self.tile("Lesson \(n + 1)\n\(day)-2026 \(m.0) til \(m.1)\nHold: 1j ma"))
+            }
+        }
+        // The maths study hall, once a week in the late module.
+        tiles.append(Self.tile("Math Study Hall\n21/9-2026 15:20 til 16:10\nHold: 1j ma"))
+        let week = Self.week(tiles)
+
+        #expect(week.dayModules.map(\.number) == [1, 2, 3, 4])
+        let day = week.days.first { $0.date == "2026-09-21" }!
+        let plan = DayPlan.build(day, modules: week.dayModules, className: "1j")
+        #expect(plan.slots.count == 4)
+        #expect(plan.after.first?.topic == "Math Study Hall")
+    }
+
+    // MARK: - Words
+
+    @Test func kindsOfThings() {
+        #expect(Lesson(title: "AP-eksamen").kind == .exam)
+        #expect(Lesson(title: "2g: Terminsprøver").kind == .exam)
+        #expect(Lesson(title: "Mødetid AP prøve").kind != .exam)
+        #expect(Lesson(title: "Test af brandalarm").kind != .exam)
+        #expect(Lesson(title: "Delvis offentliggørelse af eksamensplan").kind != .exam)
+        #expect(Lesson(title: "NV-læsedag").kind == .readingDay)
+        #expect(Lesson(title: "Pre-IB intro trip").kind == .trip)
+        #expect(Lesson(title: "Efterårsferie").kind == .noSchool)
+        #expect(Lesson(title: "Autumn break").kind == .noSchool)
+        #expect(Lesson(title: "Verdensdag for Vand").kind == .observance)
+        #expect(Lesson(title: "Personalemøde").kind == .staffOnly)
+        // A lesson's topic that says "test" is still a lesson.
+        #expect(Lesson(code: "ap la", title: "Practice test", team: "1j ap la").isExam == false)
+    }
+
+    @Test func whoseItIs() {
+        let readingDay = Lesson(title: "AP-læsedag", team: Self.firstYears)
+        #expect(readingDay.isFor(className: "1j"))
+        // 1x isn't named, but every year group named is theirs.
+        #expect(readingDay.isFor(className: "1x"))
+        #expect(!readingDay.isFor(className: "2b"))
+        // Open to the whole school: optional.
+        #expect(!Lesson(title: "Danseaudition", team: Self.wholeSchool).isFor(className: "1j"))
+        #expect(!Lesson(title: "Frivillig drama", team: "Alle 1j-elever").isFor(className: "1j"))
+        #expect(Lesson(title: "1i, 1j: NV-eksamen").isFor(className: "1j"))
+        #expect(!Lesson(title: "1i, 1j: NV-eksamen").isFor(className: "1x"))
+    }
+
+    // MARK: - Over several days
+
+    @Test func dayOfHowMany() {
+        let trip = Lesson(title: "Pre-IB intro trip", team: "1i kl, 1j kl",
+                          span: "2026-09-02 08:00|2026-09-03 16:00")
+        #expect(trip.spanNote(on: "2026-09-02") == "Day 1 of 2 · until Thu 16:00")
+        #expect(trip.spanNote(on: "2026-09-03") == "Day 2 of 2 · until 16:00")
+        // Midnight to midnight: the last day is the day before.
+        let holiday = Lesson(title: "Vinterferie", span: "2027-02-15 00:00|2027-02-20 00:00")
+        #expect(holiday.spanNote(on: "2027-02-19") == "Day 5 of 5")
+        #expect(holiday.spanNote(on: "2027-02-20") == nil)
+    }
+
+    // MARK: - Other schools
+
+    @Test func classNamesWrittenOtherWays() {
+        defer { ClassNames.use("1j") }
+
+        ClassNames.use("1.a")
+        #expect(Lesson(code: "da", title: "x", team: "1.a da").isClassLesson)
+        #expect(!Lesson(code: "", title: "MUN", team: "MUN leadership").isClassLesson)
+
+        ClassNames.use("HF1b")
+        #expect(Lesson(code: "en", title: "x", team: "HF1b en").isClassLesson)
+        #expect(ClassNames.year(of: "HF1b") == "1")
+
+        // The usual kind always counts.
+        ClassNames.use("1j")
+        #expect(Lesson(code: "ma", title: "x", team: "1j ma").isClassLesson)
+        #expect(Lesson(code: "ap la", title: "x", team: "1i ap la, 1j ap la").isClassLesson)
+    }
+
+    // MARK: - Danish time
+
+    @Test func todayIsDanish() throws {
+        // 23:30 in London on 5 October is already the 6th in Copenhagen.
+        let late = try #require(ISO8601DateFormatter().date(from: "2026-10-05T23:30:00Z"))
+        #expect(LectioDates.isoString(from: late) == "2026-10-06")
+    }
+
+    // MARK: - Parsing
+
+    @Test func tooltip() {
+        let t = LectioParser.parseTooltip(
+            "Ændret!\nAp Eksamen\n6/10-2026 08:00 til 09:35\nHold: 1i ap la, 1j ap la\nLærere: AM, KF, LS\nLokaler: 062, 064")
+        #expect(t.changed)
+        #expect(t.title == "Ap Eksamen")
+        #expect(t.date == "2026-10-06")
+        #expect(t.start == "08:00" && t.end == "09:35")
+        #expect(t.room == "062, 064")
+        #expect(t.teacherInitials == "AM, KF, LS")
+
+        let multi = LectioParser.parseTooltip("NV-læsedag\n6/10-2026 12:00 til 7/10-2026 15:15\nHold: 1j")
+        #expect(multi.endDate == "2026-10-07")
+        #expect(multi.start == "12:00" && multi.end == "15:15")
+    }
+
+    @Test func absenceTables() {
+        let brik = { (date: String) in
+            "<a class='s2skemabrik' data-tooltip='\(date) 08:00 til 09:35\nHold: 1j nv\nLærer: Jakob Damgaard (Ja)\nLokale: 012'>"
+            + "<span class='ls-fonticon'>sms</span><span class='ls-fonticon'>bookmark</span>"
+            + "<div class='OnlyDesktop'>ti 15/9 1. modul - 1j nv</div></a>"
+        }
+        let html = """
+        <table id='s_m_Content_Content_FatabMissingAarsagerGV'>
+          <tr><th class='OnlyDesktop'>Uge</th><th>Aktivitet</th><th class='OnlyDesktop'>Fravær</th>
+              <th class='OnlyDesktop'>Bemærkning</th><th class='OnlyMobile'>Fravær</th><th class='OnlyDesktop'></th></tr>
+          <tr><td class='OnlyDesktop'>38</td><td>\(brik("15/9-2026"))</td><td class='OnlyDesktop'>Fravær 50%</td>
+              <td class='OnlyDesktop'></td><td class='OnlyMobile'>50%</td>
+              <td class='OnlyDesktop'><a href='/lectio/21/fravaer_aarsag.aspx?id=1'><span class='ls-fonticon'>edit</span></a></td></tr>
+        </table>
+        <table id='s_m_Content_Content_FatabAbsenceFravaerGV'>
+          <tr><th class='OnlyDesktop'>Uge</th><th>Aktivitet</th><th class='OnlyDesktop'>Fravær</th>
+              <th class='OnlyDesktop'>Registreret</th><th class='OnlyDesktop'>Bemærkning</th>
+              <th class='OnlyDesktop'>Fraværsårsag<br>Kommentar</th><th class='OnlyMobile'>Fravær</th><th class='OnlyDesktop'></th></tr>
+          <tr><td class='OnlyDesktop'>38</td><td>\(brik("16/9-2026"))</td><td class='OnlyDesktop'>Fravær 100%</td>
+              <td class='OnlyDesktop'><span>16/9-2026</span> Chr</td><td class='OnlyDesktop'></td>
+              <td class='OnlyDesktop'> Andet<br> I was like 5 minutes late<br> </td>
+              <td class='OnlyMobile'>100% Andet</td>
+              <td class='OnlyDesktop'><a href='/lectio/21/fravaer_aarsag.aspx?id=2'>edit</a></td></tr>
+        </table>
+        """
+        let records = LectioParser.parseAbsenceRecords(html)
+        let missing = records.first { $0.needsReason }
+        let registered = records.first { !$0.needsReason }
+        #expect(missing?.percent == "50%")
+        #expect(missing?.module == "Module 1")
+        #expect(registered?.percent == "100%")
+        #expect(registered?.reason == "Andet")
+        #expect(registered?.comment == "I was like 5 minutes late")
+        #expect(registered?.registered.hasPrefix("16/9-2026") == true)
+    }
+}
