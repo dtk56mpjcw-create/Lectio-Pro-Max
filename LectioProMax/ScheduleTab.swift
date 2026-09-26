@@ -526,37 +526,67 @@ struct WeekOverview: View {
     }
 
     private func dayRow(_ day: ScheduleDay) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 7) {
+        let held = day.lessons.filter { !$0.cancelled }
+        let span: String = {
+            let starts = held.filter { $0.startMinutes != nil }.map(\.start).sorted()
+            let ends = held.filter { $0.endMinutes != nil }.map(\.end).sorted()
+            guard let first = starts.first, let last = ends.last else { return "" }
+            return first + "–" + last
+        }()
+        let today = isToday(day)
+
+        return VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
                 Text(dayName(day).uppercased())
                     .font(.system(size: 13, weight: .heavy))
                     .tracking(0.7)
-                    .foregroundStyle(isToday(day) ? Palette.accent : Color(.secondaryLabel))
+                    .foregroundStyle(today ? Palette.accent : Color(.secondaryLabel))
                 Text(dayNum(day))
                     .font(.system(size: 18.5, weight: .bold))
+                    .foregroundStyle(today ? Palette.accent : Color.primary)
                 Spacer()
-                Text("\(day.lessons.count)")
-                    .font(.system(size: 14, weight: .semibold))
+                Text(day.lessons.isEmpty ? "Free" : span)
+                    .font(.system(size: 13.5, weight: .semibold))
                     .foregroundStyle(.secondary)
+                    .monospacedDigit()
             }
             if !day.lessons.isEmpty {
-                VStack(alignment: .leading, spacing: 5) {
-                    ForEach(day.lessons.prefix(4)) { lesson in
-                        HStack(spacing: 7) {
-                            SubjectDot(code: lesson.code, size: 6)
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(day.lessons.prefix(6)) { lesson in
+                        HStack(spacing: 8) {
+                            SubjectDot(code: lesson.code, size: 7)
+                                .opacity(lesson.cancelled ? 0.35 : 1)
                             Text(lesson.start)
                                 .font(.system(size: 13, weight: .medium))
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
-                            Text(lesson.displayTitle)
-                                .font(.system(size: 14))
+                                .frame(width: 40, alignment: .leading)
+                            Text(lesson.headline)
+                                .font(.system(size: 14.5, weight: .medium))
                                 .lineLimit(1)
                                 .strikethrough(lesson.cancelled)
-                            Spacer(minLength: 0)
+                                .foregroundStyle(lesson.cancelled ? Color(.secondaryLabel) : Color.primary)
+                            if !lesson.homework.isEmpty && !lesson.cancelled {
+                                Image(systemName: "book.closed.fill")
+                                    .font(.system(size: 10.5))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 4)
+                            if lesson.cancelled {
+                                Text("Cancelled")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.red)
+                            } else if !lesson.room.isEmpty {
+                                Text(LessonText.abbreviated(lesson.room))
+                                    .font(.system(size: 12.5, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                                    .lineLimit(1)
+                            }
                         }
                     }
-                    if day.lessons.count > 4 {
-                        Text("+\(day.lessons.count - 4) more")
+                    if day.lessons.count > 6 {
+                        Text("+\(day.lessons.count - 6) more")
                             .font(.system(size: 12.5, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
@@ -566,6 +596,12 @@ struct WeekOverview: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentCard(radius: Metrics.inner + 3)
+        .overlay {
+            if today {
+                RoundedRectangle(cornerRadius: Metrics.inner + 3, style: .continuous)
+                    .strokeBorder(Palette.accent.opacity(0.55), lineWidth: 1.5)
+            }
+        }
     }
 
     private func parts(_ d: ScheduleDay) -> [String] { d.label.split(separator: " ").map(String.init) }
@@ -581,236 +617,6 @@ struct WeekOverview: View {
 enum CardSheet: Int, Identifiable {
     case lesson, event
     var id: Int { rawValue }
-}
-
-struct LessonCard: View {
-    let lesson: Lesson
-    let dayISO: String
-    @EnvironmentObject private var session: LectioSession
-    @Environment(\.colorScheme) private var scheme
-    @Environment(LessonOpener.self) private var opener: LessonOpener?
-    @State private var editingEvent = false
-
-    private var route: LessonRoute { LessonRoute(lesson: lesson, dayISO: dayISO) }
-    private var state: LessonState { lesson.state(onDay: dayISO) }
-    private var tint: Color {
-        lesson.isPrivateEvent ? Color.secondary : Color.forSubject(lesson.code)
-    }
-    private var stripe: Color {
-        lesson.isPrivateEvent ? Color.secondary : Color.subjectStripe(lesson.code, in: scheme)
-    }
-    /// Only a subject with a colour of its own gets the wash. Grey on the
-    /// grey page measured 1.01:1 — the card simply vanished into the background.
-    private var washed: Bool {
-        !lesson.isPrivateEvent && !lesson.cancelled && state != .past
-            && SubjectPalette.isAssigned(lesson.code)
-    }
-
-    var body: some View {
-        // Buttons: the day pages in a real scroll view, which cancels the
-        // press the moment a swipe starts. Lessons push through the opener.
-        if lesson.isPrivateEvent {
-            // Your own event is something to edit, so it stays a sheet.
-            Button { editingEvent = true } label: { card }
-                .buttonStyle(PressableCard())
-                .sheet(isPresented: $editingEvent) {
-                    NewEventSheet(dayISO: dayISO, eventID: lesson.privateEventID) {
-                        session.retryWeek(LectioDates.weekCode(iso: dayISO))
-                    }
-                    .environmentObject(session)
-                }
-        } else {
-            Button { opener?.open(route) } label: { card }
-                .buttonStyle(PressableCard())
-        }
-    }
-
-    private var card: some View {
-        HStack(alignment: .top, spacing: 13) {
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(lesson.start)
-                    .font(.system(size: 16.5, weight: .semibold))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                Text(lesson.end)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-            .frame(width: 58, alignment: .trailing)
-            .fixedSize(horizontal: true, vertical: false)
-
-            // Calendar's event stripe: a solid bar in the subject colour. The
-            // colour lives here and in the faint wash behind the card — never in
-            // the text, which stays in the system's own label colours.
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(lesson.cancelled ? Color(.tertiaryLabel) : stripe.opacity(state == .past ? 0.4 : 1))
-                .frame(width: 4)
-
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 7) {
-                    if lesson.isPrivateEvent {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    Text(lesson.displayTitle)
-                        .font(.system(size: 18.5, weight: .semibold))
-                        .strikethrough(lesson.cancelled)
-                        .foregroundStyle(lesson.cancelled ? Color(.secondaryLabel) : Color.primary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    Spacer(minLength: 0)
-                    if state == .current {
-                        Text("NOW")
-                            .font(.system(size: 11.5, weight: .heavy))
-                            .foregroundStyle(.primary)
-                    }
-                }
-
-                Text(metaLine)
-                    .font(.system(size: 14.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-
-                if !lesson.homework.isEmpty {
-                    previewLine("book", lesson.homework)
-                }
-                if !lesson.note.isEmpty {
-                    previewLine("text.bubble", lesson.note)
-                }
-            }
-        }
-        .padding(15)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        // A lesson that's over loses its colour — a paler stripe and no wash —
-        // but never its legibility. Fading the whole card to half opacity took
-        // the text with it, well below readable contrast; Calendar doesn't fade
-        // past events at all.
-        .background {
-            RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous)
-                .fill(tint.opacity(washed ? 0.08 : 0))
-        }
-        .contentCard(radius: Metrics.inner + 4)
-        .contentShape(RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous))
-        // A button's label takes the accent colour otherwise, and every
-        // `.secondary` inside would turn faintly blue with it.
-        .foregroundStyle(.primary)
-    }
-
-    private var metaLine: String {
-        var bits: [String] = []
-        if lesson.isPrivateEvent { bits.append("Private event") }
-        // Skip the code when it's already standing in as the title.
-        if !lesson.code.isEmpty && !lesson.title.isEmpty {
-            bits.append(LessonText.abbreviated(lesson.code).uppercased())
-        }
-        if !lesson.room.isEmpty { bits.append(LessonText.abbreviated(lesson.room)) }
-        if !lesson.teacher.isEmpty { bits.append(LessonText.abbreviated(lesson.teacher)) }
-        if lesson.cancelled { bits.append("Cancelled") }
-        else if lesson.changed { bits.append("Changed") }
-        return bits.joined(separator: " · ")
-    }
-
-    private func previewLine(_ icon: String, _ text: String) -> some View {
-        HStack(alignment: .top, spacing: 5) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .padding(.top, 1.5)
-            Text(LectioDates.tidy(text))
-                .font(.system(size: 14.5))
-                .foregroundStyle(.secondary)
-                .lineLimit(3)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-}
-
-/// Narrow card used when two lessons share a time slot.
-struct CompactLessonCard: View {
-    let lesson: Lesson
-    let dayISO: String
-    @EnvironmentObject private var session: LectioSession
-    @Environment(LessonOpener.self) private var opener: LessonOpener?
-    @State private var editingEvent = false
-
-    private var route: LessonRoute { LessonRoute(lesson: lesson, dayISO: dayISO) }
-    private var state: LessonState { lesson.state(onDay: dayISO) }
-    private var tint: Color {
-        lesson.isPrivateEvent ? Color.secondary : Color.forSubject(lesson.code)
-    }
-    private var washed: Bool {
-        !lesson.isPrivateEvent && !lesson.cancelled && state != .past
-            && SubjectPalette.isAssigned(lesson.code)
-    }
-
-    var body: some View {
-        if lesson.isPrivateEvent {
-            Button { editingEvent = true } label: { compactCard }
-                .buttonStyle(PressableCard())
-                .sheet(isPresented: $editingEvent) {
-                    NewEventSheet(dayISO: dayISO, eventID: lesson.privateEventID) {
-                        session.retryWeek(LectioDates.weekCode(iso: dayISO))
-                    }
-                    .environmentObject(session)
-                }
-        } else {
-            Button { opener?.open(route) } label: { compactCard }
-                .buttonStyle(PressableCard())
-        }
-    }
-
-    private var compactCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 5) {
-                    if lesson.isPrivateEvent {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        SubjectDot(code: lesson.code, size: 6)
-                    }
-                    Text(lesson.start)
-                        .font(.system(size: 14.5, weight: .semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 0)
-                    if state == .current {
-                        Text("NOW")
-                            .font(.system(size: 11, weight: .heavy))
-                            .foregroundStyle(.primary)
-                    }
-                }
-                Text(lesson.displayTitle)
-                    .font(.system(size: 16, weight: .semibold))
-                    .strikethrough(lesson.cancelled)
-                    .foregroundStyle(lesson.cancelled ? Color(.secondaryLabel) : Color.primary)
-                    .lineLimit(3)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text(meta)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .padding(13)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background {
-                RoundedRectangle(cornerRadius: Metrics.inner + 2, style: .continuous)
-                    .fill(tint.opacity(washed ? 0.08 : 0))
-            }
-            .contentCard(radius: Metrics.inner + 2)
-            .contentShape(RoundedRectangle(cornerRadius: Metrics.inner + 2, style: .continuous))
-            .foregroundStyle(.primary)
-    }
-
-    private var meta: String {
-        var bits: [String] = []
-        if !lesson.room.isEmpty { bits.append(LessonText.abbreviated(lesson.room)) }
-        if !lesson.teacher.isEmpty { bits.append(LessonText.abbreviated(lesson.teacher)) }
-        return bits.joined(separator: " · ")
-    }
 }
 
 /// Shown while a week is still being fetched — and, if the fetch failed, as a
@@ -849,35 +655,6 @@ struct WeekPlaceholder: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 80)
             }
-        }
-    }
-}
-
-/// The day's lessons as a list.
-///
-/// Equatable so a page rebuilds its cards only when its own day changes, not on
-/// every update to the session around it.
-struct DayList: View, Equatable {
-    let day: ScheduleDay?
-
-    static func == (lhs: DayList, rhs: DayList) -> Bool { lhs.day == rhs.day }
-
-    var body: some View {
-        if let day = day, !day.lessons.isEmpty {
-            ForEach(LessonCluster.build(day.lessons)) { cluster in
-                if cluster.lessons.count == 1 {
-                    LessonCard(lesson: cluster.lessons[0], dayISO: day.date)
-                } else {
-                    // Lessons sharing a slot sit side by side.
-                    HStack(alignment: .top, spacing: 9) {
-                        ForEach(cluster.lessons) { lesson in
-                            CompactLessonCard(lesson: lesson, dayISO: day.date)
-                        }
-                    }
-                }
-            }
-        } else {
-            EmptyNotice(icon: "sun.max", text: "Nothing scheduled")
         }
     }
 }

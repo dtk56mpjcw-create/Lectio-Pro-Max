@@ -181,4 +181,9 @@ enum SubjectNames {
     static func name(forKey key: String) -> String {
         names[key] ?? key.uppercased()
     }
+
+    /// The name only when the app actually knows the subject.
+    static func knownName(forKey key: String) -> String? {
+        names[key]
+    }
 }
