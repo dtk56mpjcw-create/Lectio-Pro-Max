@@ -123,7 +123,7 @@ struct MeTab: View {
             value = "–"
             caption = " "
         }
-        return MeTile(title: "Absence", icon: "calendar.badge.exclamationmark", tint: .orange,
+        return MeTile(title: "Absence", icon: "calendar.badge.exclamationmark", tint: Palette.warning,
                       value: value, caption: caption, captionTint: captionTint)
     }
 

@@ -167,7 +167,7 @@ struct StudentCardScreen: View {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let live = qrAt.map { context.date.timeIntervalSince($0) < card.qrInterval * 2 + 10 } ?? false
                 HStack(spacing: 6) {
-                    Circle().fill(live ? Color.green : Color.orange).frame(width: 7, height: 7)
+                    Circle().fill(live ? Palette.positive : Palette.warning).frame(width: 7, height: 7)
                     Text((live ? "Live from Lectio · " : "Not updated · ")
                          + context.date.formatted(date: .omitted, time: .standard))
                         .monospacedDigit()

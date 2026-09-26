@@ -548,7 +548,7 @@ struct ThreadRow: View {
                     if thread.flagged {
                         Image(systemName: "flag.fill")
                             .font(.system(size: 11.5))
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Palette.warning)
                     }
                     if thread.hasAttachment {
                         Image(systemName: "paperclip")

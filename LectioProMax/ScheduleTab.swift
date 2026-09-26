@@ -77,6 +77,9 @@ struct ScheduleTab: View {
     /// last lessons stuck under the bar.
     @State private var safeBottom: CGFloat = 0
     private var bottomInset: CGFloat { max(safeBottom, 84) }
+    /// Where the tab bar starts, in points from the top of the screen. Each
+    /// page measures itself against it (see `barClearance`).
+    @State private var barLine: CGFloat = 0
 
     /// Eight months either side of today. The pages are lazy, so the length
     /// costs nothing.
@@ -257,13 +260,22 @@ struct ScheduleTab: View {
         } action: { inset in
             safeBottom = inset
         }
+        // The bottom of the area the tab bar leaves free. Whichever frame
+        // this sees — the one inside the safe area or the one the pagers
+        // stretch to — taking off what it reports as under the bar lands on
+        // the same line.
+        .onGeometryChange(for: CGFloat.self) { geometry in
+            (geometry.frame(in: .global).maxY - geometry.safeAreaInsets.bottom).rounded()
+        } action: { line in
+            barLine = line
+        }
     }
 
     private func dayPager(_ proxy: ScrollViewProxy) -> some View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
                 ForEach(Self.days, id: \.self) { date in
-                    DayPage(date: date, bottomInset: bottomInset)
+                    DayPage(date: date, bottomInset: bottomInset, barLine: barLine)
                         .containerRelativeFrame([.horizontal, .vertical])
                 }
             }
@@ -282,7 +294,7 @@ struct ScheduleTab: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
                 ForEach(Self.weeks, id: \.self) { monday in
-                    WeekPage(monday: monday, bottomInset: bottomInset) { date in
+                    WeekPage(monday: monday, bottomInset: bottomInset, barLine: barLine) { date in
                         pick(date)
                     }
                     .containerRelativeFrame([.horizontal, .vertical])
@@ -458,6 +470,9 @@ private struct DayPage: View {
     @EnvironmentObject private var session: LectioSession
     let date: String
     let bottomInset: CGFloat
+    let barLine: CGFloat
+    /// Where this page's scroll view ends, from the top of the screen.
+    @State private var pageBottom: CGFloat = 0
 
     var body: some View {
         let code = LectioDates.weekCode(iso: date)
@@ -477,14 +492,33 @@ private struct DayPage: View {
                 }
                 .padding(.horizontal, Metrics.margin)
                 .padding(.top, 8)
-                .padding(.bottom, bottomInset + 24)
+                .padding(.bottom, barClearance(pageBottom: pageBottom, barLine: barLine,
+                                               atLeast: bottomInset) + 24)
             }
+        }
+        .onGeometryChange(for: CGFloat.self) { geometry in
+            geometry.frame(in: .global).maxY.rounded()
+        } action: { bottom in
+            pageBottom = bottom
         }
         .scrollIndicators(.hidden)
         // The system's own pull to refresh, the work in a task of its own so
         // an update mid-refresh can't cancel it.
         .refreshable { await Task { await session.refresh() }.value }
     }
+}
+
+/// How far the end of a page's content has to stay above the page's bottom
+/// edge to scroll clear of the tab bar: however much of the page the bar
+/// covers. Measured rather than assumed, because a page can reach past the
+/// bottom of the screen — the pager makes it as tall as the screen and then
+/// sets it below the navigation bar — and a fixed allowance for the bar
+/// alone left the last lesson or event half under it on long days.
+fileprivate func barClearance(pageBottom: CGFloat, barLine: CGFloat, atLeast floor: CGFloat) -> CGFloat {
+    guard pageBottom > 0, barLine > 0 else { return floor }
+    // A frame caught mid-transition can read oddly; never less than the
+    // bar itself, never absurdly more.
+    return min(max(pageBottom - barLine, floor), 400)
 }
 
 /// A page's title, where the other tabs have their large titles: 34 pt
@@ -523,7 +557,9 @@ private struct WeekPage: View {
     @EnvironmentObject private var session: LectioSession
     let monday: String
     let bottomInset: CGFloat
+    let barLine: CGFloat
     var onPick: (String) -> Void
+    @State private var pageBottom: CGFloat = 0
 
     var body: some View {
         ScrollView {
@@ -534,7 +570,13 @@ private struct WeekPage: View {
                 WeekOverview(weekCode: LectioDates.weekCode(iso: monday), monday: monday, onPick: onPick)
             }
             .padding(.top, 8)
-            .padding(.bottom, bottomInset + 24)
+            .padding(.bottom, barClearance(pageBottom: pageBottom, barLine: barLine,
+                                           atLeast: bottomInset) + 24)
+        }
+        .onGeometryChange(for: CGFloat.self) { geometry in
+            geometry.frame(in: .global).maxY.rounded()
+        } action: { bottom in
+            pageBottom = bottom
         }
         .scrollIndicators(.hidden)
         .refreshable { await Task { await session.refresh() }.value }
@@ -749,7 +791,7 @@ private struct WeekGrid: View {
                     Image(systemName: "book.closed.fill").font(.system(size: 8.5))
                 }
                 if let lesson, lesson.changed && lesson.isClassLesson {
-                    Circle().fill(.orange).frame(width: 5, height: 5)
+                    Circle().fill(Palette.warning).frame(width: 5, height: 5)
                 }
             }
             .foregroundStyle(.secondary)
