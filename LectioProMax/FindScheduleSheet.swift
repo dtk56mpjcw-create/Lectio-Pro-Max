@@ -254,7 +254,7 @@ struct TargetScheduleSheet: View {
     @State private var errorMessage: String?
 
     private var weekCode: String {
-        let day = Calendar.current.date(byAdding: .day, value: weekOffset * 7, to: Date()) ?? Date()
+        let day = LectioDates.calendar.date(byAdding: .day, value: weekOffset * 7, to: Date()) ?? Date()
         return LectioDates.weekCode(for: day)
     }
 

@@ -121,6 +121,8 @@ struct NewEventSheet: View {
                 .font(.system(size: 16, weight: .medium))
                 .disabled(saving)
         }
+        // Lectio keeps Danish times; show them as such on any phone.
+        .environment(\.timeZone, LectioDates.timeZone)
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentCard(radius: Metrics.inner + 2)
@@ -204,7 +206,7 @@ struct NewEventSheet: View {
     private func combine(_ iso: String, _ time: String) -> Date? {
         guard let day = LectioDates.date(fromISO: iso) else { return nil }
         let pieces = time.split(separator: ":")
-        let calendar = Calendar.current
+        let calendar = LectioDates.calendar
         var components = calendar.dateComponents([.year, .month, .day], from: day)
         components.hour = pieces.count > 0 ? Int(pieces[0]) ?? 0 : 0
         components.minute = pieces.count > 1 ? Int(pieces[1]) ?? 0 : 0
@@ -229,7 +231,7 @@ struct NewEventSheet: View {
     /// Start on the day you were looking at, at the next whole hour.
     private func prime() {
 
-        let calendar = Calendar.current
+        let calendar = LectioDates.calendar
         let base = LectioDates.date(fromISO: dayISO) ?? Date()
         var components = calendar.dateComponents([.year, .month, .day], from: base)
 

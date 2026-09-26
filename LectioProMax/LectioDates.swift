@@ -58,6 +58,18 @@ enum LectioDates {
     private static let utcTimeZone = TimeZone(identifier: "UTC") ?? TimeZone.current
     private static let posix = Locale(identifier: "en_US_POSIX")
 
+    /// Lectio's times are Danish wall-clock times, wherever the phone is.
+    /// "Today", "now", deadlines and reminders all go by this, so a study
+    /// trip in another time zone doesn't shift the day by an hour or six.
+    static let timeZone = TimeZone(identifier: "Europe/Copenhagen") ?? TimeZone.current
+
+    /// A calendar on Danish time, for anything built from Lectio's dates.
+    static let calendar: Calendar = {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = timeZone
+        return cal
+    }()
+
     private static let utcCalendar: Calendar = {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = utcTimeZone
@@ -66,14 +78,14 @@ enum LectioDates {
 
     private static let isoWeekCalendar: Calendar = {
         var cal = Calendar(identifier: .iso8601)
-        cal.timeZone = TimeZone.current
+        cal.timeZone = timeZone
         return cal
     }()
 
     private static func formatter(_ format: String, utc: Bool = true) -> DateFormatter {
         let fmt = DateFormatter()
         fmt.locale = posix
-        if utc { fmt.timeZone = utcTimeZone }
+        fmt.timeZone = utc ? utcTimeZone : timeZone
         fmt.dateFormat = format
         return fmt
     }

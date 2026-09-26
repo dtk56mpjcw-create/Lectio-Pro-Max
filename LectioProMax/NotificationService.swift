@@ -67,7 +67,8 @@ enum NotificationService {
                                  timing: ReminderTiming,
                                  centre: UNUserNotificationCenter) {
         guard let due = item.due, let dueDate = LectioDates.date(fromISO: due) else { return }
-        let calendar = Calendar.current
+        // Danish time, like the deadline itself.
+        let calendar = LectioDates.calendar
 
         var day = dueDate
         var hour = 18
@@ -98,8 +99,11 @@ enum NotificationService {
         if !item.dueTime.isEmpty { content.subtitle = "Due at " + item.dueTime }
         content.sound = .default
 
+        // With its calendar and time zone, so it fires at that Danish time
+        // even on a phone set to another zone.
         let trigger = UNCalendarNotificationTrigger(
-            dateMatching: calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fire),
+            dateMatching: calendar.dateComponents([.calendar, .timeZone, .year, .month, .day, .hour, .minute],
+                                                  from: fire),
             repeats: false)
         centre.add(UNNotificationRequest(identifier: workPrefix + item.key,
                                          content: content,

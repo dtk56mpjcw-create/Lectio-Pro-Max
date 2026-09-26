@@ -80,7 +80,8 @@ extension Lesson {
         return .upcoming
     }
 
-    static let sharedCalendar = Calendar.current
+    /// Danish time: Lectio's lesson times are (see LectioDates.timeZone).
+    static let sharedCalendar = LectioDates.calendar
 
     static func minutes(from hhmm: String) -> Int? {
         let parts = hhmm.split(separator: ":")

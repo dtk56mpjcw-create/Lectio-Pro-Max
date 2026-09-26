@@ -127,7 +127,7 @@ extension WorkItem {
         } else {
             comps.hour = 23; comps.minute = 59
         }
-        return Calendar.current.date(from: comps)
+        return LectioDates.calendar.date(from: comps)
     }
 
     func deadlineStatus(now: Date = Date(), markedDone: Bool = false) -> DeadlineStatus {
@@ -136,7 +136,7 @@ extension WorkItem {
         guard let due = dueDate else { return DeadlineStatus(text: "Hand-in", tone: .calm) }
 
         let seconds = due.timeIntervalSince(now)
-        let calendar = Calendar.current
+        let calendar = LectioDates.calendar
         let at = dueTime.isEmpty ? "" : " · " + dueTime
 
         if seconds < 0 {
