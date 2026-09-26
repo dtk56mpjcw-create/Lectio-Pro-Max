@@ -483,9 +483,11 @@ private struct DayPage: View {
                     PageHeading(title: ScheduleTab.dayTitle(date),
                                 subtitle: ScheduleTab.daySubtitle(date))
                     if let week = session.snapshot.weeks[code] {
+                        let className = session.snapshot.profile.className
                         DayList(day: week.days.first { $0.date == date },
                                 modules: week.dayModules,
-                                className: session.snapshot.profile.className)
+                                className: className,
+                                rolling: week.rollingNotes(className: className))
                             .equatable()
                     } else {
                         WeekPlaceholder(weekCode: code)

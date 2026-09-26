@@ -20,7 +20,10 @@ struct WeekAgenda: View {
         let today = LectioDates.isoString(from: Date())
         let dates = Self.dates(in: week, monday: monday)
         let modules = week.dayModules
-        let plans = dates.map { Self.plan(for: $0, in: week, modules: modules, className: className) }
+        let rolling = week.rollingNotes(className: className)
+        let plans = dates.map {
+            Self.plan(for: $0, in: week, modules: modules, className: className, rolling: rolling)
+        }
         // Past days fold only while something in this week is still to
         // come; looking back at a finished week, you want all of it.
         let stillAhead = dates.contains { $0 >= today }
@@ -59,10 +62,11 @@ struct WeekAgenda: View {
     }
 
     static func plan(for date: String, in week: ScheduleWeek,
-                     modules: [ScheduleModule], className: String) -> DayPlan {
+                     modules: [ScheduleModule], className: String,
+                     rolling: Set<String> = []) -> DayPlan {
         let day = week.days.first { $0.date == date }
             ?? ScheduleDay(date: date, label: LectioDates.dayLabel(iso: date), lessons: [])
-        return DayPlan.build(day, modules: modules, className: className)
+        return DayPlan.build(day, modules: modules, className: className, rolling: rolling)
     }
 
     /// Under the week's title: "21 – 25 Sep · 19 lessons · 6 with homework".

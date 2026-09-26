@@ -154,6 +154,21 @@ extension ScheduleWeek {
         return byClock.isEmpty ? modules : byClock
     }
 
+    /// Notes that run through the week for others in turn — "1g:
+    /// Introture" on all five days while each class goes on its own two
+    /// — by name: on three weekdays or more and not meant for your class.
+    /// A day with lessons of yours leaves them out; Lectio puts them on
+    /// everyone's schedule every day.
+    func rollingNotes(className: String) -> Set<String> {
+        var datesByName: [String: Set<String>] = [:]
+        for day in days where LectioDates.isWeekday(iso: day.date) {
+            for item in day.lessons where item.isAllDay && !item.isFor(className: className) {
+                datesByName[Lesson.squashed(item.headline), default: []].insert(day.date)
+            }
+        }
+        return Set(datesByName.filter { $0.value.count >= 3 }.map(\.key))
+    }
+
     private static let dayEndKey = "schedule.dayEndModule"
 
     fileprivate static var rememberedDayEnd: Int? {
@@ -342,7 +357,8 @@ struct DayPlan {
 
     /// `modules` are the school day's (ScheduleWeek.dayModules); anything
     /// later lands under "After school".
-    static func build(_ day: ScheduleDay, modules: [ScheduleModule], className: String) -> DayPlan {
+    static func build(_ day: ScheduleDay, modules: [ScheduleModule], className: String,
+                      rolling: Set<String> = []) -> DayPlan {
         var plan = DayPlan()
         let dayStart = modules.map(\.startMinutes).min()
         let dayEnd = modules.map(\.endMinutes).max()
@@ -538,6 +554,9 @@ struct DayPlan {
                 other == name || (name.count >= 5 && other.contains(name))
             }
             guard !repeated, seenNames.insert(name).inserted else { continue }
+            // Someone else's turn of a week-long thing (see
+            // ScheduleWeek.rollingNotes) on a day you have your own.
+            if rolling.contains(name) && plan.slots.contains(where: { !$0.isFree }) { continue }
             if note.isAddressedExam { plan.banners.append(note) } else { chips.append(note) }
         }
         plan.allDay = chips + plan.allDay

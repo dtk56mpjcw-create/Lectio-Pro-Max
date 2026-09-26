@@ -13,14 +13,17 @@ struct DayList: View, Equatable {
     let day: ScheduleDay?
     let modules: [ScheduleModule]
     let className: String
+    /// See ScheduleWeek.rollingNotes.
+    var rolling: Set<String> = []
 
     static func == (lhs: DayList, rhs: DayList) -> Bool {
         lhs.day == rhs.day && lhs.modules == rhs.modules && lhs.className == rhs.className
+            && lhs.rolling == rhs.rolling
     }
 
     var body: some View {
         if let day, !day.lessons.isEmpty {
-            let plan = DayPlan.build(day, modules: modules, className: className)
+            let plan = DayPlan.build(day, modules: modules, className: className, rolling: rolling)
             if day.date == LectioDates.isoString(from: Date()) {
                 TimelineView(.everyMinute) { context in
                     DayContent(plan: plan, dayISO: day.date, now: context.date)
