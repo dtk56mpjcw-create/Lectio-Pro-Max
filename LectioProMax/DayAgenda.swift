@@ -53,7 +53,7 @@ private struct DayContent: View {
     private var nowMinutes: Int? { now.map { DayList.minutes(of: $0) } }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: ModuleGrid.gap) {
             ForEach(plan.banners) { item in
                 ExamBanner(lesson: item, dayISO: dayISO)
             }
@@ -119,6 +119,21 @@ private struct DayContent: View {
 
 // MARK: - A module
 
+/// Every module is the same height — a lesson, a free period, a cancelled
+/// one — and a block over several is exactly as tall as those modules
+/// together, so the day keeps its rhythm down the page and a four-module
+/// exam fills the space of four lessons.
+enum ModuleGrid {
+    static let height: CGFloat = 100
+    /// The space between rows in the day.
+    static let gap: CGFloat = 10
+
+    static func height(of slot: DayPlan.Slot) -> CGFloat {
+        let count = CGFloat(max(1, slot.last.number - slot.module.number + 1))
+        return count * height + (count - 1) * gap
+    }
+}
+
 private struct ModuleRow: View {
     let slot: DayPlan.Slot
     let dayISO: String
@@ -137,22 +152,30 @@ private struct ModuleRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             label
-            if slot.isFree {
-                FreeCard(slot: slot, dayISO: dayISO)
-            } else {
-                SlotCard(slot: slot, dayISO: dayISO, now: now, isCurrent: isCurrent, isPast: isPast)
+            Group {
+                if slot.isFree {
+                    FreeCard(slot: slot, dayISO: dayISO)
+                } else {
+                    SlotCard(slot: slot, dayISO: dayISO, now: now, isCurrent: isCurrent, isPast: isPast)
+                }
             }
+            .frame(height: ModuleGrid.height(of: slot))
         }
     }
 
-    /// The module's number, big, and its times: the day's rhythm down the side.
+    private var numberColour: Color {
+        isCurrent ? Palette.accent : (isPast ? Color(.secondaryLabel) : Color.primary)
+    }
+
     @ViewBuilder
     private var label: some View {
         if slot.through == nil {
+            // The module's number, big, and its times: the day's rhythm
+            // down the side.
             VStack(spacing: 1) {
                 Text("\(slot.module.number)")
                     .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(isCurrent ? Palette.accent : (isPast ? Color(.secondaryLabel) : Color.primary))
+                    .foregroundStyle(numberColour)
                 Text(slot.module.shortStart)
                     .font(.system(size: 11.5, weight: .semibold))
                     .foregroundStyle(.secondary)
@@ -167,13 +190,15 @@ private struct ModuleRow: View {
             .accessibilityLabel("Module \(slot.module.number), \(slot.module.start) to \(slot.module.end)")
         } else {
             // One thing over several modules — an exam, a reading day, a
-            // double lesson: its hours, the way a calendar shows an event.
-            // Module numbers ("1–4") read like four things.
+            // double lesson: when it starts at its top and when it ends at
+            // its bottom, the way a calendar draws an event. Module numbers
+            // ("1–4") read like four things.
             let hours = slot.hours
-            VStack(spacing: 2) {
+            VStack(spacing: 0) {
                 Text(hours.shortStart)
                     .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundStyle(isCurrent ? Palette.accent : (isPast ? Color(.secondaryLabel) : Color.primary))
+                    .foregroundStyle(numberColour)
+                Spacer(minLength: 4)
                 Text(hours.shortEnd)
                     .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(.secondary)
@@ -181,16 +206,16 @@ private struct ModuleRow: View {
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.8)
-            .frame(width: 38)
-            .padding(.top, 12)
+            .padding(.vertical, 10)
+            .frame(width: 38, height: ModuleGrid.height(of: slot))
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(hours.start) to \(hours.end)")
         }
     }
 }
 
-/// A module with something on: each lesson as a coloured block, and the
-/// rest folded underneath.
+/// A module with something on: each lesson as a block in its colour, and
+/// anything else in the module behind a small "more" button.
 private struct SlotCard: View {
     let slot: DayPlan.Slot
     let dayISO: String
@@ -199,25 +224,31 @@ private struct SlotCard: View {
     let isPast: Bool
 
     var body: some View {
+        let lessons = slot.main + slot.continuing
+        let rest = slot.others + slot.cancelled
         VStack(spacing: 0) {
-            ForEach(Array((slot.main + slot.continuing).enumerated()), id: \.element.id) { index, lesson in
+            ForEach(Array(lessons.enumerated()), id: \.element.id) { index, lesson in
                 if index > 0 { Divider() }
                 OpenButton(lesson: lesson, dayISO: dayISO) {
                     LessonBlock(lesson: lesson,
                                 module: slot.through == nil ? slot.span : slot.hours,
                                 continued: slot.main.isEmpty,
                                 now: isCurrent ? now : nil,
-                                faded: isPast)
+                                faded: isPast,
+                                topicLines: slot.through == nil ? 1 : 4,
+                                roomForMore: !rest.isEmpty && index == lessons.count - 1)
                 }
-            }
-            let rest = slot.others + slot.cancelled
-            if !rest.isEmpty {
-                Divider()
-                OthersLine(items: rest, dayISO: dayISO)
+                .frame(maxHeight: .infinity)
             }
         }
         .contentCard(radius: Metrics.inner + 4)
         .clipShape(RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous))
+        .overlay(alignment: .bottomTrailing) {
+            if !rest.isEmpty {
+                AlsoMenu(items: rest, dayISO: dayISO)
+                    .padding(8)
+            }
+        }
         .overlay {
             if isCurrent {
                 RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous)
@@ -227,21 +258,28 @@ private struct SlotCard: View {
     }
 }
 
-/// One lesson, in its subject's colour.
+/// One lesson, in its subject's colour — or an exam's red, the same as the
+/// exam banner — filling its module (or modules) top to bottom.
 private struct LessonBlock: View {
     let lesson: Lesson
     let module: ScheduleModule
     let continued: Bool
     let now: Date?
     let faded: Bool
+    /// One line in a single module; more when the block has the room.
+    var topicLines: Int = 1
+    /// Keeps the bottom-right corner clear for the "more" button.
+    var roomForMore: Bool = false
 
     @Environment(\.colorScheme) private var scheme
 
     private var colour: Color {
-        lesson.isClassLesson ? Color.forSubject(lesson.code) : Color(.systemGray)
+        if lesson.isExam { return Palette.negative }
+        return lesson.isClassLesson ? Color.forSubject(lesson.code) : Color(.systemGray)
     }
     private var stripe: Color {
-        lesson.isClassLesson ? Color.subjectStripe(lesson.code, in: scheme) : Color(.systemGray)
+        if lesson.isExam { return Palette.negative }
+        return lesson.isClassLesson ? Color.subjectStripe(lesson.code, in: scheme) : Color(.systemGray)
     }
 
     /// Only when it isn't simply the module: "13:45–15:15".
@@ -282,22 +320,24 @@ private struct LessonBlock: View {
                     Text("Continues · until " + lesson.end)
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 } else if let topic = lesson.topic {
                     Text(LectioDates.tidy(topic))
                         .font(.system(size: 14.5))
                         .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                        .lineLimit(topicLines)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 marks
+                    .padding(.trailing, roomForMore ? 78 : 0)
 
                 if let now { progress(now) }
             }
         }
         .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(colour.opacity(backgroundStrength))
         .foregroundStyle(.primary)
         .accessibilityElement(children: .combine)
@@ -340,6 +380,7 @@ private struct LessonBlock: View {
         }
         .font(.system(size: 13.5, weight: .medium))
         .foregroundStyle(.secondary)
+        .lineLimit(1)
     }
 
     private func progress(_ now: Date) -> some View {
@@ -363,88 +404,100 @@ private struct LessonBlock: View {
                 .monospacedDigit()
                 .fixedSize()
         }
-        .padding(.top, 5)
+        .padding(.top, 4)
     }
 }
 
-/// Everything else in a module — optional things, clubs, events, and your
-/// cancelled lessons — as one line; tap it for the list.
-private struct OthersLine: View {
+/// Everything else in a module — optional things, clubs, events, your
+/// cancelled lessons — behind one button, so the module keeps its height:
+/// a small "3 more" on a lesson, or a line of their names on a free module.
+private struct AlsoMenu: View {
     let items: [Lesson]
     let dayISO: String
-    @State private var open = false
+    var asLine = false
+
+    @Environment(LessonOpener.self) private var opener: LessonOpener?
 
     /// Each name once: Lectio can list the same event twice.
     private var summary: String {
         var seen: Set<String> = []
-        let held = items.filter { !$0.cancelled }.map(\.headline)
-        let cancelled = items.filter(\.cancelled).map { $0.headline + " cancelled" }
-        return (held + cancelled)
+        return items.map { $0.headline + ($0.cancelled ? " cancelled" : "") }
             .filter { seen.insert($0.lowercased()).inserted }
             .joined(separator: " · ")
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Button {
-                withAnimation(.snappy) { open.toggle() }
-            } label: {
+        Menu {
+            Section("Also on") {
+                ForEach(items) { item in
+                    Button {
+                        opener?.open(LessonRoute(lesson: item, dayISO: dayISO))
+                    } label: {
+                        Text(item.headline + (item.cancelled ? " · cancelled" : ""))
+                        if !item.start.isEmpty {
+                            Text(short(item.start) + (item.end.isEmpty ? "" : "–" + short(item.end)))
+                        }
+                    }
+                }
+            }
+        } label: {
+            if asLine {
                 HStack(spacing: 7) {
                     Image(systemName: "plus.circle")
                         .font(.system(size: 13, weight: .semibold))
                     Text(summary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
                     Spacer(minLength: 4)
-                    Image(systemName: "chevron.down")
+                    Image(systemName: "chevron.up.chevron.down")
                         .font(.system(size: 11, weight: .bold))
-                        .rotationEffect(.degrees(open ? 180 : 0))
                 }
                 .font(.system(size: 13.5, weight: .medium))
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Also in this module: " + summary)
-
-            if open {
-                ForEach(items) { item in
-                    Divider().padding(.leading, 12)
-                    OpenButton(lesson: item, dayISO: dayISO) {
-                        SmallItem(lesson: item)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                    }
+            } else {
+                HStack(spacing: 4) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("\(items.count) more")
+                        .font(.system(size: 13, weight: .semibold))
                 }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(Color(.systemBackground).opacity(0.75)))
             }
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Also on: " + summary)
     }
+
+    private func short(_ t: String) -> String { t.hasPrefix("0") ? String(t.dropFirst()) : t }
 }
 
 /// A free module: plainly free, with what was cancelled and anything else
-/// on at the time.
+/// on at the time — the same height as a lesson.
 private struct FreeCard: View {
     let slot: DayPlan.Slot
     let dayISO: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let rest = slot.others + slot.cancelled.dropFirst()
+        VStack(alignment: .leading, spacing: 2) {
             // The cancelled lesson still opens: its note says why.
             if let cancelled = slot.cancelled.first {
                 OpenButton(lesson: cancelled, dayISO: dayISO) { header }
             } else {
                 header
             }
-
-            let rest = slot.others + slot.cancelled.dropFirst()
             if !rest.isEmpty {
-                Divider()
-                OthersLine(items: Array(rest), dayISO: dayISO)
+                AlsoMenu(items: Array(rest), dayISO: dayISO, asLine: true)
+                    .padding(.horizontal, 14)
             }
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background {
             RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous)
                 .strokeBorder(style: StrokeStyle(lineWidth: 1.2, dash: [5, 4]))
@@ -637,6 +690,7 @@ struct ExamTag: View {
 private struct ExamBanner: View {
     let lesson: Lesson
     let dayISO: String
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         OpenButton(lesson: lesson, dayISO: dayISO) {
@@ -661,8 +715,9 @@ private struct ExamBanner: View {
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
+                // The same red as an exam block.
                 RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous)
-                    .fill(Palette.negative.opacity(0.1))
+                    .fill(Palette.negative.opacity(scheme == .dark ? 0.24 : 0.13))
             }
             .foregroundStyle(.primary)
             .contentShape(Rectangle())

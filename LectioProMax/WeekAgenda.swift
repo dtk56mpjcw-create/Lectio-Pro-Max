@@ -374,6 +374,9 @@ private struct WeekLine: View {
 
     private var stripe: Color {
         switch row.kind {
+        case .lesson(let l) where l.isExam:
+            // Exams in the same red as in the day.
+            return Palette.negative.opacity(state == .over ? 0.5 : 1)
         case .lesson(let l) where l.isClassLesson:
             return Color.subjectStripe(l.code, in: scheme).opacity(state == .over ? 0.5 : 1)
         case .lesson, .outside:
