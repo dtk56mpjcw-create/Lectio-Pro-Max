@@ -483,11 +483,9 @@ private struct DayPage: View {
                     PageHeading(title: ScheduleTab.dayTitle(date),
                                 subtitle: ScheduleTab.daySubtitle(date))
                     if let week = session.snapshot.weeks[code] {
-                        let className = session.snapshot.profile.className
-                        DayList(day: week.days.first { $0.date == date },
-                                modules: week.dayModules,
-                                className: className,
-                                rolling: week.rollingNotes(className: className))
+                        DayOfWeek(week: week, date: date,
+                                  className: session.snapshot.profile.className,
+                                  dayEnd: ScheduleWeek.rememberedDayEnd)
                             .equatable()
                     } else {
                         WeekPlaceholder(weekCode: code)
@@ -555,6 +553,40 @@ private struct PageHeading: View {
     }
 }
 
+/// A day of the pager, worked out from its week. Equatable: the day's plan,
+/// the school day's modules and the week's rolling notes are worked out
+/// again only when the week, the class or the remembered end of the day
+/// change — not on every update anywhere in the app.
+private struct DayOfWeek: View, Equatable {
+    let week: ScheduleWeek
+    let date: String
+    let className: String
+    let dayEnd: Int?
+
+    var body: some View {
+        DayList(day: week.days.first { $0.date == date },
+                modules: week.dayModules,
+                className: className,
+                rolling: week.rollingNotes(className: className))
+            .equatable()
+    }
+}
+
+/// The week's title and its summary ("21 – 25 Sep · 19 lessons · 6 with
+/// homework"), worked out only when the week changes.
+private struct WeekHeading: View, Equatable {
+    let week: ScheduleWeek?
+    let monday: String
+    let className: String
+    let dayEnd: Int?
+
+    var body: some View {
+        PageHeading(title: ScheduleTab.weekTitle(monday),
+                    subtitle: WeekAgenda.subtitle(week: week, monday: monday, className: className)
+                        ?? ScheduleTab.weekSubtitle(monday))
+    }
+}
+
 /// One week of the week pager.
 private struct WeekPage: View {
     @EnvironmentObject private var session: LectioSession
@@ -567,11 +599,11 @@ private struct WeekPage: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 10) {
-                PageHeading(title: ScheduleTab.weekTitle(monday),
-                            subtitle: WeekAgenda.subtitle(week: session.snapshot.weeks[LectioDates.weekCode(iso: monday)],
-                                                          monday: monday,
-                                                          className: session.snapshot.profile.className)
-                                ?? ScheduleTab.weekSubtitle(monday))
+                WeekHeading(week: session.snapshot.weeks[LectioDates.weekCode(iso: monday)],
+                            monday: monday,
+                            className: session.snapshot.profile.className,
+                            dayEnd: ScheduleWeek.rememberedDayEnd)
+                    .equatable()
                     .padding(.horizontal, Metrics.margin)
                 WeekOverview(weekCode: LectioDates.weekCode(iso: monday), monday: monday, onPick: onPick)
             }
@@ -606,6 +638,7 @@ struct WeekOverview: View {
                            monday: monday,
                            className: session.snapshot.profile.className,
                            onPick: onPick)
+                    .equatable()
             } else {
                 WeekPlaceholder(weekCode: weekCode)
             }

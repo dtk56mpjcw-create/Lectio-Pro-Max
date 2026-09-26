@@ -292,7 +292,10 @@ extension ScheduleWeek {
     /// Per school: a school you switch to has its own day.
     private static var dayEndKey: String { "schedule.dayEndModule." + LectioConfig.schoolID }
 
-    fileprivate static var rememberedDayEnd: Int? {
+    /// The day's end remembered from an ordinary week (see dayModules).
+    /// Views that skip redrawing when their week hasn't changed include it,
+    /// since a thin week's modules depend on it too.
+    static var rememberedDayEnd: Int? {
         let n = UserDefaults.standard.integer(forKey: dayEndKey)
         return n > 0 ? n : nil
     }

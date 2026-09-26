@@ -10,14 +10,27 @@ import SwiftUI
 /// Tap a day's header to open the day, a lesson to open the lesson. Days
 /// already over this week fold down to one line, so the week starts where
 /// you are.
-struct WeekAgenda: View {
+///
+/// Equatable, so the week is worked out again only when it (or the day, or
+/// the class) changes — not whenever anything else in the app updates. The
+/// week pager stays alive behind the day pager, so without this it redid
+/// every day's plan on each refresh of messages, absence or a lesson.
+struct WeekAgenda: View, Equatable {
     let week: ScheduleWeek
     let monday: String
     let className: String
+    /// Today, from the page: which card is today's, which days fold.
+    var today: String = LectioDates.isoString(from: Date())
+    /// See ScheduleWeek.rememberedDayEnd.
+    var dayEnd: Int? = ScheduleWeek.rememberedDayEnd
     var onPick: (String) -> Void
 
+    static func == (a: WeekAgenda, b: WeekAgenda) -> Bool {
+        a.monday == b.monday && a.className == b.className && a.today == b.today
+            && a.dayEnd == b.dayEnd && a.week == b.week
+    }
+
     var body: some View {
-        let today = LectioDates.isoString(from: Date())
         let dates = Self.dates(in: week, monday: monday)
         let modules = week.dayModules
         let rolling = week.rollingNotes(className: className)

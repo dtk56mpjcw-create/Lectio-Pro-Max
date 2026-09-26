@@ -55,6 +55,20 @@ struct WorkPreview: Hashable {
         return preview
     }
 
+    private static let memoLock = NSLock()
+    nonisolated(unsafe) private static var memoStore: [String: WorkPreview] = [:]
+
+    static func memo(_ key: String) -> WorkPreview? {
+        memoLock.lock(); defer { memoLock.unlock() }
+        return memoStore[key]
+    }
+
+    static func remember(_ preview: WorkPreview, _ key: String) {
+        memoLock.lock(); defer { memoLock.unlock() }
+        if memoStore.count > 1000 { memoStore.removeAll(keepingCapacity: true) }
+        memoStore[key] = preview
+    }
+
     private static let fileExtensions: Set<String> = [
         "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "odt", "odp", "ods",
         "txt", "rtf", "png", "jpg", "jpeg", "heic", "gif", "mp3", "mp4", "m4a",
@@ -70,7 +84,15 @@ struct WorkPreview: Hashable {
 }
 
 extension WorkItem {
-    var preview: WorkPreview { WorkPreview.make(text, title: title) }
+    /// Remembered per text: every homework row asks on every redraw, and
+    /// the text only changes when Lectio's does.
+    var preview: WorkPreview {
+        let key = title + "\u{1}" + text
+        if let known = WorkPreview.memo(key) { return known }
+        let made = WorkPreview.make(text, title: title)
+        WorkPreview.remember(made, key)
+        return made
+    }
 
     /// Homework on a lesson with no topic gets the team code as its title
     /// ("AP LA" over "AP LA"); the subject's name says more.
