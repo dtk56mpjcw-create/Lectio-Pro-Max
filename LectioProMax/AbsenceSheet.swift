@@ -73,11 +73,11 @@ struct AbsenceSheet: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Absence")
-                .font(.system(size: 26, weight: .bold))
+                .scaledFont(size: 26, weight: .bold)
                 .sheetTitleSpacing()
             if let total = absence.total {
                 Text("Total " + total.percent + (total.modules.isEmpty ? "" : " · " + total.modules + " modules"))
-                    .font(.system(size: 15))
+                    .scaledFont(size: 15)
                     .foregroundStyle(.secondary)
             }
         }
@@ -87,7 +87,7 @@ struct AbsenceSheet: View {
                                         @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             Text(title.uppercased())
-                .font(.system(size: 13, weight: .heavy))
+                .scaledFont(size: 13, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
             content()
@@ -97,15 +97,15 @@ struct AbsenceSheet: View {
     private func subjectRow(_ subject: AbsenceSubject) -> some View {
         HStack(spacing: 10) {
             Text(AbsenceWording.subject(subject.code))
-                .font(.system(size: 15, weight: subject.isTotal ? .bold : .medium))
+                .scaledFont(size: 15, weight: subject.isTotal ? .bold : .medium)
             Spacer(minLength: 0)
             if !subject.modules.isEmpty {
                 Text(subject.modules)
-                    .font(.system(size: 13.5))
+                    .scaledFont(size: 13.5)
                     .foregroundStyle(.secondary)
             }
             Text(subject.percent)
-                .font(.system(size: 15, weight: .semibold))
+                .scaledFont(size: 15, weight: .semibold)
                 .monospacedDigit()
                 .foregroundStyle(subject.percentValue >= 10 ? Palette.warning : Color.primary)
         }
@@ -121,11 +121,11 @@ struct AbsenceSheet: View {
                 HStack(spacing: 7) {
                     SubjectDot(code: record.code, size: 7)
                     Text(record.whenLine)
-                        .font(.system(size: 15.5, weight: .semibold))
+                        .scaledFont(size: 15.5, weight: .semibold)
                         .multilineTextAlignment(.leading)
                     Spacer(minLength: 0)
                     Text(record.percent)
-                        .font(.system(size: 14.5, weight: .semibold))
+                        .scaledFont(size: 14.5, weight: .semibold)
                         .foregroundStyle(Palette.accent)
                     if record.needsReason {
                         ReminderButton(itemKey: record.id, offersTiming: false) {
@@ -135,19 +135,19 @@ struct AbsenceSheet: View {
                 }
                 if !record.whereLine.isEmpty {
                     Text(record.whereLine)
-                        .font(.system(size: 13.5, weight: .medium))
+                        .scaledFont(size: 13.5, weight: .medium)
                         .foregroundStyle(.secondary)
                 }
                 if !record.reason.isEmpty || !record.comment.isEmpty {
                     Text([AbsenceWording.reason(record.reason), record.comment]
                             .filter { !$0.isEmpty }.joined(separator: " · "))
-                        .font(.system(size: 14))
+                        .scaledFont(size: 14)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.leading)
                 }
                 if record.needsReason {
                     Text("Tap to explain")
-                        .font(.system(size: 13, weight: .semibold))
+                        .scaledFont(size: 13, weight: .semibold)
                         .foregroundStyle(Palette.accent)
                 }
             }
@@ -181,10 +181,10 @@ struct ExplainAbsenceSheet: View {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Explain absence")
-                            .font(.system(size: 25, weight: .bold))
+                            .scaledFont(size: 25, weight: .bold)
                             .sheetTitleSpacing()
                         Text([record.whenLine, record.percent].filter { !$0.isEmpty }.joined(separator: " · "))
-                            .font(.system(size: 15))
+                            .scaledFont(size: 15)
                             .foregroundStyle(.secondary)
                     }
 
@@ -198,10 +198,10 @@ struct ExplainAbsenceSheet: View {
                                     Button { reason = option } label: {
                                         HStack(spacing: 9) {
                                             Image(systemName: reason == option ? "largecircle.fill.circle" : "circle")
-                                                .font(.system(size: 15))
+                                                .scaledFont(size: 15)
                                                 .foregroundStyle(reason == option ? Palette.accent : Color(.tertiaryLabel))
                                             Text(AbsenceWording.reason(option))
-                                                .font(.system(size: 15.5))
+                                                .scaledFont(size: 15.5)
                                             Spacer(minLength: 0)
                                         }
                                         .padding(.vertical, 11)
@@ -218,7 +218,7 @@ struct ExplainAbsenceSheet: View {
                     VStack(alignment: .leading, spacing: 9) {
                         label("Comment")
                         TextField("Optional", text: $comment, axis: .vertical)
-                            .font(.system(size: 16))
+                            .scaledFont(size: 16)
                             .lineLimit(3...8)
                             .padding(13)
                             .contentCard(radius: Metrics.inner)
@@ -232,10 +232,10 @@ struct ExplainAbsenceSheet: View {
                             if saving {
                                 ProgressView().controlSize(.small)
                             } else {
-                                Image(systemName: "checkmark").font(.system(size: 14, weight: .bold))
+                                Image(systemName: "checkmark").scaledFont(size: 14, weight: .bold)
                             }
                             Text(saving ? "Saving…" : "Save reason")
-                                .font(.system(size: 16.5, weight: .semibold))
+                                .scaledFont(size: 16.5, weight: .semibold)
                             Spacer()
                         }
                         .foregroundStyle(Palette.accent)
@@ -266,7 +266,7 @@ struct ExplainAbsenceSheet: View {
 
     private func label(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 13, weight: .heavy))
+            .scaledFont(size: 13, weight: .heavy)
             .tracking(0.7)
             .foregroundStyle(.secondary)
     }

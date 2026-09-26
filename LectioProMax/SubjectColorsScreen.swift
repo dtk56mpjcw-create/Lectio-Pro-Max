@@ -43,9 +43,9 @@ struct SubjectColorsScreen: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Subject colours")
-                        .font(.system(size: 26, weight: .bold))
+                        .scaledFont(size: 26, weight: .bold)
                     Text("The colour on each lesson's stripe and dot. The first seven are the easiest to tell apart.")
-                        .font(.system(size: 15))
+                        .scaledFont(size: 15)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -84,18 +84,18 @@ struct SubjectColorsScreen: View {
                         .frame(width: 22, height: 22)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(SubjectNames.name(forKey: subject.key))
-                            .font(.system(size: 16.5, weight: .medium))
+                            .scaledFont(size: 16.5, weight: .medium)
                         Text(subject.sample.uppercased())
-                            .font(.system(size: 13, weight: .medium))
+                            .scaledFont(size: 13, weight: .medium)
                             .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
                     Text(SubjectColors.shared.picked[subject.key] == nil
                          ? "Automatic" : current.name)
-                        .font(.system(size: 15))
+                        .scaledFont(size: 15)
                         .foregroundStyle(.secondary)
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(size: 12, weight: .semibold)
                         .foregroundStyle(.tertiary)
                         .rotationEffect(.degrees(isOpen ? 180 : 0))
                 }
@@ -131,11 +131,11 @@ struct SubjectColorsScreen: View {
                                 .fill(SubjectPalette.automaticChoice(forKey: key).color)
                                 .frame(width: 32, height: 32)
                             Image(systemName: isAutomatic ? "checkmark" : "wand.and.stars")
-                                .font(.system(size: 13, weight: .bold))
+                                .scaledFont(size: 13, weight: .bold)
                                 .foregroundStyle(.white)
                         }
                         Text("Auto")
-                            .font(.system(size: 10.5, weight: .semibold))
+                            .scaledFont(size: 10.5, weight: .semibold)
                             .foregroundStyle(.secondary)
                     }
                     .frame(width: 44, height: 52)
@@ -155,7 +155,7 @@ struct SubjectColorsScreen: View {
                                 .frame(width: 32, height: 32)
                             if !isAutomatic && choice == current {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 13, weight: .bold))
+                                    .scaledFont(size: 13, weight: .bold)
                                     .foregroundStyle(.white)
                             }
                         }

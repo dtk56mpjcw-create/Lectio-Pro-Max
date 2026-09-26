@@ -87,7 +87,7 @@ struct SenderAvatar: View {
             } else {
                 Circle().fill(colour.gradient)
                 Text(initials.isEmpty ? "?" : initials)
-                    .font(.system(size: size * 0.38, weight: .semibold, design: .rounded))
+                    .scaledFont(size: size * 0.38, weight: .semibold, design: .rounded)
                     .foregroundStyle(.white)
             }
         }

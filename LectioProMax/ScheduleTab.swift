@@ -533,14 +533,14 @@ private struct PageHeading: View {
     var body: some View {
         VStack(alignment: .leading, spacing: -3) {
             Text(title)
-                .font(.system(size: 34, weight: .bold))
+                .scaledFont(size: 34, weight: .bold)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .accessibilityAddTraits(.isHeader)
             // The system's large-title subtitle is this small: measured
             // against "9 things to do" on Homework.
             Text(subtitle)
-                .font(.system(size: 11.5))
+                .scaledFont(size: 11.5)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
@@ -628,19 +628,19 @@ struct WeekPlaceholder: View {
             if session.failedWeeks.contains(weekCode) {
                 VStack(spacing: 12) {
                     Image(systemName: "wifi.exclamationmark")
-                        .font(.system(size: 26, weight: .semibold))
+                        .scaledFont(size: 26, weight: .semibold)
                         .foregroundStyle(.secondary)
                     Text("Couldn't load this week")
-                        .font(.system(size: 16.5, weight: .semibold))
+                        .scaledFont(size: 16.5, weight: .semibold)
                     if let why = session.weekErrors[weekCode] {
                         Text(why)
-                            .font(.system(size: 13.5))
+                            .scaledFont(size: 13.5)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 36)
                     }
                     Button("Try again") { session.retryWeek(weekCode) }
-                        .font(.system(size: 15.5, weight: .semibold))
+                        .scaledFont(size: 15.5, weight: .semibold)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
                         .buttonStyle(.plain)

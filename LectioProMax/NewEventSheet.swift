@@ -37,7 +37,7 @@ struct NewEventSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     Text(isEditing ? "Edit event" : "New event")
-                        .font(.system(size: 26, weight: .bold))
+                        .scaledFont(size: 26, weight: .bold)
                         .padding(.top, 34)
                         .padding(.trailing, 44)
 
@@ -51,7 +51,7 @@ struct NewEventSheet: View {
                     VStack(alignment: .leading, spacing: 9) {
                         label("Note")
                         TextField("Optional", text: $note, axis: .vertical)
-                            .font(.system(size: 16))
+                            .scaledFont(size: 16)
                             .lineLimit(3...8)
                             .padding(13)
                             .contentCard(radius: Metrics.inner)
@@ -59,7 +59,7 @@ struct NewEventSheet: View {
                     }
 
                     Text("Private appointments are only visible to you.")
-                        .font(.system(size: 13.5))
+                        .scaledFont(size: 13.5)
                         .foregroundStyle(.secondary)
 
                     saveButton
@@ -95,11 +95,11 @@ struct NewEventSheet: View {
                 // Lectio's own limit, and it silently swallows extra characters
                 // on the web, so it's worth showing.
                 Text("\(max(titleRemaining, 0)) left")
-                    .font(.system(size: 12.5, weight: .medium))
+                    .scaledFont(size: 12.5, weight: .medium)
                     .foregroundStyle(titleRemaining < 0 ? Palette.negative : Color(.secondaryLabel))
             }
             TextField("Football practice", text: $title)
-                .font(.system(size: 16))
+                .scaledFont(size: 16)
                 .padding(13)
                 .contentCard(radius: Metrics.inner)
                 .disabled(saving)
@@ -114,11 +114,11 @@ struct NewEventSheet: View {
     private var timesCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             DatePicker("Starts", selection: $start)
-                .font(.system(size: 16, weight: .medium))
+                .scaledFont(size: 16, weight: .medium)
                 .disabled(saving)
             Divider().opacity(0.4)
             DatePicker("Ends", selection: $end, in: start...)
-                .font(.system(size: 16, weight: .medium))
+                .scaledFont(size: 16, weight: .medium)
                 .disabled(saving)
         }
         // Lectio keeps Danish times; show them as such on any phone.
@@ -130,7 +130,7 @@ struct NewEventSheet: View {
 
     private func label(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 13, weight: .heavy))
+            .scaledFont(size: 13, weight: .heavy)
             .tracking(0.7)
             .foregroundStyle(.secondary)
     }
@@ -143,10 +143,10 @@ struct NewEventSheet: View {
                 if saving {
                     ProgressView().controlSize(.small)
                 } else {
-                    Image(systemName: "calendar.badge.plus").font(.system(size: 15, weight: .semibold))
+                    Image(systemName: "calendar.badge.plus").scaledFont(size: 15, weight: .semibold)
                 }
                 Text(saving ? "Saving…" : (isEditing ? "Save changes" : "Add to schedule"))
-                    .font(.system(size: 16.5, weight: .semibold))
+                    .scaledFont(size: 16.5, weight: .semibold)
                 Spacer()
             }
             .foregroundStyle(Palette.accent)
@@ -164,9 +164,9 @@ struct NewEventSheet: View {
             confirmingDelete = true
         } label: {
             HStack(spacing: 9) {
-                Image(systemName: "trash").font(.system(size: 14.5, weight: .semibold))
+                Image(systemName: "trash").scaledFont(size: 14.5, weight: .semibold)
                 Text("Delete event")
-                    .font(.system(size: 16.5, weight: .semibold))
+                    .scaledFont(size: 16.5, weight: .semibold)
                 Spacer()
             }
             .foregroundStyle(.red)

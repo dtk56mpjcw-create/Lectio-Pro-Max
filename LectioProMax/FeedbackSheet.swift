@@ -97,13 +97,13 @@ struct FeedbackSheet: View {
             HStack(spacing: 8) {
                 SubjectDot(code: code, size: 9)
                 Text("ELEVFEEDBACK")
-                    .font(.system(size: 13, weight: .heavy))
+                    .scaledFont(size: 13, weight: .heavy)
                     .tracking(0.7)
                     .foregroundStyle(.secondary)
                 Spacer()
             }
             Text(title)
-                .font(.system(size: 25, weight: .bold))
+                .scaledFont(size: 25, weight: .bold)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -115,12 +115,12 @@ struct FeedbackSheet: View {
             // A plain line, not a warning: nothing has gone wrong here, there's
             // just something this editor won't touch.
             Text("Written with a table or an image — edit this one in Lectio.")
-                .font(.system(size: 14.5))
+                .scaledFont(size: 14.5)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if !feedback.plainText.isEmpty {
                 Text(feedback.plainText)
-                    .font(.system(size: 16.5))
+                    .scaledFont(size: 16.5)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(15)
@@ -136,7 +136,7 @@ struct FeedbackSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             if restoredDraft {
                 Text("Restored what you were typing — not saved to Lectio yet.")
-                    .font(.system(size: 14))
+                    .scaledFont(size: 14)
                     .foregroundStyle(.secondary)
             }
 
@@ -172,7 +172,7 @@ struct FeedbackSheet: View {
                               action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 14.5, weight: .semibold))
+                .scaledFont(size: 14.5, weight: .semibold)
                 .foregroundStyle(on ? Color.white : Color.primary)
                 .frame(width: 36, height: 32)
                 .background(
@@ -200,8 +200,8 @@ struct FeedbackSheet: View {
 
     private func attachLabel(_ icon: String, _ text: String) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 13, weight: .semibold))
-            Text(text).font(.system(size: 14.5, weight: .semibold))
+            Image(systemName: icon).scaledFont(size: 13, weight: .semibold)
+            Text(text).scaledFont(size: 14.5, weight: .semibold)
         }
         .foregroundStyle(Palette.accent)
         .padding(.vertical, 9)
@@ -214,15 +214,15 @@ struct FeedbackSheet: View {
             if let busy = busy {
                 HStack(spacing: 9) {
                     ProgressView()
-                    Text(busy).font(.system(size: 14.5)).foregroundStyle(.secondary)
+                    Text(busy).scaledFont(size: 14.5).foregroundStyle(.secondary)
                 }
             } else if saved {
                 HStack(spacing: 7) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 14))
+                        .scaledFont(size: 14)
                         .foregroundStyle(.green)
                     Text("Saved to Lectio")
-                        .font(.system(size: 14.5, weight: .semibold))
+                        .scaledFont(size: 14.5, weight: .semibold)
                 }
             }
 
@@ -232,9 +232,9 @@ struct FeedbackSheet: View {
                 } label: {
                     HStack(spacing: 7) {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 15, weight: .semibold))
+                            .scaledFont(size: 15, weight: .semibold)
                         Text("Save to Lectio")
-                            .font(.system(size: 16, weight: .bold))
+                            .scaledFont(size: 16, weight: .bold)
                     }
                     .foregroundStyle(.white)
                     .padding(.vertical, 12)
@@ -249,7 +249,7 @@ struct FeedbackSheet: View {
 
                 Button(action: exportFile) {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(size: 15, weight: .semibold)
                         .foregroundStyle(Palette.accent)
                         .frame(width: 46, height: 44)
                         .contentCard(radius: Metrics.inner + 2)
@@ -269,9 +269,9 @@ struct FeedbackSheet: View {
             confirmingDelete = true
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "trash").font(.system(size: 14.5, weight: .semibold))
+                Image(systemName: "trash").scaledFont(size: 14.5, weight: .semibold)
                 Text("Delete feedback")
-                    .font(.system(size: 16, weight: .semibold))
+                    .scaledFont(size: 16, weight: .semibold)
                 Spacer()
             }
             .foregroundStyle(Palette.ember)
@@ -298,11 +298,11 @@ struct FeedbackSheet: View {
                let url = URL(string: feedback.pageURL) {
                 Link(destination: url) {
                     HStack(spacing: 8) {
-                        Image(systemName: "safari").font(.system(size: 15, weight: .semibold))
+                        Image(systemName: "safari").scaledFont(size: 15, weight: .semibold)
                         Text("Open in Lectio")
-                            .font(.system(size: 16, weight: .semibold))
+                            .scaledFont(size: 16, weight: .semibold)
                         Spacer()
-                        Image(systemName: "arrow.up.right").font(.system(size: 12.5, weight: .bold))
+                        Image(systemName: "arrow.up.right").scaledFont(size: 12.5, weight: .bold)
                     }
                     .foregroundStyle(Palette.accent)
                     .padding(15)

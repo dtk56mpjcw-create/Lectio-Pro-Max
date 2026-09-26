@@ -158,7 +158,7 @@ struct SearchTab: View {
                                       @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title.uppercased())
-                .font(.system(size: 12.5, weight: .heavy))
+                .scaledFont(size: 12.5, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
                 .padding(.leading, 4)
@@ -170,13 +170,13 @@ struct SearchTab: View {
     private func row(icon: String, code: String, title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
+                .scaledFont(size: 13, weight: .semibold)
                 .foregroundStyle(code.isEmpty ? Color(.secondaryLabel) : Color.forSubject(code))
                 .frame(width: 22)
                 .padding(.top, 1)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 15.5, weight: .medium))
+                    .scaledFont(size: 15.5, weight: .medium)
                     .multilineTextAlignment(.leading)
                     .lineLimit(2)
                 let caption = [LessonText.abbreviated(code).uppercased(), detail]
@@ -184,7 +184,7 @@ struct SearchTab: View {
                     .joined(separator: " · ")
                 if !caption.isEmpty {
                     Text(caption)
-                        .font(.system(size: 12.5, weight: .medium))
+                        .scaledFont(size: 12.5, weight: .medium)
                         .foregroundStyle(.secondary)
                 }
             }

@@ -27,15 +27,15 @@ struct GroupMemberPicker: View {
             VStack(alignment: .leading, spacing: 13) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Add to group")
-                        .font(.system(size: 26, weight: .bold))
+                        .scaledFont(size: 26, weight: .bold)
                         .sheetTitleSpacing()
                     Text("They'll hand this in with you.")
-                        .font(.system(size: 15))
+                        .scaledFont(size: 15)
                         .foregroundStyle(.secondary)
                 }
 
                 TextField("Search", text: $query)
-                    .font(.system(size: 16))
+                    .scaledFont(size: 16)
                     .autocorrectionDisabled()
                     .padding(13)
                     .contentCard(radius: Metrics.inner)

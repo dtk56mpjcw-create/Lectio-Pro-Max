@@ -49,9 +49,9 @@ struct SignatureFooter: View {
         if enabled && !signature.isEmpty {
             HStack(spacing: 8) {
                 Image(systemName: "signature")
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(size: 13, weight: .semibold)
                 Text(signature)
-                    .font(.system(size: 14, weight: .medium))
+                    .scaledFont(size: 14, weight: .medium)
                     .strikethrough(!include)
                     .lineLimit(2)
                 Spacer(minLength: 0)
@@ -59,7 +59,7 @@ struct SignatureFooter: View {
                     withAnimation(.snappy) { include.toggle() }
                 } label: {
                     Image(systemName: include ? "xmark.circle.fill" : "plus.circle.fill")
-                        .font(.system(size: 17))
+                        .scaledFont(size: 17)
                         .symbolRenderingMode(.hierarchical)
                         .contentTransition(.symbolEffect(.replace))
                         .frame(width: 44, height: 44)
@@ -92,9 +92,9 @@ struct SignatureScreen: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Signature")
-                        .font(.system(size: 26, weight: .bold))
+                        .scaledFont(size: 26, weight: .bold)
                     Text("A line added under every message and reply you send from the app. It's part of the message, so it's what people see in Lectio too.")
-                        .font(.system(size: 15))
+                        .scaledFont(size: 15)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -103,10 +103,10 @@ struct SignatureScreen: View {
                     Toggle(isOn: $enabled.animation(.snappy)) {
                         HStack(spacing: 13) {
                             Image(systemName: "signature")
-                                .font(.system(size: 15.5, weight: .semibold))
+                                .scaledFont(size: 15.5, weight: .semibold)
                                 .frame(width: 22)
                             Text("Add a signature")
-                                .font(.system(size: 16.5, weight: .medium))
+                                .scaledFont(size: 16.5, weight: .medium)
                         }
                     }
                     .padding(.horizontal, 17)
@@ -115,7 +115,7 @@ struct SignatureScreen: View {
                     if enabled {
                         Divider().padding(.leading, 17)
                         TextField("Signature", text: $text, axis: .vertical)
-                            .font(.system(size: 16.5))
+                            .scaledFont(size: 16.5)
                             .lineLimit(1...4)
                             .padding(.horizontal, 17)
                             .padding(.vertical, 15)
@@ -127,7 +127,7 @@ struct SignatureScreen: View {
                     Button("Use “\(MessageSignature.suggested)”") {
                         withAnimation(.snappy) { text = MessageSignature.suggested }
                     }
-                    .font(.system(size: 15, weight: .semibold))
+                    .scaledFont(size: 15, weight: .semibold)
                     .frame(minHeight: 44)
                     .padding(.horizontal, 4)
                 }
@@ -150,7 +150,7 @@ struct SignatureScreen: View {
     private var preview: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("PREVIEW")
-                .font(.system(size: 13, weight: .heavy))
+                .scaledFont(size: 13, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 0) {
@@ -158,7 +158,7 @@ struct SignatureScreen: View {
                 Text(" ")
                 Text(signature).foregroundStyle(.secondary)
             }
-            .font(.system(size: 16))
+            .scaledFont(size: 16)
             .padding(15)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentCard(radius: Metrics.inner + 3)

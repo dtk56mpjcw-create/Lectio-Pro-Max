@@ -60,12 +60,12 @@ struct MessageThreadSheet: View {
     private var headline: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(thread?.subject.isEmpty == false ? thread!.subject : summary.subject)
-                .font(.system(size: 25, weight: .bold))
+                .scaledFont(size: 25, weight: .bold)
                 .fixedSize(horizontal: false, vertical: true)
                 .sheetTitleSpacing()
             if let recipients = thread?.recipients, !recipients.isEmpty {
                 Text(recipients)
-                    .font(.system(size: 13.5))
+                    .scaledFont(size: 13.5)
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -77,15 +77,15 @@ struct MessageThreadSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 7) {
                 Text(message.sender)
-                    .font(.system(size: 15, weight: .semibold))
+                    .scaledFont(size: 15, weight: .semibold)
                 Spacer(minLength: 0)
                 Text(message.date)
-                    .font(.system(size: 13))
+                    .scaledFont(size: 13)
                     .foregroundStyle(.secondary)
             }
             if !message.body.isEmpty {
                 Text(message.body)
-                    .font(.system(size: 16))
+                    .scaledFont(size: 16)
                     .lineSpacing(3.5)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -98,11 +98,11 @@ struct MessageThreadSheet: View {
                             ProgressView().controlSize(.small)
                         } else {
                             Image(systemName: "paperclip")
-                                .font(.system(size: 12.5, weight: .semibold))
+                                .scaledFont(size: 12.5, weight: .semibold)
                                 .foregroundStyle(Palette.accent)
                         }
                         Text(attachment.name)
-                            .font(.system(size: 14.5, weight: .semibold))
+                            .scaledFont(size: 14.5, weight: .semibold)
                             .multilineTextAlignment(.leading)
                         Spacer(minLength: 0)
                     }
@@ -120,12 +120,12 @@ struct MessageThreadSheet: View {
     private var replyBox: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Reply")
-                .font(.system(size: 13, weight: .heavy))
+                .scaledFont(size: 13, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
 
             TextField("Write a reply…", text: $reply, axis: .vertical)
-                .font(.system(size: 16))
+                .scaledFont(size: 16)
                 .lineLimit(4...10)
                 .padding(13)
                 .contentCard(radius: Metrics.inner)
@@ -142,10 +142,10 @@ struct MessageThreadSheet: View {
                     if sending {
                         ProgressView().controlSize(.small)
                     } else {
-                        Image(systemName: "paperplane.fill").font(.system(size: 14, weight: .semibold))
+                        Image(systemName: "paperplane.fill").scaledFont(size: 14, weight: .semibold)
                     }
                     Text(sending ? (attachments.isEmpty ? "Sending…" : "Uploading and sending…") : "Send reply")
-                        .font(.system(size: 16.5, weight: .semibold))
+                        .scaledFont(size: 16.5, weight: .semibold)
                     Spacer()
                 }
                 .foregroundStyle(Palette.accent)

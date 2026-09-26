@@ -27,7 +27,7 @@ struct FindScheduleSheet: View {
 
             VStack(alignment: .leading, spacing: 13) {
                 Text("Find a schedule")
-                    .font(.system(size: 26, weight: .bold))
+                    .scaledFont(size: 26, weight: .bold)
                     .sheetTitleSpacing()
 
                 Picker("Kind", selection: $kind) {
@@ -38,7 +38,7 @@ struct FindScheduleSheet: View {
                 .pickerStyle(.segmented)
 
                 TextField(session.scheduleTargets.isEmpty ? "Loading…" : "Search", text: $query)
-                    .font(.system(size: 16))
+                    .scaledFont(size: 16)
                     .autocorrectionDisabled()
                     .padding(13)
                     .contentCard(radius: Metrics.inner)
@@ -118,7 +118,7 @@ struct IndexedTargetList: View {
                         ForEach(sections, id: \.letter) { section in
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(section.letter)
-                                    .font(.system(size: 12.5, weight: .heavy))
+                                    .scaledFont(size: 12.5, weight: .heavy)
                                     .tracking(0.7)
                                     .foregroundStyle(.secondary)
                                     .padding(.leading, 4)
@@ -156,23 +156,23 @@ struct IndexedTargetList: View {
                     PersonAvatar(target: target)
                 } else {
                     Image(systemName: target.kind.icon)
-                        .font(.system(size: 13.5, weight: .semibold))
+                        .scaledFont(size: 13.5, weight: .semibold)
                         .foregroundStyle(.tertiary)
                         .frame(width: 22)
                 }
                 VStack(alignment: .leading, spacing: 1) {
                     Text(target.sortName)
-                        .font(.system(size: 15.5))
+                        .scaledFont(size: 15.5)
                         .multilineTextAlignment(.leading)
                     if let klasse = target.studentClass {
                         Text(klasse)
-                            .font(.system(size: 12.5, weight: .medium))
+                            .scaledFont(size: 12.5, weight: .medium)
                             .foregroundStyle(.secondary)
                     }
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .bold))
+                    .scaledFont(size: 11, weight: .bold)
                     .foregroundStyle(.tertiary)
             }
             .padding(.vertical, 10)
@@ -197,7 +197,7 @@ struct AlphabetIndex: View {
             VStack(spacing: 0) {
                 ForEach(letters, id: \.self) { letter in
                     Text(letter)
-                        .font(.system(size: 10.5, weight: .semibold))
+                        .scaledFont(size: 10.5, weight: .semibold)
                         .foregroundStyle(active == letter ? Palette.accent : Color(.secondaryLabel))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -225,7 +225,7 @@ struct AlphabetIndex: View {
             .overlay(alignment: .top) {
                 if let active = active {
                     Text(active)
-                        .font(.system(size: 25, weight: .bold))
+                        .scaledFont(size: 25, weight: .bold)
                         .foregroundStyle(.primary)
                         .frame(width: 58, height: 58)
                         .contentCard(radius: 29)
@@ -265,13 +265,13 @@ struct TargetScheduleSheet: View {
             VStack(alignment: .leading, spacing: 13) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(target.sortName)
-                        .font(.system(size: 24, weight: .bold))
+                        .scaledFont(size: 24, weight: .bold)
                         .sheetTitleSpacing()
                         .fixedSize(horizontal: false, vertical: true)
                     Text(showingStudents
                          ? "\(classmates.count) students"
                          : (week?.label ?? LectioDates.weekLabel(code: weekCode)))
-                        .font(.system(size: 15))
+                        .scaledFont(size: 15)
                         .foregroundStyle(.secondary)
                 }
 
@@ -328,13 +328,13 @@ struct TargetScheduleSheet: View {
     private var weekStepper: some View {
         HStack(spacing: 10) {
             Button { step(-1) } label: {
-                Image(systemName: "chevron.left").font(.system(size: 14, weight: .bold))
+                Image(systemName: "chevron.left").scaledFont(size: 14, weight: .bold)
                     .frame(width: 34, height: 34).contentCard(radius: 17)
             }
             .buttonStyle(PressableCard())
             Spacer()
             Button { step(1) } label: {
-                Image(systemName: "chevron.right").font(.system(size: 14, weight: .bold))
+                Image(systemName: "chevron.right").scaledFont(size: 14, weight: .bold)
                     .frame(width: 34, height: 34).contentCard(radius: 17)
             }
             .buttonStyle(PressableCard())
@@ -344,18 +344,18 @@ struct TargetScheduleSheet: View {
     private func dayBlock(_ day: ScheduleDay) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(day.label.uppercased())
-                .font(.system(size: 12.5, weight: .heavy))
+                .scaledFont(size: 12.5, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
             ForEach(day.lessons.filter { !$0.isAllDay }) { lesson in
                 HStack(alignment: .top, spacing: 10) {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(lesson.start)
-                            .font(.system(size: 14.5, weight: .semibold))
+                            .scaledFont(size: 14.5, weight: .semibold)
                             .monospacedDigit()
                         if !lesson.end.isEmpty {
                             Text(lesson.end)
-                                .font(.system(size: 12.5, weight: .medium))
+                                .scaledFont(size: 12.5, weight: .medium)
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
                         }
@@ -363,14 +363,14 @@ struct TargetScheduleSheet: View {
                     .frame(width: 52, alignment: .leading)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(lesson.displayTitle)
-                            .font(.system(size: 15.5, weight: .medium))
+                            .scaledFont(size: 15.5, weight: .medium)
                             .strikethrough(lesson.cancelled)
                             .multilineTextAlignment(.leading)
                         let meta = [lesson.code.uppercased(), lesson.room, lesson.teacher]
                             .filter { !$0.isEmpty }.joined(separator: " · ")
                         if !meta.isEmpty {
                             Text(meta)
-                                .font(.system(size: 13))
+                                .scaledFont(size: 13)
                                 .foregroundStyle(.secondary)
                         }
                     }

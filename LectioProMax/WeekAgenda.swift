@@ -243,19 +243,19 @@ private struct WeekDayCard: View {
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 7) {
                 Text(title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .scaledFont(size: 17, weight: .semibold)
                     .foregroundStyle(isToday ? Palette.accent : Color.primary)
                 Text(dateText)
-                    .font(.system(size: 15))
+                    .scaledFont(size: 15)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 6)
                 // Your hours; on a day that's one thing, what it is.
                 Text(hours ?? plan.status.first?.kind.label ?? (rows.isEmpty ? "Nothing on" : ""))
-                    .font(.system(size: 14, weight: .medium))
+                    .scaledFont(size: 14, weight: .medium)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .scaledFont(size: 12.5, weight: .semibold)
                     .foregroundStyle(.tertiary)
             }
             .lineLimit(1)
@@ -316,9 +316,9 @@ private struct WeekDayCard: View {
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 11.5, weight: .bold))
+                    .scaledFont(size: 11.5, weight: .bold)
             }
-            .font(.system(size: 14, weight: .medium))
+            .scaledFont(size: 14, weight: .medium)
             .foregroundStyle(.secondary)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -372,15 +372,15 @@ private struct WeekLine: View {
         if case .status(let item) = row.kind {
             let kind = item.kind
             Image(systemName: kind.icon)
-                .font(.system(size: 14, weight: .semibold))
+                .scaledFont(size: 14, weight: .semibold)
                 .foregroundStyle(kind.tint)
         } else if case .allDay = row.kind {
             Image(systemName: "calendar")
-                .font(.system(size: 14, weight: .semibold))
+                .scaledFont(size: 14, weight: .semibold)
                 .foregroundStyle(.secondary)
         } else {
             Text(row.label)
-                .font(.system(size: row.label.count > 2 ? 12.5 : 15, weight: .bold, design: .rounded))
+                .scaledFont(size: row.label.count > 2 ? 12.5 : 15, weight: .bold, design: .rounded)
                 .monospacedDigit()
                 .foregroundStyle(state == .now ? Palette.accent : Color(.secondaryLabel))
                 .lineLimit(1)
@@ -415,57 +415,57 @@ private struct WeekLineMain: View {
             switch row.kind {
             case .status(let item):
                 Text(dayStatusTitle(item))
-                    .font(.system(size: 15.5, weight: .semibold))
+                    .scaledFont(size: 15.5, weight: .semibold)
                     .lineLimit(1)
             case .allDay(let item):
                 Text(item.headline)
-                    .font(.system(size: 15, weight: .medium))
+                    .scaledFont(size: 15, weight: .medium)
                     .lineLimit(1)
             case .lesson(let lesson):
                 if lesson.isPrivateEvent {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 11.5, weight: .semibold))
+                        .scaledFont(size: 11.5, weight: .semibold)
                         .foregroundStyle(.secondary)
                 }
                 // The class's trip by what it is ("Pre-IB intro trip"), not
                 // its team ("KL").
                 Text(lesson.markKind != nil ? dayStatusTitle(lesson) : lesson.headline)
-                    .font(.system(size: 15.5, weight: .semibold))
+                    .scaledFont(size: 15.5, weight: .semibold)
                     .foregroundStyle(over ? Color(.secondaryLabel) : Color.primary)
                     .lineLimit(1)
                     .layoutPriority(1)
                 if lesson.markKind == nil, let topic = topic(lesson) {
                     Text(topic)
-                        .font(.system(size: 14))
+                        .scaledFont(size: 14)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             case .cancelled(let lesson):
                 Text(lesson.headline)
-                    .font(.system(size: 15.5, weight: .medium))
+                    .scaledFont(size: 15.5, weight: .medium)
                     .strikethrough()
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .layoutPriority(1)
                 Text("Cancelled")
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(size: 13, weight: .semibold)
                     .foregroundStyle(Palette.negative)
                     .lineLimit(1)
             case .outside(let item):
                 Text(item.headline)
-                    .font(.system(size: 15, weight: .medium))
+                    .scaledFont(size: 15, weight: .medium)
                     .foregroundStyle(over ? Color(.secondaryLabel) : Color.primary)
                     .lineLimit(1)
                     .layoutPriority(1)
                 if let topic = topic(item) {
                     Text(topic)
-                        .font(.system(size: 14))
+                        .scaledFont(size: 14)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             case .free:
                 Text("Free")
-                    .font(.system(size: 15))
+                    .scaledFont(size: 15)
                     .foregroundStyle(.secondary)
             }
         }
@@ -493,7 +493,7 @@ private struct WeekLineTrailing: View {
                 if let mark = lesson.markKind { KindTag(kind: mark) }
                 if !lesson.homework.isEmpty {
                     Image(systemName: "book.closed.fill")
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(size: 12, weight: .semibold)
                         .foregroundStyle(lesson.isClassLesson
                                          ? Color.subjectStripe(lesson.code, in: scheme)
                                          : Color(.secondaryLabel))
@@ -507,7 +507,7 @@ private struct WeekLineTrailing: View {
             case .outside(let item):
                 if !item.start.isEmpty {
                     Text(item.end.isEmpty ? short(item.start) : short(item.start) + "–" + short(item.end))
-                        .font(.system(size: 13.5, weight: .medium))
+                        .scaledFont(size: 13.5, weight: .medium)
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                         .fixedSize()
@@ -517,7 +517,7 @@ private struct WeekLineTrailing: View {
             case .allDay(let item):
                 if let span = item.allDay, !span.isEmpty {
                     Text(span)
-                        .font(.system(size: 13, weight: .medium))
+                        .scaledFont(size: 13, weight: .medium)
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -533,7 +533,7 @@ private struct WeekLineTrailing: View {
     private func room(_ lesson: Lesson) -> some View {
         if !lesson.room.isEmpty {
             Text(LessonText.abbreviated(lesson.room))
-                .font(.system(size: 14.5, weight: .semibold))
+                .scaledFont(size: 14.5, weight: .semibold)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .lineLimit(1)

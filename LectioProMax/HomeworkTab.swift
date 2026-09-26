@@ -83,7 +83,7 @@ struct HomeworkTab: View {
                         Button("Show everything") {
                             withAnimation(.snappy) { filter = WorkFilter() }
                         }
-                        .font(.system(size: 16, weight: .semibold))
+                        .scaledFont(size: 16, weight: .semibold)
                         .frame(minHeight: 44)
                     }
                     .frame(maxWidth: .infinity)
@@ -121,7 +121,7 @@ struct HomeworkTab: View {
 
     private func header(_ title: String, accent: Color?) -> some View {
         Text(title.uppercased())
-            .font(.system(size: 13, weight: .heavy))
+            .scaledFont(size: 13, weight: .heavy)
             .tracking(0.8)
             .foregroundStyle(accent ?? Color.secondary)
             .padding(.leading, 4)
@@ -250,7 +250,7 @@ struct WorkRow: View {
             Button(action: open) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.displayTitle)
-                        .font(.system(size: 16.5, weight: .medium))
+                        .scaledFont(size: 16.5, weight: .medium)
                         .strikethrough(done)
                         .foregroundStyle(done ? Color(.secondaryLabel) : Color.primary)
                         .multilineTextAlignment(.leading)
@@ -324,7 +324,7 @@ struct WorkRow: View {
                         Circle().fill(item.isDelivered ? Color.green : tint)
                             .transition(.scale.combined(with: .opacity))
                         Image(systemName: "checkmark")
-                            .font(.system(size: 12, weight: .bold))
+                            .scaledFont(size: 12, weight: .bold)
                             .foregroundStyle(.white)
                             .transition(.scale.combined(with: .opacity))
                     } else {
@@ -332,7 +332,7 @@ struct WorkRow: View {
                             .strokeBorder(late ? Color.red : Color.secondary.opacity(0.4), lineWidth: 1.6)
                         if item.isAssignment {
                             Image(systemName: late ? "exclamationmark" : "arrow.up")
-                                .font(.system(size: 10.5, weight: .heavy))
+                                .scaledFont(size: 10.5, weight: .heavy)
                                 .foregroundStyle(late ? Color.red : Color.secondary)
                         }
                     }
@@ -372,7 +372,7 @@ struct WorkRow: View {
                 }
                 Spacer(minLength: 0)
             }
-            .font(.system(size: 14, weight: .medium))
+            .scaledFont(size: 14, weight: .medium)
         }
     }
 
@@ -399,7 +399,7 @@ struct WorkRow: View {
         let preview = item.preview
         if !preview.text.isEmpty {
             Text(preview.text)
-                .font(.system(size: 14.5))
+                .scaledFont(size: 14.5)
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
                 .multilineTextAlignment(.leading)
@@ -409,7 +409,7 @@ struct WorkRow: View {
         if let first = preview.files.first {
             HStack(spacing: 5) {
                 Image(systemName: "paperclip")
-                    .font(.system(size: 12, weight: .semibold))
+                    .scaledFont(size: 12, weight: .semibold)
                 Text(first)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -418,7 +418,7 @@ struct WorkRow: View {
                         .fixedSize()
                 }
             }
-            .font(.system(size: 14, weight: .medium))
+            .scaledFont(size: 14, weight: .medium)
             .foregroundStyle(.secondary)
             .padding(.top, preview.text.isEmpty ? 2 : 0)
         }
@@ -475,18 +475,18 @@ struct WorkDetailSheet: View {
                     HStack(spacing: 8) {
                         SubjectDot(code: item.code, size: 9)
                         Text(item.displayCode)
-                            .font(.system(size: 14, weight: .heavy))
+                            .scaledFont(size: 14, weight: .heavy)
                             .tracking(0.6)
                             .foregroundStyle(.secondary)
                         Spacer()
                     }
                     Text(item.displayTitle)
-                        .font(.system(size: 25.5, weight: .bold))
+                        .scaledFont(size: 25.5, weight: .bold)
                         .fixedSize(horizontal: false, vertical: true)
                     if let due = item.due {
                         Text("Due " + LectioDates.friendlyLabel(iso: due)
                              + (item.dueTime.isEmpty ? "" : " · " + item.dueTime))
-                            .font(.system(size: 15.5, weight: .medium))
+                            .scaledFont(size: 15.5, weight: .medium)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -497,9 +497,9 @@ struct WorkDetailSheet: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: done ? "arrow.uturn.backward" : "checkmark")
-                            .font(.system(size: 15, weight: .bold))
+                            .scaledFont(size: 15, weight: .bold)
                         Text(done ? "Mark as not done" : "Mark as done")
-                            .font(.system(size: 16.5, weight: .semibold))
+                            .scaledFont(size: 16.5, weight: .semibold)
                         Spacer()
                     }
                     .foregroundStyle(done ? Color.secondary : Palette.accent)
@@ -516,7 +516,7 @@ struct WorkDetailSheet: View {
                         .environmentObject(session)
                 } else if !item.text.isEmpty {
                     Text(LectioDates.tidy(item.text))
-                        .font(.system(size: 16.5))
+                        .scaledFont(size: 16.5)
                         .lineSpacing(3)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(15)
@@ -527,11 +527,11 @@ struct WorkDetailSheet: View {
                 if let link = item.link, let url = URL(string: link) {
                     Link(destination: url) {
                         HStack(spacing: 8) {
-                            Image(systemName: "safari").font(.system(size: 15, weight: .semibold))
+                            Image(systemName: "safari").scaledFont(size: 15, weight: .semibold)
                             Text("Open in Lectio")
-                                .font(.system(size: 16, weight: .semibold))
+                                .scaledFont(size: 16, weight: .semibold)
                             Spacer()
-                            Image(systemName: "arrow.up.right").font(.system(size: 12.5, weight: .bold))
+                            Image(systemName: "arrow.up.right").scaledFont(size: 12.5, weight: .bold)
                         }
                         .foregroundStyle(.secondary)
                         .padding(15)

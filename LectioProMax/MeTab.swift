@@ -180,19 +180,19 @@ struct MeTab: View {
     private var findRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 15, weight: .semibold))
+                .scaledFont(size: 15, weight: .semibold)
                 .foregroundStyle(.teal)
                 .frame(width: 22)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Find a schedule")
-                    .font(.system(size: 16.5, weight: .semibold))
+                    .scaledFont(size: 16.5, weight: .semibold)
                 Text("Classes, teachers, students and rooms")
-                    .font(.system(size: 13.5, weight: .medium))
+                    .scaledFont(size: 13.5, weight: .medium)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
+                .scaledFont(size: 13, weight: .semibold)
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)
@@ -228,10 +228,10 @@ struct MeTile: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .scaledFont(size: 12.5, weight: .semibold)
                     .foregroundStyle(tint)
                 Text(title)
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .scaledFont(size: 13.5, weight: .semibold)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 0)
@@ -240,20 +240,20 @@ struct MeTile: View {
             Group {
                 if let valueIcon {
                     Image(systemName: valueIcon)
-                        .font(.system(size: 24, weight: .semibold))
+                        .scaledFont(size: 24, weight: .semibold)
                 } else {
                     Text(value)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .scaledFont(size: 26, weight: .bold, design: .rounded)
                         .monospacedDigit()
                         .contentTransition(.numericText())
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
             }
-            .frame(height: 30, alignment: .leading)
+            .frame(minHeight: 30, alignment: .leading)
 
             Text(caption)
-                .font(.system(size: 13, weight: .medium))
+                .scaledFont(size: 13, weight: .medium)
                 .foregroundStyle(captionTint ?? Color(.secondaryLabel))
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)

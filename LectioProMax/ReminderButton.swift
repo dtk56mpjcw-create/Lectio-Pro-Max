@@ -67,7 +67,7 @@ struct ReminderButton: View {
 
     private var bell: some View {
         Image(systemName: timing == nil ? "bell" : "bell.fill")
-            .font(.system(size: 14, weight: .semibold))
+            .scaledFont(size: 14, weight: .semibold)
             .foregroundStyle(timing == nil ? Color(.secondaryLabel) : Palette.accent)
             // The bell swaps outline for filled with the system's own symbol
             // animation, and rings once when a reminder is set.

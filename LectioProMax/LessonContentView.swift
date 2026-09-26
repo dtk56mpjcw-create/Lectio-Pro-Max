@@ -45,7 +45,7 @@ struct LessonContentView: View {
                 HStack(spacing: 9) {
                     ProgressView()
                     Text("Loading from Lectio…")
-                        .font(.system(size: 15))
+                        .scaledFont(size: 15)
                         .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 4)
@@ -85,21 +85,21 @@ struct LessonContentView: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 6) {
                     Text("ELEVFEEDBACK")
-                        .font(.system(size: 12, weight: .heavy))
+                        .scaledFont(size: 12, weight: .heavy)
                         .tracking(0.7)
                         .foregroundStyle(.secondary)
                     Spacer()
                     Image(systemName: feedback.isEmpty ? "square.and.pencil" : "chevron.right")
-                        .font(.system(size: 12.5, weight: .bold))
+                        .scaledFont(size: 12.5, weight: .bold)
                         .foregroundStyle(Palette.accent)
                 }
                 if feedback.isEmpty {
                     Text("Nothing written yet")
-                        .font(.system(size: 16))
+                        .scaledFont(size: 16)
                         .foregroundStyle(.secondary)
                 } else {
                     Text(feedback.plainText)
-                        .font(.system(size: 16))
+                        .scaledFont(size: 16)
                         .lineSpacing(3)
                         .lineLimit(4)
                         .multilineTextAlignment(.leading)
@@ -117,11 +117,11 @@ struct LessonContentView: View {
     private func textCard(_ title: String, _ body: String) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title.uppercased())
-                .font(.system(size: 12, weight: .heavy))
+                .scaledFont(size: 12, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
             Text(LectioDates.tidy(body))
-                .font(.system(size: 16.5))
+                .scaledFont(size: 16.5)
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -133,7 +133,7 @@ struct LessonContentView: View {
     private func sectionCard(_ section: LessonSection) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(LessonWording.section(section.title).uppercased())
-                .font(.system(size: 12, weight: .heavy))
+                .scaledFont(size: 12, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
 
@@ -141,7 +141,7 @@ struct LessonContentView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     if !entry.text.isEmpty {
                         Text(LectioDates.tidy(entry.text))
-                            .font(.system(size: 16))
+                            .scaledFont(size: 16)
                             .lineSpacing(3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -165,15 +165,15 @@ struct LessonContentView: View {
                     ProgressView().controlSize(.small)
                 } else {
                     Image(systemName: "paperclip")
-                        .font(.system(size: 13, weight: .semibold))
+                        .scaledFont(size: 13, weight: .semibold)
                         .foregroundStyle(Palette.accent)
                 }
                 Text(file.name)
-                    .font(.system(size: 15.5, weight: .semibold))
+                    .scaledFont(size: 15.5, weight: .semibold)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
                 Image(systemName: "arrow.down.circle")
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .scaledFont(size: 13.5, weight: .semibold)
                     .foregroundStyle(.tertiary)
             }
             .padding(.vertical, 10)

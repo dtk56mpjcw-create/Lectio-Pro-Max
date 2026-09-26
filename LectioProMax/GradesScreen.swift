@@ -15,9 +15,9 @@ struct GradesScreen: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Grades")
-                        .font(.system(size: 26, weight: .bold))
+                        .scaledFont(size: 26, weight: .bold)
                     Text("This school year, from Lectio.")
-                        .font(.system(size: 15))
+                        .scaledFont(size: 15)
                         .foregroundStyle(.secondary)
                 }
 
@@ -25,7 +25,7 @@ struct GradesScreen: View {
                     if report.rows.isEmpty {
                         EmptyNotice(icon: "star", text: "No grades yet")
                         Text("They'll show here as soon as your teachers give them.")
-                            .font(.system(size: 14.5))
+                            .scaledFont(size: 14.5)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
                             .multilineTextAlignment(.center)
@@ -43,10 +43,10 @@ struct GradesScreen: View {
                 if let url = URL(string: LectioMeService.gradesURL) {
                     Link(destination: url) {
                         HStack(spacing: 8) {
-                            Image(systemName: "safari").font(.system(size: 15, weight: .semibold))
-                            Text("Open in Lectio").font(.system(size: 16, weight: .semibold))
+                            Image(systemName: "safari").scaledFont(size: 15, weight: .semibold)
+                            Text("Open in Lectio").scaledFont(size: 16, weight: .semibold)
                             Spacer()
-                            Image(systemName: "arrow.up.right").font(.system(size: 12.5, weight: .bold))
+                            Image(systemName: "arrow.up.right").scaledFont(size: 12.5, weight: .bold)
                         }
                         .foregroundStyle(Palette.accent)
                         .padding(15)
@@ -74,13 +74,13 @@ struct GradesScreen: View {
     private func averageCard(_ average: Double, _ report: GradeReport) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(average.formatted(.number.precision(.fractionLength(1))))
-                .font(.system(size: 40, weight: .bold, design: .rounded))
+                .scaledFont(size: 40, weight: .bold, design: .rounded)
                 .monospacedDigit()
             VStack(alignment: .leading, spacing: 2) {
                 Text("Average")
-                    .font(.system(size: 16, weight: .semibold))
+                    .scaledFont(size: 16, weight: .semibold)
                 Text("Newest grade in \(report.gradedSubjects) subject\(report.gradedSubjects == 1 ? "" : "s"), weighted")
-                    .font(.system(size: 13.5))
+                    .scaledFont(size: 13.5)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
@@ -106,10 +106,10 @@ struct GradesScreen: View {
                 .frame(width: 10)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title(for: row))
-                    .font(.system(size: 16.5, weight: .semibold))
+                    .scaledFont(size: 16.5, weight: .semibold)
                     .lineLimit(2)
                 Text(row.team)
-                    .font(.system(size: 13.5, weight: .medium))
+                    .scaledFont(size: 13.5, weight: .medium)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
@@ -117,11 +117,11 @@ struct GradesScreen: View {
                 ForEach(row.cells, id: \.column) { cell in
                     VStack(spacing: 1) {
                         Text(cell.grade.isEmpty ? "–" : cell.grade)
-                            .font(.system(size: 19, weight: .bold, design: .rounded))
+                            .scaledFont(size: 19, weight: .bold, design: .rounded)
                             .monospacedDigit()
                             .foregroundStyle(cell.grade.isEmpty ? Color(.tertiaryLabel) : Color.primary)
                         Text(Self.short(cell.column))
-                            .font(.system(size: 10.5, weight: .semibold))
+                            .scaledFont(size: 10.5, weight: .semibold)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -156,7 +156,7 @@ struct GradesScreen: View {
     private func notes(_ notes: [GradeNote]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("NOTES")
-                .font(.system(size: 13, weight: .heavy))
+                .scaledFont(size: 13, weight: .heavy)
                 .tracking(0.8)
                 .foregroundStyle(.secondary)
                 .padding(.leading, 4)
@@ -166,11 +166,11 @@ struct GradesScreen: View {
                         ForEach(Array(note.fields.enumerated()), id: \.offset) { _, field in
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 Text(field.label)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .scaledFont(size: 13, weight: .semibold)
                                     .foregroundStyle(.secondary)
                                     .frame(width: 84, alignment: .leading)
                                 Text(field.value)
-                                    .font(.system(size: 15))
+                                    .scaledFont(size: 15)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }

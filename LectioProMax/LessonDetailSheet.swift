@@ -17,32 +17,32 @@ struct LessonDetailContent: View {
                 HStack(spacing: 8) {
                     SubjectDot(code: lesson.isClassLesson ? lesson.code : "", size: 9)
                     Text(kicker.uppercased())
-                        .font(.system(size: 14, weight: .heavy))
+                        .scaledFont(size: 14, weight: .heavy)
                         .tracking(0.6)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                     if state == .current && !lesson.isAllDay {
                         Text("NOW")
-                            .font(.system(size: 12.5, weight: .heavy))
+                            .scaledFont(size: 12.5, weight: .heavy)
                             .foregroundStyle(Palette.accent)
                     }
                     if lesson.cancelled {
                         Text("CANCELLED")
-                            .font(.system(size: 12.5, weight: .heavy))
+                            .scaledFont(size: 12.5, weight: .heavy)
                             .foregroundStyle(Palette.negative)
                     } else if lesson.changed && lesson.isClassLesson {
                         Text("CHANGED")
-                            .font(.system(size: 12.5, weight: .heavy))
+                            .scaledFont(size: 12.5, weight: .heavy)
                             .foregroundStyle(Palette.warning)
                     }
                     Spacer()
                 }
                 Text(bigTitle)
-                    .font(.system(size: 31, weight: .bold))
+                    .scaledFont(size: 31, weight: .bold)
                     .strikethrough(lesson.cancelled)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(LectioDates.longLabel(iso: dayISO) + " · " + when)
-                    .font(.system(size: 15.5, weight: .medium))
+                    .scaledFont(size: 15.5, weight: .medium)
                     .foregroundStyle(.secondary)
             }
 
@@ -65,11 +65,11 @@ struct LessonDetailContent: View {
             if let link = lesson.link, let url = URL(string: link) {
                 Link(destination: url) {
                     HStack(spacing: 8) {
-                        Image(systemName: "safari").font(.system(size: 15, weight: .semibold))
+                        Image(systemName: "safari").scaledFont(size: 15, weight: .semibold)
                         Text("Open in Lectio")
-                            .font(.system(size: 16, weight: .semibold))
+                            .scaledFont(size: 16, weight: .semibold)
                         Spacer()
-                        Image(systemName: "arrow.up.right").font(.system(size: 12.5, weight: .bold))
+                        Image(systemName: "arrow.up.right").scaledFont(size: 12.5, weight: .bold)
                     }
                     .foregroundStyle(Palette.accent)
                     .padding(15)
@@ -106,13 +106,13 @@ struct LessonDetailContent: View {
     private func factTile(_ icon: String, _ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 4) {
-                Image(systemName: icon).font(.system(size: 11, weight: .semibold))
+                Image(systemName: icon).scaledFont(size: 11, weight: .semibold)
                 Text(label.uppercased())
-                    .font(.system(size: 11, weight: .heavy))
+                    .scaledFont(size: 11, weight: .heavy)
                     .tracking(0.5)
             }
             .foregroundStyle(.secondary)
-            Text(value).font(.system(size: 18.5, weight: .semibold))
+            Text(value).scaledFont(size: 18.5, weight: .semibold)
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -122,11 +122,11 @@ struct LessonDetailContent: View {
     private func textSection(_ title: String, _ body: String) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title.uppercased())
-                .font(.system(size: 12, weight: .heavy))
+                .scaledFont(size: 12, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
             Text(LectioDates.tidy(body))
-                .font(.system(size: 16.5))
+                .scaledFont(size: 16.5)
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
         }

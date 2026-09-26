@@ -257,42 +257,42 @@ struct MessagesTab: View {
     private func undoBar(_ thread: MessageThreadSummary) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "trash")
-                .font(.system(size: 14, weight: .semibold))
+                .scaledFont(size: 14, weight: .semibold)
                 .foregroundStyle(.secondary)
             Text("Deleted")
-                .font(.system(size: 15.5, weight: .medium))
+                .scaledFont(size: 15.5, weight: .medium)
             Spacer(minLength: 0)
             Button("Undo") {
                 Task { await undoDelete(thread) }
             }
-            .font(.system(size: 15.5, weight: .semibold))
+            .scaledFont(size: 15.5, weight: .semibold)
             .frame(minHeight: 44)
         }
         .padding(.horizontal, 16)
-        .frame(height: 50)
+        .frame(minHeight: 50)
         .glassEffect(.regular, in: .capsule)
     }
 
     private var sentBar: some View {
         HStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 16, weight: .semibold))
+                .scaledFont(size: 16, weight: .semibold)
                 .foregroundStyle(.green)
             Text("Message sent")
-                .font(.system(size: 15.5, weight: .medium))
+                .scaledFont(size: 15.5, weight: .medium)
             Spacer(minLength: 0)
             if let thread = sentThread {
                 Button("View") {
                     hideSent()
                     path.append(thread)
                 }
-                .font(.system(size: 15.5, weight: .semibold))
+                .scaledFont(size: 15.5, weight: .semibold)
                 .frame(minHeight: 44)
                 .transition(.opacity)
             }
         }
         .padding(.horizontal, 16)
-        .frame(height: 50)
+        .frame(minHeight: 50)
         .glassEffect(.regular, in: .capsule)
     }
 
@@ -419,12 +419,12 @@ struct MessagesTab: View {
     private var deletedNote: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text("Lectio empties Deleted after 3 months.")
-                .font(.system(size: 13.5))
+                .scaledFont(size: 13.5)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             Button("Clear list") { confirmingClear = true }
-                .font(.system(size: 14.5, weight: .semibold))
+                .scaledFont(size: 14.5, weight: .semibold)
                 .foregroundStyle(.red)
                 .buttonStyle(.plain)
                 .frame(minHeight: 44)
@@ -529,36 +529,36 @@ struct ThreadRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(senderName)
-                        .font(.system(size: 15.5, weight: thread.unread ? .semibold : .medium))
+                        .scaledFont(size: 15.5, weight: thread.unread ? .semibold : .medium)
                         .lineLimit(1)
                     Spacer(minLength: 4)
                     Text(changedText)
-                        .font(.system(size: 13.5, weight: .medium))
+                        .scaledFont(size: 13.5, weight: .medium)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .fixedSize()
                 }
                 HStack(spacing: 6) {
                     Text(thread.subject)
-                        .font(.system(size: 16, weight: thread.unread ? .semibold : .regular))
+                        .scaledFont(size: 16, weight: thread.unread ? .semibold : .regular)
                         .foregroundStyle(thread.unread ? Color.primary : Color(.secondaryLabel))
                         .multilineTextAlignment(.leading)
                         .lineLimit(2)
                     Spacer(minLength: 0)
                     if thread.flagged {
                         Image(systemName: "flag.fill")
-                            .font(.system(size: 11.5))
+                            .scaledFont(size: 11.5)
                             .foregroundStyle(Palette.warning)
                     }
                     if thread.hasAttachment {
                         Image(systemName: "paperclip")
-                            .font(.system(size: 11.5, weight: .semibold))
+                            .scaledFont(size: 11.5, weight: .semibold)
                             .foregroundStyle(.secondary)
                     }
                 }
                 if !thread.recipients.isEmpty {
                     Text("To " + thread.recipients)
-                        .font(.system(size: 13))
+                        .scaledFont(size: 13)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }

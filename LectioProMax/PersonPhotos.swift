@@ -167,7 +167,7 @@ struct PersonAvatar: View {
             } else {
                 Circle().fill(Color(.tertiarySystemFill))
                 Text(initials)
-                    .font(.system(size: size * 0.38, weight: .semibold))
+                    .scaledFont(size: size * 0.38, weight: .semibold)
                     .foregroundStyle(.secondary)
             }
         }
@@ -216,7 +216,7 @@ struct PhotoViewer: View {
                     .frame(maxWidth: 200)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 Text(name)
-                    .font(.system(size: 19, weight: .semibold))
+                    .scaledFont(size: 19, weight: .semibold)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Metrics.margin)
                 Spacer()

@@ -54,9 +54,9 @@ struct AttachmentTray: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "paperclip")
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(size: 14, weight: .semibold)
                         Text(attachments.isEmpty ? "Attach" : "Attach more")
-                            .font(.system(size: 15, weight: .semibold))
+                            .scaledFont(size: 15, weight: .semibold)
                     }
                     .foregroundStyle(Palette.accent)
                     .frame(minHeight: 44)
@@ -69,7 +69,7 @@ struct AttachmentTray: View {
                 }
                 if let problem {
                     Text(problem)
-                        .font(.system(size: 13.5))
+                        .scaledFont(size: 13.5)
                         .foregroundStyle(.red)
                         .lineLimit(2)
                 }
@@ -101,12 +101,12 @@ struct AttachmentTray: View {
                     .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
             } else {
                 Image(systemName: "doc")
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(size: 13, weight: .semibold)
                     .foregroundStyle(.secondary)
                     .frame(width: 26, height: 26)
             }
             Text(attachment.filename)
-                .font(.system(size: 13.5, weight: .medium))
+                .scaledFont(size: 13.5, weight: .medium)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: 150, alignment: .leading)
@@ -114,7 +114,7 @@ struct AttachmentTray: View {
                 attachments.removeAll { $0.id == attachment.id }
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 16))
+                    .scaledFont(size: 16)
                     .foregroundStyle(.tertiary)
                     .frame(width: 30, height: 30)
                     .contentShape(Rectangle())

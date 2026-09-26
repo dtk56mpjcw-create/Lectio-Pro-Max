@@ -79,7 +79,7 @@ struct SchoolPicker: View {
                             Spacer()
                             if LectioConfig.hasChosenSchool && school.id == LectioConfig.schoolID {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .scaledFont(size: 15, weight: .semibold)
                                     .foregroundStyle(Palette.accent)
                             }
                         }

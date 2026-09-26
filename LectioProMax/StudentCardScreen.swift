@@ -31,7 +31,7 @@ struct StudentCardScreen: View {
                     } else if failed {
                         EmptyNotice(icon: "person.text.rectangle", text: "Couldn't load your student card")
                         Button("Try again") { Task { await load() } }
-                            .font(.system(size: 16, weight: .semibold))
+                            .scaledFont(size: 16, weight: .semibold)
                             .frame(minHeight: 44)
                     } else {
                         ProgressView().frame(maxWidth: .infinity).padding(.vertical, 80)
@@ -74,11 +74,11 @@ struct StudentCardScreen: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("STUDENT CARD")
-                    .font(.system(size: 12.5, weight: .heavy))
+                    .scaledFont(size: 12.5, weight: .heavy)
                     .tracking(1.2)
                 Spacer()
                 Text(card.school)
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(size: 13, weight: .semibold)
                     .lineLimit(1)
             }
             .foregroundStyle(.white)
@@ -90,7 +90,7 @@ struct StudentCardScreen: View {
                 photoView
                 VStack(alignment: .leading, spacing: 8) {
                     Text(card.name)
-                        .font(.system(size: 21, weight: .bold))
+                        .scaledFont(size: 21, weight: .bold)
                         .fixedSize(horizontal: false, vertical: true)
                     if !className.isEmpty {
                         fact("Class", className)
@@ -117,7 +117,7 @@ struct StudentCardScreen: View {
                     .scaledToFill()
             } else {
                 Rectangle().fill(Color(.tertiarySystemFill))
-                    .overlay { Image(systemName: "person.fill").font(.system(size: 30)).foregroundStyle(.tertiary) }
+                    .overlay { Image(systemName: "person.fill").scaledFont(size: 30).foregroundStyle(.tertiary) }
             }
         }
         .frame(width: 96, height: 128)
@@ -128,11 +128,11 @@ struct StudentCardScreen: View {
     private func fact(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(label.uppercased())
-                .font(.system(size: 11, weight: .heavy))
+                .scaledFont(size: 11, weight: .heavy)
                 .tracking(0.5)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.system(size: 15.5, weight: .medium))
+                .scaledFont(size: 15.5, weight: .medium)
         }
     }
 
@@ -154,7 +154,7 @@ struct StudentCardScreen: View {
                     ProgressView().tint(.black)
                 } else {
                     Text("No QR code on this card")
-                        .font(.system(size: 14, weight: .medium))
+                        .scaledFont(size: 14, weight: .medium)
                         .foregroundStyle(.black.opacity(0.5))
                 }
             }
@@ -172,11 +172,11 @@ struct StudentCardScreen: View {
                          + context.date.formatted(date: .omitted, time: .standard))
                         .monospacedDigit()
                 }
-                .font(.system(size: 13.5, weight: .medium))
+                .scaledFont(size: 13.5, weight: .medium)
                 .foregroundStyle(.secondary)
             }
             Text("The code changes every \(Int(card.qrInterval)) seconds.")
-                .font(.system(size: 13))
+                .scaledFont(size: 13)
                 .foregroundStyle(.secondary)
         }
         .padding(18)

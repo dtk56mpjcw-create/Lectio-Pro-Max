@@ -48,7 +48,7 @@ struct SheetCloseButton: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { closing = false }
         } label: {
             Image(systemName: "xmark")
-                .font(.system(size: 14, weight: .bold))
+                .scaledFont(size: 14, weight: .bold)
                 .foregroundStyle(.secondary)
                 .frame(width: Self.visible, height: Self.visible)
                 .contentCard(radius: Self.visible / 2)

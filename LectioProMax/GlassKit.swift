@@ -106,7 +106,7 @@ struct GlassCircleButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 16, weight: .semibold))
+                .scaledFont(size: 16, weight: .semibold)
                 .foregroundStyle(.primary)
                 .frame(width: 44, height: 44)
         }
@@ -135,10 +135,10 @@ struct EmptyNotice: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 30, weight: .light))
+                .scaledFont(size: 30, weight: .light)
                 .foregroundStyle(.tertiary)
             Text(text)
-                .font(.system(size: 15, weight: .medium))
+                .scaledFont(size: 15, weight: .medium)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -152,8 +152,8 @@ struct Banner: View {
         HStack(alignment: .top, spacing: 9) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(Palette.ember)
-                .font(.system(size: 13))
-            Text(text).font(.system(size: 13.5))
+                .scaledFont(size: 13)
+            Text(text).scaledFont(size: 13.5)
             Spacer(minLength: 0)
         }
         .padding(13)

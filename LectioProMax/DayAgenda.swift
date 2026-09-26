@@ -132,11 +132,14 @@ enum ModuleGrid {
 
     /// Its modules, and any time it runs on past them at the same rate:
     /// 8:00–16:00 is four modules and 45 minutes more.
-    static func height(of slot: DayPlan.Slot) -> CGFloat {
+    /// `scale`: TypeScale.factor — with bigger text a module is taller,
+    /// never shorter than the default.
+    static func height(of slot: DayPlan.Slot, scale: CGFloat = 1) -> CGFloat {
+        let module = height * max(scale, 1)
         let count = CGFloat(max(1, slot.last.number - slot.module.number + 1))
         let length = CGFloat(max(slot.module.endMinutes - slot.module.startMinutes, 30))
-        let extra = CGFloat(slot.overrunBefore + slot.overrunAfter) * height / length
-        return count * height + (count - 1) * gap + extra
+        let extra = CGFloat(slot.overrunBefore + slot.overrunAfter) * module / length
+        return count * module + (count - 1) * gap + extra
     }
 }
 
@@ -144,6 +147,8 @@ private struct ModuleRow: View {
     let slot: DayPlan.Slot
     let dayISO: String
     let now: Date?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    private var scale: CGFloat { TypeScale.factor(dynamicTypeSize) }
 
     private var nowMinutes: Int? { now.map { DayList.minutes(of: $0) } }
     private var isCurrent: Bool {
@@ -165,7 +170,7 @@ private struct ModuleRow: View {
                     SlotCard(slot: slot, dayISO: dayISO, now: now, isCurrent: isCurrent, isPast: isPast)
                 }
             }
-            .frame(height: ModuleGrid.height(of: slot))
+            .frame(height: ModuleGrid.height(of: slot, scale: scale))
         }
     }
 
@@ -181,20 +186,20 @@ private struct ModuleRow: View {
             let hours = slot.hours
             VStack(spacing: 0) {
                 Text(hours.shortStart)
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .scaledFont(size: 17, weight: .bold, design: .rounded)
                     .foregroundStyle(isCurrent ? Palette.accent : (isPast ? Color(.secondaryLabel) : Color.primary))
                 Spacer(minLength: 4)
                 Text(hours.shortEnd)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .scaledFont(size: 14, weight: .semibold, design: .rounded)
                     .foregroundStyle(.secondary)
             }
             .monospacedDigit()
             .lineLimit(1)
-            .minimumScaleFactor(0.8)
+            .minimumScaleFactor(0.5)
             .frame(width: 38)
             .padding(.top, 10)
             .padding(.bottom, 12)
-            .frame(height: ModuleGrid.height(of: slot))
+            .frame(height: ModuleGrid.height(of: slot, scale: scale))
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(hours.start) to \(hours.end)")
         }
@@ -205,16 +210,18 @@ private struct ModuleRow: View {
         let past = nowMinutes.map { $0 >= module.endMinutes } ?? (dayISO < LectioDates.isoString(from: Date()))
         return VStack(spacing: 1) {
             Text("\(module.number)")
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .scaledFont(size: 22, weight: .bold, design: .rounded)
                 .foregroundStyle(current ? Palette.accent : (past ? Color(.secondaryLabel) : Color.primary))
             Text(module.shortStart)
-                .font(.system(size: 11.5, weight: .semibold))
+                .scaledFont(size: 11.5, weight: .semibold)
                 .foregroundStyle(.secondary)
             Text(module.shortEnd)
-                .font(.system(size: 11.5, weight: .medium))
+                .scaledFont(size: 11.5, weight: .medium)
                 .foregroundStyle(.secondary)
         }
         .monospacedDigit()
+        .lineLimit(1)
+        .minimumScaleFactor(0.5)
         .frame(width: 38)
         .padding(.top, 8)
         .accessibilityElement(children: .combine)
@@ -232,6 +239,8 @@ private struct SlotCard: View {
     let isCurrent: Bool
     let isPast: Bool
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         let lessons = slot.main + slot.continuing
         let tall = slot.through != nil
@@ -246,7 +255,8 @@ private struct SlotCard: View {
                                 faded: isPast,
                                 tall: tall,
                                 dayISO: dayISO,
-                                roomBelow: slot.alongside.isEmpty ? 0 : CGFloat(slot.alongside.count) * 44)
+                                roomBelow: slot.alongside.isEmpty ? 0
+                                    : CGFloat(slot.alongside.count) * 44 * max(TypeScale.factor(dynamicTypeSize), 1))
                 }
                 .frame(maxHeight: .infinity)
             }
@@ -353,18 +363,18 @@ private struct LessonBlock: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     if lesson.isPrivateEvent {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 12, weight: .semibold))
+                            .scaledFont(size: 12, weight: .semibold)
                             .foregroundStyle(.secondary)
                     }
                     Text(isLesson ? lesson.headline : dayStatusTitle(lesson))
-                        .font(.system(size: 17, weight: .semibold))
+                        .scaledFont(size: 17, weight: .semibold)
                         .lineLimit(tall ? 2 : 1)
                     Spacer(minLength: 6)
                     if let mark {
                         KindTag(kind: mark)
                     } else if isLesson, !lesson.room.isEmpty {
                         Text(LessonText.abbreviated(lesson.room))
-                            .font(.system(size: 15, weight: .semibold))
+                            .scaledFont(size: 15, weight: .semibold)
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -375,12 +385,12 @@ private struct LessonBlock: View {
                 if isLesson {
                     if continued {
                         Text("Continues · until " + lesson.end)
-                            .font(.system(size: 14))
+                            .scaledFont(size: 14)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     } else if let topic = lesson.topic {
                         Text(LectioDates.tidy(topic))
-                            .font(.system(size: 14.5))
+                            .scaledFont(size: 14.5)
                             .foregroundStyle(.secondary)
                             .lineLimit(tall ? 4 : 1)
                             .multilineTextAlignment(.leading)
@@ -388,7 +398,7 @@ private struct LessonBlock: View {
                     }
                 } else if let details {
                     Text(details)
-                        .font(.system(size: 14.5))
+                        .scaledFont(size: 14.5)
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -396,7 +406,7 @@ private struct LessonBlock: View {
 
                 if tall, let spanNote {
                     Text(spanNote)
-                        .font(.system(size: 14, weight: .medium))
+                        .scaledFont(size: 14, weight: .medium)
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -409,7 +419,7 @@ private struct LessonBlock: View {
                 if tall, !lesson.note.isEmpty,
                    Lesson.squashed(lesson.note) != Lesson.squashed(lesson.title) {
                     Text(LectioDates.tidy(lesson.note))
-                        .font(.system(size: 13.5))
+                        .scaledFont(size: 13.5)
                         .foregroundStyle(.secondary)
                         .lineLimit(roomBelow > 0 ? 2 : 4)
                         .multilineTextAlignment(.leading)
@@ -426,7 +436,7 @@ private struct LessonBlock: View {
         .background(alignment: .bottomTrailing) {
             if tall, roomBelow == 0, let mark {
                 Image(systemName: mark.icon)
-                    .font(.system(size: 42, weight: .regular))
+                    .scaledFont(size: 42, weight: .regular)
                     .foregroundStyle(mark.tint.opacity(scheme == .dark ? 0.3 : 0.2))
                     .padding(14)
                     .accessibilityHidden(true)
@@ -461,7 +471,7 @@ private struct LessonBlock: View {
                 if hasHomework {
                     HStack(spacing: 3) {
                         Image(systemName: "book.closed.fill")
-                            .font(.system(size: 11, weight: .semibold))
+                            .scaledFont(size: 11, weight: .semibold)
                             .foregroundStyle(stripe)
                         Text("Homework")
                     }
@@ -480,7 +490,7 @@ private struct LessonBlock: View {
                 }
                 Spacer(minLength: 0)
             }
-            .font(.system(size: 13.5, weight: .medium))
+            .scaledFont(size: 13.5, weight: .medium)
             .foregroundStyle(.secondary)
             .lineLimit(1)
         }
@@ -502,7 +512,7 @@ private struct LessonBlock: View {
             }
             .frame(height: 5)
             Text(DayList.duration(left) + " left")
-                .font(.system(size: 12.5, weight: .semibold))
+                .scaledFont(size: 12.5, weight: .semibold)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
                 .fixedSize()
@@ -523,21 +533,21 @@ private struct AlongsideLine: View {
         let kind = lesson.markKind
         HStack(spacing: 8) {
             Image(systemName: kind?.icon ?? "calendar")
-                .font(.system(size: 12.5, weight: .semibold))
+                .scaledFont(size: 12.5, weight: .semibold)
                 .foregroundStyle(kind?.tint ?? Color(.secondaryLabel))
             Text(dayStatusTitle(lesson))
-                .font(.system(size: 14.5, weight: .semibold))
+                .scaledFont(size: 14.5, weight: .semibold)
                 .lineLimit(1)
                 .layoutPriority(1)
             Text(when)
-                .font(.system(size: 13, weight: .medium))
+                .scaledFont(size: 13, weight: .medium)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 10)
-        .frame(height: 38)
+        .frame(minHeight: 38)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -589,7 +599,7 @@ private struct FreeCard: View {
     private var header: some View {
         HStack(spacing: 8) {
             Text("Free")
-                .font(.system(size: 16, weight: .semibold))
+                .scaledFont(size: 16, weight: .semibold)
                 .foregroundStyle(.secondary)
             if let cancelled = slot.cancelled.first {
                 Text("·").foregroundStyle(.tertiary)
@@ -598,12 +608,12 @@ private struct FreeCard: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Text("cancelled")
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .scaledFont(size: 13.5, weight: .semibold)
                     .foregroundStyle(Palette.negative)
             }
             Spacer(minLength: 0)
         }
-        .font(.system(size: 15, weight: .medium))
+        .scaledFont(size: 15, weight: .medium)
         .padding(.horizontal, 14)
         .padding(.vertical, 13)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -643,20 +653,21 @@ private struct SideTimes: View {
         VStack(spacing: 1) {
             if start.isEmpty {
                 Text("All\nday")
-                    .font(.system(size: 11.5, weight: .heavy))
+                    .scaledFont(size: 11.5, weight: .heavy)
                     .multilineTextAlignment(.center)
             } else {
                 Text(short(start))
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .scaledFont(size: 12.5, weight: .semibold)
                 if !end.isEmpty {
                     Text(short(end))
-                        .font(.system(size: 11.5, weight: .medium))
+                        .scaledFont(size: 11.5, weight: .medium)
                 }
             }
         }
         .foregroundStyle(.secondary)
         .monospacedDigit()
         .lineLimit(2)
+        .minimumScaleFactor(0.5)
         .frame(width: 38)
     }
 
@@ -680,7 +691,7 @@ private struct SmallItem: View {
             // which the row already says.
             Text(lesson.headline.replacingOccurrences(of: "\\s*\\bAFLYST\\b", with: "",
                                                       options: [.regularExpression, .caseInsensitive]))
-                .font(.system(size: 15, weight: .medium))
+                .scaledFont(size: 15, weight: .medium)
                 .strikethrough(lesson.cancelled)
                 .foregroundStyle(lesson.cancelled ? Color(.secondaryLabel) : Color.primary)
                 .lineLimit(1)
@@ -688,13 +699,13 @@ private struct SmallItem: View {
             // A study hall after school says what it is: "Maths · Lektiecafé".
             if !lesson.cancelled, let topic = lesson.topic {
                 Text(LectioDates.tidy(topic).components(separatedBy: "\n").first ?? "")
-                    .font(.system(size: 14))
+                    .scaledFont(size: 14)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             if lesson.cancelled {
                 Text("Cancelled")
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .scaledFont(size: 12.5, weight: .semibold)
                     .foregroundStyle(Palette.negative)
                     .lineLimit(1)
                     .fixedSize()
@@ -706,7 +717,7 @@ private struct SmallItem: View {
             // Times and room never squeeze: the name gives way, with "…".
             if showsTime, !lesson.start.isEmpty {
                 Text(short(lesson.start) + (lesson.end.isEmpty ? "" : "–" + short(lesson.end)))
-                    .font(.system(size: 12.5, weight: .medium))
+                    .scaledFont(size: 12.5, weight: .medium)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -715,7 +726,7 @@ private struct SmallItem: View {
             // The room gives way before the name: "190 Fodbo…".
             if !lesson.room.isEmpty {
                 Text(LessonText.abbreviated(lesson.room))
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(size: 13, weight: .semibold)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -732,7 +743,7 @@ private struct SectionLabel: View {
     let text: String
     var body: some View {
         Text(text)
-            .font(.system(size: 12.5, weight: .heavy))
+            .scaledFont(size: 12.5, weight: .heavy)
             .tracking(0.7)
             .foregroundStyle(.secondary)
             .padding(.leading, 4)
@@ -760,9 +771,10 @@ private struct AllDayStrip: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Text("All\nday")
-                .font(.system(size: 11.5, weight: .heavy))
+                .scaledFont(size: 11.5, weight: .heavy)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
+                .minimumScaleFactor(0.5)
                 .frame(width: 38)
                 .padding(.top, 5)
                 .opacity(showsLabel ? 1 : 0)
@@ -773,13 +785,13 @@ private struct AllDayStrip: View {
                     OpenButton(lesson: item, dayISO: dayISO) {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text(item.headline)
-                                .font(.system(size: 14.5, weight: .semibold))
+                                .scaledFont(size: 14.5, weight: .semibold)
                                 .lineLimit(2)
                                 .multilineTextAlignment(.leading)
                                 .fixedSize(horizontal: false, vertical: true)
                             if let span = item.allDay, !span.isEmpty {
                                 Text(span)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .scaledFont(size: 13, weight: .medium)
                                     .monospacedDigit()
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
@@ -801,7 +813,7 @@ private struct AllDayStrip: View {
                         withAnimation(.snappy) { expanded.toggle() }
                     } label: {
                         Text(expanded ? "Show less" : "\(items.count - 1) more")
-                            .font(.system(size: 13.5, weight: .semibold))
+                            .scaledFont(size: 13.5, weight: .semibold)
                             .foregroundStyle(Palette.accent)
                             .padding(.horizontal, 12)
                             // Apple's minimum touch target, without the
@@ -866,7 +878,7 @@ struct KindTag: View {
 
     var body: some View {
         Text(kind.label)
-            .font(.system(size: 12, weight: .bold))
+            .scaledFont(size: 12, weight: .bold)
             .foregroundStyle(kind == .event ? Color(.secondaryLabel) : kind.tint)
             .padding(.horizontal, 6)
             .padding(.vertical, 1.5)
@@ -919,14 +931,14 @@ private struct StatusRow: View {
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text(dayStatusTitle(lesson))
-                                .font(.system(size: 17, weight: .semibold))
+                                .scaledFont(size: 17, weight: .semibold)
                                 .lineLimit(2)
                             Spacer(minLength: 6)
                             if kind.isTagged { KindTag(kind: kind) }
                         }
                         if let subtitle {
                             Text(subtitle)
-                                .font(.system(size: 13.5, weight: .medium))
+                                .scaledFont(size: 13.5, weight: .medium)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
@@ -970,7 +982,7 @@ private struct NowLine: View {
         HStack(spacing: 8) {
             Circle().fill(Palette.accent).frame(width: 8, height: 8)
             Text(text)
-                .font(.system(size: 14, weight: .semibold))
+                .scaledFont(size: 14, weight: .semibold)
                 .foregroundStyle(Palette.accent)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
@@ -986,9 +998,9 @@ private struct DoneLine: View {
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: "checkmark.circle")
-                .font(.system(size: 13.5, weight: .semibold))
+                .scaledFont(size: 13.5, weight: .semibold)
             Text("School's out")
-                .font(.system(size: 14, weight: .semibold))
+                .scaledFont(size: 14, weight: .semibold)
         }
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity)

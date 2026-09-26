@@ -40,7 +40,7 @@ struct NewMessageSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     Text("New message")
-                        .font(.system(size: 26, weight: .bold))
+                        .scaledFont(size: 26, weight: .bold)
                         .padding(.top, 34)
                         .padding(.trailing, 44)
 
@@ -81,7 +81,7 @@ struct NewMessageSheet: View {
     private var recipientSection: some View {
         VStack(alignment: .leading, spacing: 9) {
             Text("To")
-                .font(.system(size: 13, weight: .heavy))
+                .scaledFont(size: 13, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
 
@@ -90,17 +90,17 @@ struct NewMessageSheet: View {
                     ForEach(chosen) { person in
                         HStack(spacing: 8) {
                             Image(systemName: person.kind.icon)
-                                .font(.system(size: 13, weight: .semibold))
+                                .scaledFont(size: 13, weight: .semibold)
                                 .foregroundStyle(Palette.accent)
                             Text(person.name)
-                                .font(.system(size: 15, weight: .medium))
+                                .scaledFont(size: 15, weight: .medium)
                                 .multilineTextAlignment(.leading)
                             Spacer(minLength: 0)
                             Button {
                                 chosen.removeAll { $0.id == person.id }
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 15))
+                                    .scaledFont(size: 15)
                                     .foregroundStyle(.tertiary)
                             }
                             .buttonStyle(.plain)
@@ -114,7 +114,7 @@ struct NewMessageSheet: View {
 
             TextField(loadingDirectory ? "Loading people…" : "Search teachers, students, classes",
                       text: $query)
-                .font(.system(size: 16))
+                .scaledFont(size: 16)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
                 .padding(13)
@@ -130,15 +130,15 @@ struct NewMessageSheet: View {
                         } label: {
                             HStack(spacing: 9) {
                                 Image(systemName: person.kind.icon)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .scaledFont(size: 13, weight: .semibold)
                                     .foregroundStyle(.secondary)
                                     .frame(width: 20)
                                 Text(person.name)
-                                    .font(.system(size: 15))
+                                    .scaledFont(size: 15)
                                     .multilineTextAlignment(.leading)
                                 Spacer(minLength: 0)
                                 Text(person.kind.label)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .scaledFont(size: 12, weight: .medium)
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.vertical, 10)
@@ -157,11 +157,11 @@ struct NewMessageSheet: View {
     private func field(_ label: String, text: Binding<String>, lines: ClosedRange<Int>) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             Text(label.uppercased())
-                .font(.system(size: 13, weight: .heavy))
+                .scaledFont(size: 13, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
             TextField(label, text: text, axis: .vertical)
-                .font(.system(size: 16))
+                .scaledFont(size: 16)
                 .lineLimit(lines)
                 .padding(13)
                 .contentCard(radius: Metrics.inner)
@@ -177,10 +177,10 @@ struct NewMessageSheet: View {
                 if sending {
                     ProgressView().controlSize(.small)
                 } else {
-                    Image(systemName: "paperplane.fill").font(.system(size: 14, weight: .semibold))
+                    Image(systemName: "paperplane.fill").scaledFont(size: 14, weight: .semibold)
                 }
                 Text(sending ? (attachments.isEmpty ? "Sending…" : "Uploading and sending…") : "Send message")
-                    .font(.system(size: 16.5, weight: .semibold))
+                    .scaledFont(size: 16.5, weight: .semibold)
                 Spacer()
             }
             .foregroundStyle(Palette.accent)

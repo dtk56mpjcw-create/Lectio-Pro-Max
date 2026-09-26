@@ -18,7 +18,7 @@ struct SettingsScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Settings")
-                    .font(.system(size: 26, weight: .bold))
+                    .scaledFont(size: 26, weight: .bold)
 
                 section("Appearance") {
                     link("Subject colours", "paintpalette", .pink, to: .subjectColors)
@@ -48,7 +48,7 @@ struct SettingsScreen: View {
                         HStack(spacing: 13) {
                             icon("rectangle.portrait.and.arrow.right", .red)
                             Text("Sign out")
-                                .font(.system(size: 16.5, weight: .medium))
+                                .scaledFont(size: 16.5, weight: .medium)
                                 .foregroundStyle(.red)
                             Spacer()
                         }
@@ -87,7 +87,7 @@ struct SettingsScreen: View {
                                         @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title.uppercased())
-                .font(.system(size: 12.5, weight: .heavy))
+                .scaledFont(size: 12.5, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
                 .padding(.leading, 4)
@@ -99,7 +99,7 @@ struct SettingsScreen: View {
     /// Settings' coloured icon square.
     private func icon(_ name: String, _ tint: Color) -> some View {
         Image(systemName: name)
-            .font(.system(size: 14, weight: .semibold))
+            .scaledFont(size: 14, weight: .semibold)
             .foregroundStyle(.white)
             .frame(width: 29, height: 29)
             .background(tint.gradient, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
@@ -110,17 +110,17 @@ struct SettingsScreen: View {
         HStack(spacing: 13) {
             icon(symbol, tint)
             Text(title)
-                .font(.system(size: 16.5, weight: .medium))
+                .scaledFont(size: 16.5, weight: .medium)
             Spacer(minLength: 8)
             if let value {
                 Text(value)
-                    .font(.system(size: 15.5))
+                    .scaledFont(size: 15.5)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             if let chevron {
                 Image(systemName: chevron)
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(size: 13, weight: .semibold)
                     .foregroundStyle(.tertiary)
             }
         }
@@ -144,7 +144,7 @@ struct SettingsScreen: View {
             }
             Text("Lectio Pro Max \(version)")
         }
-        .font(.system(size: 13))
+        .scaledFont(size: 13)
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity)
         .padding(.top, 4)

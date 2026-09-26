@@ -106,18 +106,18 @@ struct AssignmentHandInSheet: View {
             HStack(spacing: 8) {
                 SubjectDot(code: item.code, size: 9)
                 Text(item.displayCode)
-                    .font(.system(size: 14, weight: .heavy))
+                    .scaledFont(size: 14, weight: .heavy)
                     .tracking(0.6)
                     .foregroundStyle(.secondary)
                 Spacer()
             }
             Text(item.displayTitle)
-                .font(.system(size: 25.5, weight: .bold))
+                .scaledFont(size: 25.5, weight: .bold)
                 .fixedSize(horizontal: false, vertical: true)
             if let due = item.due {
                 Text("Due " + LectioDates.friendlyLabel(iso: due)
                      + (item.dueTime.isEmpty ? "" : " · " + item.dueTime))
-                    .font(.system(size: 15.5, weight: .medium))
+                    .scaledFont(size: 15.5, weight: .medium)
                     .foregroundStyle(.secondary)
             }
         }
@@ -129,10 +129,10 @@ struct AssignmentHandInSheet: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 9) {
                 Image(systemName: status.isDelivered ? "checkmark.seal.fill" : "exclamationmark.circle")
-                    .font(.system(size: 17, weight: .semibold))
+                    .scaledFont(size: 17, weight: .semibold)
                     .foregroundStyle(status.isDelivered ? Palette.positive : Palette.warning)
                 Text(status.isDelivered ? "Handed in" : "Not handed in")
-                    .font(.system(size: 17.5, weight: .semibold))
+                    .scaledFont(size: 17.5, weight: .semibold)
                 Spacer(minLength: 0)
             }
             if !status.deliveryLine.isEmpty {
@@ -154,11 +154,11 @@ struct AssignmentHandInSheet: View {
     private func detailRow(_ label: String, _ value: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Text(label)
-                .font(.system(size: 14, weight: .medium))
+                .scaledFont(size: 14, weight: .medium)
                 .foregroundStyle(.secondary)
                 .frame(width: 96, alignment: .leading)
             Text(value)
-                .font(.system(size: 14.5))
+                .scaledFont(size: 14.5)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
@@ -169,7 +169,7 @@ struct AssignmentHandInSheet: View {
     private func groupSection(_ handIn: HandIn) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             Text("Group")
-                .font(.system(size: 13, weight: .heavy))
+                .scaledFont(size: 13, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
 
@@ -180,10 +180,10 @@ struct AssignmentHandInSheet: View {
                         PersonAvatar(target: person.asTarget, size: 32)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(person.name)
-                                .font(.system(size: 16, weight: .medium))
+                                .scaledFont(size: 16, weight: .medium)
                             if !person.className.isEmpty {
                                 Text(person.className)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .scaledFont(size: 13, weight: .medium)
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -197,7 +197,7 @@ struct AssignmentHandInSheet: View {
                                 confirmRemove = person
                             } label: {
                                 Image(systemName: "minus.circle")
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .scaledFont(size: 18, weight: .semibold)
                                     .foregroundStyle(.red)
                                     .frame(width: 44, height: 44)
                                     .contentShape(Rectangle())
@@ -216,7 +216,7 @@ struct AssignmentHandInSheet: View {
                 HStack(spacing: 10) {
                     ProgressView()
                     Text(busy)
-                        .font(.system(size: 15, weight: .medium))
+                        .scaledFont(size: 15, weight: .medium)
                     Spacer(minLength: 0)
                 }
                 .padding(14)
@@ -238,7 +238,7 @@ struct AssignmentHandInSheet: View {
     private func entriesSection(_ entries: [HandInEntry]) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             Text("Handed in")
-                .font(.system(size: 13, weight: .heavy))
+                .scaledFont(size: 13, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
 
@@ -252,11 +252,11 @@ struct AssignmentHandInSheet: View {
                         }
                         if !entry.comment.isEmpty {
                             Text(entry.comment)
-                                .font(.system(size: 14.5))
+                                .scaledFont(size: 14.5)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         Text([entry.user, entry.time].filter { !$0.isEmpty }.joined(separator: " · "))
-                            .font(.system(size: 13, weight: .medium))
+                            .scaledFont(size: 13, weight: .medium)
                             .foregroundStyle(.secondary)
                     }
                     .padding(13)
@@ -278,16 +278,16 @@ struct AssignmentHandInSheet: View {
                     ProgressView().controlSize(.small)
                 } else {
                     Image(systemName: "doc")
-                        .font(.system(size: 13, weight: .semibold))
+                        .scaledFont(size: 13, weight: .semibold)
                         .foregroundStyle(tint)
                 }
                 Text(entry.document)
-                    .font(.system(size: 15.5, weight: .semibold))
+                    .scaledFont(size: 15.5, weight: .semibold)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
                 if entry.documentLink != nil {
                     Image(systemName: "arrow.down.circle")
-                        .font(.system(size: 13.5, weight: .semibold))
+                        .scaledFont(size: 13.5, weight: .semibold)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -318,12 +318,12 @@ struct AssignmentHandInSheet: View {
     private var handInSection: some View {
         VStack(alignment: .leading, spacing: 11) {
             Text("Add to this assignment")
-                .font(.system(size: 13, weight: .heavy))
+                .scaledFont(size: 13, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
 
             TextField("Comment (optional)", text: $comment, axis: .vertical)
-                .font(.system(size: 15.5))
+                .scaledFont(size: 15.5)
                 .lineLimit(3...6)
                 .padding(13)
                 .contentCard(radius: Metrics.inner)
@@ -333,7 +333,7 @@ struct AssignmentHandInSheet: View {
                 HStack(spacing: 10) {
                     ProgressView()
                     Text(busy)
-                        .font(.system(size: 15, weight: .medium))
+                        .scaledFont(size: 15, weight: .medium)
                     Spacer(minLength: 0)
                 }
                 .padding(14)
@@ -363,7 +363,7 @@ struct AssignmentHandInSheet: View {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                     Text("Sent to Lectio")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(size: 15, weight: .semibold)
                 }
             }
         }
@@ -371,8 +371,8 @@ struct AssignmentHandInSheet: View {
 
     private func actionLabel(_ icon: String, _ title: String) -> some View {
         HStack(spacing: 9) {
-            Image(systemName: icon).font(.system(size: 15, weight: .semibold))
-            Text(title).font(.system(size: 16.5, weight: .semibold))
+            Image(systemName: icon).scaledFont(size: 15, weight: .semibold)
+            Text(title).scaledFont(size: 16.5, weight: .semibold)
             Spacer()
         }
         .foregroundStyle(Palette.accent)
@@ -386,11 +386,11 @@ struct AssignmentHandInSheet: View {
             if let url = URL(string: link) {
                 Link(destination: url) {
                     HStack(spacing: 8) {
-                        Image(systemName: "safari").font(.system(size: 15, weight: .semibold))
+                        Image(systemName: "safari").scaledFont(size: 15, weight: .semibold)
                         Text("Open in Lectio")
-                            .font(.system(size: 16, weight: .semibold))
+                            .scaledFont(size: 16, weight: .semibold)
                         Spacer()
-                        Image(systemName: "arrow.up.right").font(.system(size: 12.5, weight: .bold))
+                        Image(systemName: "arrow.up.right").scaledFont(size: 12.5, weight: .bold)
                     }
                     .foregroundStyle(.secondary)
                     .padding(15)
