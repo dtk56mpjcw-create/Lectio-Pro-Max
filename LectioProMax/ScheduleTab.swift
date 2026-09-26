@@ -104,15 +104,15 @@ struct ScheduleTab: View {
 
     var body: some View {
         NavigationStack(path: $opener.path) {
-            VStack(spacing: 0) {
-                header
-                pagers
-            }
-            .background { AppBackground() }
-            // The header above is the title bar here; the system bar only
-            // appears on a lesson pushed from it.
-            .toolbar(.hidden, for: .navigationBar)
-            .environment(opener)
+            pagers
+                .background { AppBackground() }
+                // The system's own large title and toolbar, like the other
+                // tabs: the title sits at the same height on every tab, and
+                // the buttons get the system's glass and spacing.
+                .navigationTitle(title)
+                .navigationSubtitle(subtitle)
+                .toolbar { toolbar }
+                .environment(opener)
             .navigationDestination(for: LessonRoute.self) { route in
                 LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
             }
@@ -163,66 +163,29 @@ struct ScheduleTab: View {
         }
     }
 
-    // MARK: Header
+    // MARK: Toolbar
 
-    /// Title, date and the three controls on one row — compact, like the
-    /// header this replaced, but in real glass.
-    private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                // The same size as the other tabs' large titles (34 pt bold),
-                // so switching tabs doesn't make the title jump.
-                Text(title)
-                    .font(.system(size: 34, weight: .bold))
-                    .lineLimit(1)
-                    // "Wednesday" next to the Today button was cut to "Wednesd…".
-                    .minimumScaleFactor(0.6)
-                Text(subtitle)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+    /// Today (when you're elsewhere), day/week, and a new event — in the
+    /// navigation bar, as Calendar has them.
+    @ToolbarContentBuilder
+    private var toolbar: some ToolbarContent {
+        ToolbarItemGroup(placement: .topBarTrailing) {
+            if selectedDate != today {
+                Button("Today") { jumpToToday() }
+                    .fontWeight(.semibold)
             }
-            Spacer(minLength: 8)
-            GlassEffectContainer(spacing: 12) {
-                HStack(spacing: 8) {
-                    if selectedDate != today {
-                        Button {
-                            jumpToToday()
-                        } label: {
-                            Text("Today")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.primary)
-                                // Never squeezed: it was being crushed to "T…"
-                                // inside its capsule by a long day name.
-                                .lineLimit(1)
-                                .fixedSize()
-                                .padding(.horizontal, 16)
-                                .frame(height: 44)
-                                .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .glassEffect(.regular.interactive(), in: .capsule)
-                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
-                    }
-                    GlassCircleButton(systemName: weekMode ? "rectangle.grid.1x2" : "calendar") {
-                        setWeekMode(!weekMode)
-                    }
-                    .accessibilityLabel(weekMode ? "Day view" : "Week view")
-                    GlassCircleButton(systemName: "plus") {
-                        addingEvent = true
-                    }
-                    .accessibilityLabel("New event")
-                }
+            Button {
+                setWeekMode(!weekMode)
+            } label: {
+                Label(weekMode ? "Day view" : "Week view",
+                      systemImage: weekMode ? "rectangle.grid.1x2" : "calendar")
             }
-            .animation(.smooth(duration: 0.3), value: selectedDate == today)
-            // The buttons keep their size; a long day name shrinks instead.
-            .layoutPriority(1)
+            Button {
+                addingEvent = true
+            } label: {
+                Label("New event", systemImage: "plus")
+            }
         }
-        // The system's large titles sit 16 pt in on an iPhone this size.
-        .padding(.leading, 16)
-        .padding(.trailing, Metrics.margin)
-        .padding(.top, 6)
-        .padding(.bottom, 10)
     }
 
     /// "Today", "Tomorrow" and "Yesterday" as they are; any other day by its
