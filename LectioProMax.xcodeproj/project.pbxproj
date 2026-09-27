@@ -6,7 +6,20 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		2CA006CF3068D8CA0060197F /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2CA006CE3068D8CA0060197F /* WidgetKit.framework */; };
+		2CA006D13068D8CA0060197F /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2CA006D03068D8CA0060197F /* SwiftUI.framework */; };
+		2CA006DC3068D8CB0060197F /* LectioWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2CA006CC3068D8CA0060197F /* LectioWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
+		2CA006DA3068D8CB0060197F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2CA006CB3068D8CA0060197F;
+			remoteInfo = LectioWidgetsExtension;
+		};
 		AA0000000000000000000016 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = AA0000000000000000000001 /* Project object */;
@@ -16,12 +29,37 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		2CA006E13068D8CB0060197F /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				2CA006DC3068D8CB0060197F /* LectioWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		2CA006CC3068D8CA0060197F /* LectioWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LectioWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		2CA006CE3068D8CA0060197F /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		2CA006D03068D8CA0060197F /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		2CA006E33068DAD20060197F /* LectioWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LectioWidgetsExtension.entitlements; sourceTree = "<group>"; };
 		AA0000000000000000000004 /* LectioProMax.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LectioProMax.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000010 /* LectioProMaxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LectioProMaxTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		2CA006E03068D8CB0060197F /* Exceptions for "LectioWidgets" folder in "LectioWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 2CA006CB3068D8CA0060197F /* LectioWidgetsExtension */;
+		};
 		AA0000000000000000000021 /* Exceptions for "LectioProMax" folder in "LectioProMax" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -32,6 +70,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		2CA006D23068D8CA0060197F /* LectioWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				2CA006E03068D8CB0060197F /* Exceptions for "LectioWidgets" folder in "LectioWidgetsExtension" target */,
+			);
+			path = LectioWidgets;
+			sourceTree = "<group>";
+		};
 		AA0000000000000000000005 /* LectioProMax */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -53,6 +99,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		2CA006C93068D8CA0060197F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2CA006D13068D8CA0060197F /* SwiftUI.framework in Frameworks */,
+				2CA006CF3068D8CA0060197F /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA0000000000000000000008 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -70,12 +125,24 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2CA006CD3068D8CA0060197F /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2CA006CE3068D8CA0060197F /* WidgetKit.framework */,
+				2CA006D03068D8CA0060197F /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		AA0000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
+				2CA006E33068DAD20060197F /* LectioWidgetsExtension.entitlements */,
 				AA0000000000000000000005 /* LectioProMax */,
 				AA0000000000000000000020 /* Shared */,
 				AA0000000000000000000011 /* LectioProMaxTests */,
+				2CA006D23068D8CA0060197F /* LectioWidgets */,
+				2CA006CD3068D8CA0060197F /* Frameworks */,
 				AA0000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -85,6 +152,7 @@
 			children = (
 				AA0000000000000000000004 /* LectioProMax.app */,
 				AA0000000000000000000010 /* LectioProMaxTests.xctest */,
+				2CA006CC3068D8CA0060197F /* LectioWidgetsExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -92,6 +160,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		2CA006CB3068D8CA0060197F /* LectioWidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2CA006DD3068D8CB0060197F /* Build configuration list for PBXNativeTarget "LectioWidgetsExtension" */;
+			buildPhases = (
+				2CA006C83068D8CA0060197F /* Sources */,
+				2CA006C93068D8CA0060197F /* Frameworks */,
+				2CA006CA3068D8CA0060197F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				2CA006D23068D8CA0060197F /* LectioWidgets */,
+				AA0000000000000000000020 /* Shared */,
+			);
+			name = LectioWidgetsExtension;
+			packageProductDependencies = (
+			);
+			productName = LectioWidgetsExtension;
+			productReference = 2CA006CC3068D8CA0060197F /* LectioWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		AA0000000000000000000006 /* LectioProMax */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AA000000000000000000000B /* Build configuration list for PBXNativeTarget "LectioProMax" */;
@@ -99,10 +190,12 @@
 				AA0000000000000000000007 /* Sources */,
 				AA0000000000000000000008 /* Frameworks */,
 				AA0000000000000000000009 /* Resources */,
+				2CA006E13068D8CB0060197F /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				2CA006DB3068D8CB0060197F /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				AA0000000000000000000005 /* LectioProMax */,
@@ -145,9 +238,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1600;
+				LastSwiftUpdateCheck = 2700;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
+					2CA006CB3068D8CA0060197F = {
+						CreatedOnToolsVersion = 27.0;
+					};
 					AA0000000000000000000006 = {
 						CreatedOnToolsVersion = 16.0;
 					};
@@ -173,11 +269,19 @@
 			targets = (
 				AA0000000000000000000006 /* LectioProMax */,
 				AA0000000000000000000012 /* LectioProMaxTests */,
+				2CA006CB3068D8CA0060197F /* LectioWidgetsExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		2CA006CA3068D8CA0060197F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA0000000000000000000009 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -195,6 +299,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2CA006C83068D8CA0060197F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA0000000000000000000007 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -212,6 +323,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2CA006DB3068D8CB0060197F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2CA006CB3068D8CA0060197F /* LectioWidgetsExtension */;
+			targetProxy = 2CA006DA3068D8CB0060197F /* PBXContainerItemProxy */;
+		};
 		AA0000000000000000000017 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = AA0000000000000000000006 /* LectioProMax */;
@@ -220,6 +336,94 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		2CA006DE3068D8CB0060197F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = LectioWidgetsExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = L78DTW7MMS;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LectioWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Lectio Pro Max";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ivan.lectiopromax.LectioWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		2CA006DF3068D8CB0060197F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = LectioWidgetsExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = L78DTW7MMS;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LectioWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Lectio Pro Max";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ivan.lectiopromax.LectioWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 		AA000000000000000000000C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -328,6 +532,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = LectioProMax/LectioProMax.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = L78DTW7MMS;
@@ -346,6 +551,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.ivan.lectiopromax;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -357,6 +563,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = LectioProMax/LectioProMax.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = L78DTW7MMS;
@@ -375,6 +582,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.ivan.lectiopromax;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -422,6 +630,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2CA006DD3068D8CB0060197F /* Build configuration list for PBXNativeTarget "LectioWidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2CA006DE3068D8CB0060197F /* Debug */,
+				2CA006DF3068D8CB0060197F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		AA000000000000000000000A /* Build configuration list for PBXProject "LectioProMax" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
