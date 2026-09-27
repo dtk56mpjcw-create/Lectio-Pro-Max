@@ -1,7 +1,13 @@
 import SwiftUI
+import UserNotifications
 
 @main
 struct LectioProMaxApp: App {
+    init() {
+        // Before launch finishes, so a tap that opened the app is routed.
+        UNUserNotificationCenter.current().delegate = NotificationRouter.shared
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

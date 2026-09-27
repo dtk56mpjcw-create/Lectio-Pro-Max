@@ -144,24 +144,36 @@ struct SettingsScreen: View {
         .padding(.vertical, 11)
     }
 
-    /// How long before a lesson its reminder comes.
+    /// How long before a lesson its reminder comes. A menu whose label is
+    /// one line in the row's own type, so the row is as tall as the others.
     private var leadRow: some View {
         HStack(spacing: 13) {
             icon("timer", .gray)
             Text("Remind me")
                 .scaledFont(size: 16.5, weight: .medium)
+                .lineLimit(1)
             Spacer(minLength: 8)
-            Picker("Remind me", selection: $lessonLead) {
-                ForEach(NotifyPrefs.leads, id: \.self) { minutes in
-                    Text("\(minutes) min before").tag(minutes)
+            Menu {
+                Picker("Remind me", selection: $lessonLead) {
+                    ForEach(NotifyPrefs.leads, id: \.self) { minutes in
+                        Text("\(minutes) min before").tag(minutes)
+                    }
                 }
+            } label: {
+                HStack(spacing: 4) {
+                    Text("\(lessonLead) min before")
+                        .lineLimit(1)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .scaledFont(size: 12, weight: .semibold)
+                }
+                .scaledFont(size: 15.5)
+                .fixedSize()
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
+            .accessibilityLabel("Remind me")
+            .accessibilityValue("\(lessonLead) minutes before")
         }
-        .padding(.leading, 16)
-        .padding(.trailing, 6)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     /// Settings' coloured icon square.

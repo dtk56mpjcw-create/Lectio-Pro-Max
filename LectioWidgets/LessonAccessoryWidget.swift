@@ -2,8 +2,8 @@ import Foundation
 import SwiftUI
 import WidgetKit
 
-/// Lock Screen: the lesson on now or next. A line above the clock, a
-/// rectangle with the room and how far through it you are, or a ring.
+/// Lock Screen: the lesson on now or next — a line above the clock, a
+/// rectangle with the subject big and the room, or a ring. A tap opens it.
 struct LessonAccessoryWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "LessonLockScreen", provider: FeedProvider()) { entry in
@@ -18,44 +18,64 @@ struct LessonAccessoryWidget: Widget {
 
 struct AccessoryView: View {
     let entry: FeedEntry
-    @Environment(\.widgetFamily) private var family
+    @Environment(\.widgetFamily) var family
 
     private var feed: WidgetFeed? { entry.feed?.signedIn == true ? entry.feed : nil }
     private var current: WidgetFeed.Item? { feed?.current(at: entry.date) }
     private var item: WidgetFeed.Item? { current ?? feed?.next(after: entry.date) }
-
-    var body: some View {
-        switch family {
-        case .accessoryInline: inline
-        case .accessoryCircular: circular
-        default: rectangular
-        }
+    /// "Next", "Tomorrow", "Monday".
+    private var when: String {
+        guard let item else { return "" }
+        let word = WidgetFeed.dayWord(item.start, from: entry.date)
+        return word == "Today" ? "Next" : word
     }
 
-    /// "Maths until 11:25 · 062", "Danish 11:55 · 114".
+    var body: some View {
+        Group {
+            switch family {
+            case .accessoryInline: inline
+            case .accessoryCircular: circular
+            default: rectangular
+            }
+        }
+        .widgetURL(item?.link)
+    }
+
+    /// "Maths · 062 until 11:25", "9:50 Danish · 114", "Tomorrow 8:00 Maths".
     private var inline: some View {
         Group {
             if let item {
-                let when = current != nil ? "until " + WidgetFeed.time(item.end) : WidgetFeed.time(item.start)
-                Text(item.title + " " + when + (item.room.isEmpty ? "" : " · " + item.room))
+                if current != nil {
+                    Text(item.title + (item.room.isEmpty ? "" : " · " + item.room)
+                         + " until " + WidgetFeed.clock(item.end))
+                } else if when == "Next" {
+                    Text(WidgetFeed.clock(item.start) + " " + item.title
+                         + (item.room.isEmpty ? "" : " · " + item.room))
+                } else {
+                    Text(when + " " + WidgetFeed.clock(item.start) + " " + item.title)
+                }
             } else {
                 Text(entry.feed?.signedIn == false ? "Sign in to Lectio Pro Max" : "No more lessons")
             }
         }
     }
 
+    /// The subject big; its time and room; then how far through it you
+    /// are, or when it is.
     private var rectangular: some View {
         Group {
             if let item {
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 0) {
                     Text(item.title)
-                        .font(.headline)
+                        .font(.system(.title3, weight: .bold))
                         .widgetAccentable()
                         .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                     Text(WidgetFeed.span(item) + (item.room.isEmpty ? "" : " · " + item.room))
-                        .font(.caption)
+                        .font(.system(.body, weight: .semibold))
                         .monospacedDigit()
                         .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                     if let current {
                         ProgressView(timerInterval: current.start...current.end, countsDown: false) {
                             EmptyView()
@@ -63,18 +83,18 @@ struct AccessoryView: View {
                             EmptyView()
                         }
                         .progressViewStyle(.linear)
-                        .padding(.top, 3)
+                        .padding(.top, 5)
                     } else {
-                        let word = WidgetFeed.dayWord(item.start, from: entry.date)
-                        Text(word == "Today" ? "Next" : word)
-                            .font(.caption)
+                        Text(when)
+                            .font(.system(.subheadline, weight: .medium))
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text(entry.feed?.signedIn == false ? "Open Lectio Pro Max to sign in." : "No more lessons coming up.")
-                    .font(.caption)
+                    .font(.system(.body, weight: .semibold))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -90,18 +110,19 @@ struct AccessoryView: View {
                     EmptyView()
                 } currentValueLabel: {
                     Text(current.room.isEmpty ? String(current.title.prefix(3)) : current.room)
-                        .minimumScaleFactor(0.6)
+                        .font(.system(.body, design: .rounded).weight(.bold))
+                        .minimumScaleFactor(0.5)
                 }
                 .progressViewStyle(.circular)
                 .widgetAccentable()
             } else if let item {
                 VStack(spacing: 0) {
-                    Text(WidgetFeed.time(item.start))
-                        .font(.system(.body, design: .rounded).weight(.semibold))
+                    Text(WidgetFeed.clock(item.start))
+                        .font(.system(.title3, design: .rounded).weight(.bold))
                         .monospacedDigit()
-                        .minimumScaleFactor(0.7)
+                        .minimumScaleFactor(0.6)
                     Text(item.room.isEmpty ? String(item.title.prefix(3)) : item.room)
-                        .font(.caption2)
+                        .font(.system(.caption, design: .rounded).weight(.semibold))
                         .minimumScaleFactor(0.6)
                         .lineLimit(1)
                 }

@@ -11,6 +11,8 @@ struct ChangeAlert: Equatable {
     var title: String
     var subtitle: String = ""
     var body: String
+    /// Where a tap on it goes (see AppLink).
+    var link: URL? = nil
 }
 
 /// Notices what's new since you last looked: a lesson cancelled, moved,
@@ -104,7 +106,8 @@ enum ScheduleWatch {
             }
             for (key, lesson) in inOrder {
                 if let end = LectioDates.moment(iso: iso, time: lesson.end), end <= now { continue }
-                if let alert = scheduleAlert(lesson, key: key, was: before[key], on: iso, now: now) {
+                if var alert = scheduleAlert(lesson, key: key, was: before[key], on: iso, now: now) {
+                    alert.link = AppLink.lesson(date: iso, start: lesson.start, key: key)
                     alerts.append(alert)
                 }
             }
@@ -118,7 +121,8 @@ enum ScheduleWatch {
                 if !me.isEmpty && message.sender.lowercased().hasPrefix(me) { continue }
                 alerts.append(ChangeAlert(topic: .messages, id: "message." + messageKey(message),
                                           title: message.sender.isEmpty ? "New message" : message.sender,
-                                          body: LectioDates.tidy(message.subject)))
+                                          body: LectioDates.tidy(message.subject),
+                                          link: AppLink.messages))
             }
         }
         var messages = (old.messages ?? []).union(messageKeys)
@@ -252,7 +256,8 @@ enum ScheduleWatch {
         return ChangeAlert(topic: .work, id: "work." + item.key,
                            title: item.isAssignment ? "New assignment" : "New homework",
                            subtitle: subject,
-                           body: title + (due.isEmpty ? "" : (item.isAssignment ? " · due " : " · for ") + due))
+                           body: title + (due.isEmpty ? "" : (item.isAssignment ? " · due " : " · for ") + due),
+                           link: AppLink.homework)
     }
 
     /// More than three of a kind at once reads better as one.
@@ -278,7 +283,7 @@ enum ScheduleWatch {
                 .joined(separator: "\n")
             out.append(ChangeAlert(topic: topic,
                                    id: topic.rawValue + ".bundle." + "\(Int(now.timeIntervalSince1970))",
-                                   title: title, body: body))
+                                   title: title, body: body, link: some.first?.link))
         }
         return out
     }

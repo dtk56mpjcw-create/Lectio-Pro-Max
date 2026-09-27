@@ -3,7 +3,8 @@ import SwiftUI
 import WidgetKit
 
 /// Lectio Pro Max's widgets. They only ever read the feed the app writes
-/// (see WidgetFeed): no network, no sign-in.
+/// (see WidgetFeed): no network, no sign-in. A tap opens the app on what
+/// the widget showed (see AppLink).
 @main
 struct LectioWidgetsBundle: WidgetBundle {
     var body: some Widget {
@@ -50,6 +51,48 @@ struct FeedProvider: TimelineProvider {
     }
 }
 
+// MARK: - What to show
+
+/// The lesson that matters at a moment — on now, or next — and what
+/// follows it that day; when nothing does, the next school day.
+struct Focus {
+    /// "Now", "Next", "Tomorrow", "Monday".
+    let label: String
+    let day: WidgetFeed.Day
+    let item: WidgetFeed.Item?
+    let rest: [WidgetFeed.Item]
+    /// The next day's lessons, when nothing else is left on this one.
+    let later: (label: String, items: [WidgetFeed.Item])?
+
+    init?(_ feed: WidgetFeed?, at now: Date) {
+        guard let feed, feed.signedIn, let day = feed.day(at: now) else { return nil }
+        self.day = day
+        let isToday = day.date == WidgetFeed.iso(now)
+        let dayWord = WidgetFeed.dayWord(WidgetFeed.startOfDay(day.date) ?? now, from: now)
+        // Today: what's on or still to come. Another day: all of it.
+        let open = day.items.filter { !isToday || $0.end > now }
+        let item = open.first { !$0.cancelled && !$0.optional }
+        self.item = item
+        if let item {
+            label = isToday ? (item.start <= now ? "Now" : "Next") : dayWord
+            rest = open.filter { $0 != item && $0.start >= item.start }
+        } else {
+            label = dayWord
+            rest = open
+        }
+        if rest.isEmpty,
+           let next = feed.days.first(where: { $0.date > day.date && !$0.items.isEmpty }) {
+            later = (WidgetFeed.dayWord(WidgetFeed.startOfDay(next.date) ?? now, from: now),
+                     next.items.filter { !$0.optional })
+        } else {
+            later = nil
+        }
+    }
+
+    /// Where a tap on the whole widget goes.
+    var link: URL { item?.link ?? AppLink.day(day.date) }
+}
+
 // MARK: - Shared pieces
 
 extension Color {
@@ -91,16 +134,128 @@ struct Stripe: View {
     }
 }
 
+/// A lesson's card tint, as in the app's day.
+struct Tint: View {
+    let colour: String
+    @Environment(\.colorScheme) var scheme
+
+    var body: some View {
+        ContainerRelativeShape()
+            .fill(Color.subject(colour).opacity(scheme == .dark ? 0.24 : 0.14))
+    }
+}
+
+/// The one that matters: its time, subject and room, big, on its tint.
+struct HeroCard: View {
+    let item: WidgetFeed.Item
+    let label: String
+    let now: Date
+    var roomFont: Font = .system(.title2, design: .rounded).weight(.bold)
+
+    private var isNow: Bool { item.start <= now && now < item.end }
+
+    /// "NOW", "TOMORROW · EXAM", "NEXT · CHANGED".
+    private var header: String {
+        var parts = [label]
+        if let tag = item.tag {
+            parts.append(tag)
+        } else if item.changed {
+            parts.append("Changed")
+        }
+        return parts.joined(separator: " · ").uppercased()
+    }
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Stripe(colour: item.colour)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(header)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Text(item.title)
+                    .font(.headline)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.75)
+                Text(WidgetFeed.span(item))
+                    .font(.subheadline)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 2)
+                HStack(alignment: .lastTextBaseline, spacing: 6) {
+                    Text(item.room.isEmpty ? " " : item.room)
+                        .font(roomFont)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.55)
+                    Spacer(minLength: 0)
+                    Text(item.teacher)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                if isNow {
+                    ProgressView(timerInterval: item.start...item.end, countsDown: false) {
+                        EmptyView()
+                    } currentValueLabel: {
+                        EmptyView()
+                    }
+                    .progressViewStyle(.linear)
+                    .tint(Color.subject(item.colour))
+                    .padding(.top, 3)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+}
+
+/// A lesson in a list: stripe, subject, and its time and room under it.
+struct CompactRow: View {
+    let item: WidgetFeed.Item
+    var showsTopic = false
+
+    private var detail: String {
+        if item.cancelled { return WidgetFeed.clock(item.start) + " · Cancelled" }
+        var parts = [WidgetFeed.clock(item.start)]
+        if !item.room.isEmpty { parts.append(item.room) }
+        if showsTopic, !item.topic.isEmpty { parts.append(item.topic) }
+        if item.optional { parts.append("After school") }
+        return parts.joined(separator: " · ")
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Stripe(colour: item.cancelled ? "gray" : item.colour, width: 3, height: 32)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(item.title)
+                    .font(.subheadline.weight(.semibold))
+                    .strikethrough(item.cancelled)
+                    .foregroundStyle(item.cancelled ? .secondary : .primary)
+                    .lineLimit(1)
+                Text(detail)
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .opacity(item.optional ? 0.7 : 1)
+    }
+}
+
 /// Nothing to show: signed out, or nothing coming up.
 struct EmptyMessage: View {
     let feed: WidgetFeed?
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             Image(systemName: feed?.signedIn == false || feed == nil ? "person.crop.circle" : "checkmark.circle")
-                .font(.title3)
+                .font(.title2)
                 .foregroundStyle(.secondary)
             Text(text)
-                .font(.subheadline)
+                .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -145,20 +300,9 @@ extension WidgetFeed {
         shortDateFormatter.string(from: date)
     }
 
-    /// "9:50", Danish time, as Lectio writes it.
-    static func time(_ date: Date) -> String {
-        let c = calendar.dateComponents([.hour, .minute], from: date)
-        return String(format: "%d:%02d", c.hour ?? 0, c.minute ?? 0)
-    }
-
     /// "9:50–11:25".
     static func span(_ item: Item) -> String {
-        time(item.start) + "–" + time(item.end)
-    }
-
-    /// "062 · AM".
-    static func place(_ item: Item) -> String {
-        [item.room, item.teacher].filter { !$0.isEmpty }.joined(separator: " · ")
+        clock(item.start) + "–" + clock(item.end)
     }
 
     /// An example day for the widget gallery, around the time it's shown.

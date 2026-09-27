@@ -30,6 +30,14 @@ struct WidgetFeed: Codable, Equatable {
         var changed: Bool = false
         /// After the school day (a study café): shown, never counted down to.
         var optional: Bool = false
+        /// Lectio's id for it, so a tap opens this very lesson (see AppLink).
+        /// Optional so a feed written before it existed still reads.
+        var key: String? = nil
+
+        /// Opens it in the app.
+        var link: URL {
+            AppLink.lesson(date: WidgetFeed.iso(start), start: WidgetFeed.clock(start), key: key)
+        }
     }
 
     struct Day: Codable, Equatable {
@@ -60,6 +68,12 @@ struct WidgetFeed: Codable, Equatable {
     static func iso(_ date: Date) -> String {
         let c = calendar.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+    }
+
+    /// "8:00", Danish time.
+    static func clock(_ date: Date) -> String {
+        let c = calendar.dateComponents([.hour, .minute], from: date)
+        return String(format: "%d:%02d", c.hour ?? 0, c.minute ?? 0)
     }
 
     /// Midnight at the start of a Danish date.

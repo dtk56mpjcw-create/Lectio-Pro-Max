@@ -38,5 +38,20 @@ struct RootView: View {
         }
         .searchable(text: $query, prompt: "Homework, messages, lessons")
         .tabBarMinimizeBehavior(.onScrollDown)
+        // A widget or a notification: go to what it showed (see AppLink).
+        .onOpenURL { AppRouter.shared.open($0) }
+        .onChange(of: AppRouter.shared.request) { _, request in
+            guard let request else { return }
+            switch request.route {
+            case .day, .lesson:
+                tab = .schedule          // the Schedule tab takes it from here
+            case .homework:
+                tab = .homework
+                AppRouter.shared.request = nil
+            case .messages:
+                tab = .messages
+                AppRouter.shared.request = nil
+            }
+        }
     }
 }

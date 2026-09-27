@@ -160,6 +160,21 @@ struct ScheduleTab: View {
             LessonCache.shared.prefetch([(selectedDate, today), (next, tomorrow)], cookies: cookies)
         }
         .sensoryFeedback(.selection, trigger: weekMode)
+        // From a widget or a notification: that day, and that lesson.
+        .onChange(of: AppRouter.shared.request, initial: true) { _, request in
+            guard let request else { return }
+            switch request.route {
+            case .day(let date):
+                AppRouter.shared.request = nil
+                show(date)
+            case .lesson(let date, let start, let key):
+                AppRouter.shared.request = nil
+                show(date)
+                Task { await openLesson(on: date, start: start, key: key) }
+            default:
+                break
+            }
+        }
         .sheet(isPresented: $addingEvent) {
             NewEventSheet(dayISO: selectedDate) {
                 // Pull the week again so the new event turns up straight away.
@@ -343,6 +358,31 @@ struct ScheduleTab: View {
         selectedDate = date
         dayPage = date
         setWeekMode(false)
+    }
+
+    /// Straight to a day, in the day view, with nothing open on top.
+    private func show(_ date: String) {
+        opener.path = []
+        if weekMode { weekMode = false }
+        selectedDate = date
+        dayPage = date
+        weekPage = Self.monday(of: date)
+    }
+
+    /// Opens a lesson once its week is here — on a cold start that can take
+    /// a moment, so it waits a few seconds for it.
+    private func openLesson(on date: String, start: String, key: String?) async {
+        let minutes = Lesson.minutes(from: start)
+        for _ in 0..<40 {
+            let all = lessons(on: date)
+            let hit = all.first { key != nil && ScheduleWatch.lessonKey($0) == key }
+                ?? all.first { !$0.isAllDay && minutes != nil && Lesson.minutes(from: $0.start) == minutes }
+            if let hit {
+                opener.open(LessonRoute(lesson: hit, dayISO: date))
+                return
+            }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
     }
 
     /// Scrolls when today is close by; from further away it just goes there,

@@ -60,6 +60,8 @@ struct NotificationRulesTests {
                                                "Maths moved", "Added: History"])
         #expect(second.alerts[0].body == "Today, 9:50–11:25 · now 114 (was 062)")
         #expect(second.alerts[2].body == "Tomorrow, now 12:00–13:30 (was 8:00–9:35)")
+        // A tap opens that very lesson.
+        #expect(second.alerts[0].link == AppLink.lesson(date: "2026-09-29", start: "09:50", key: "id:2"))
 
         // Seen now: nothing more to say.
         let third = ScheduleWatch.review(after, against: second.record, now: Self.now)
@@ -139,6 +141,17 @@ struct NotificationRulesTests {
         #expect(feed.day(at: afterSchool)?.date == "2026-09-30")
         #expect(feed.next(after: afterSchool)?.start == LectioDates.moment(iso: "2026-09-30", time: "08:00"))
         #expect(feed.moments(after: Self.now).first == LectioDates.moment(iso: "2026-09-29", time: "11:25"))
+    }
+
+    // MARK: - Links
+
+    @Test func linksRoundTrip() {
+        let lesson = AppLink.lesson(date: "2026-09-28", start: "8:00", key: "id:123")
+        #expect(AppLink.route(lesson) == .lesson(date: "2026-09-28", start: "8:00", key: "id:123"))
+        #expect(AppLink.route(AppLink.day("2026-09-28")) == .day("2026-09-28"))
+        #expect(AppLink.route(AppLink.messages) == .messages)
+        #expect(AppLink.route(AppLink.homework) == .homework)
+        #expect(AppLink.route(URL(string: "https://www.lectio.dk/")!) == nil)
     }
 
     // MARK: - Waking up

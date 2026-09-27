@@ -11,7 +11,7 @@ enum NotifyPrefs {
     static let leadKey = "notify.lessonLead"
 
     /// The lead times on offer, in minutes.
-    static let leads = [5, 10, 15]
+    static let leads = [1, 2, 5, 10, 15, 20, 30]
 
     private static func flag(_ key: String, default value: Bool) -> Bool {
         UserDefaults.standard.object(forKey: key) as? Bool ?? value
@@ -213,6 +213,7 @@ enum NotificationService {
             if item.changed { content.subtitle = "Changed" }
             content.sound = .default
             content.threadIdentifier = "lessons"
+            content.userInfo = ["link": item.link.absoluteString]
 
             let trigger = UNCalendarNotificationTrigger(
                 dateMatching: LectioDates.calendar.dateComponents(
@@ -238,6 +239,7 @@ enum NotificationService {
             content.body = alert.body
             content.sound = .default
             content.threadIdentifier = alert.topic.rawValue
+            if let link = alert.link { content.userInfo = ["link": link.absoluteString] }
             try? await centre.add(UNNotificationRequest(identifier: newsPrefix + alert.id,
                                                         content: content, trigger: nil))
         }

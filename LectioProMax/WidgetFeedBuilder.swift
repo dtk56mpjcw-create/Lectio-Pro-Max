@@ -115,6 +115,7 @@ enum WidgetFeedBuilder {
         item.cancelled = cancelled || lesson.cancelled
         item.changed = lesson.changed
         item.optional = optional
+        item.key = ScheduleWatch.lessonKey(lesson)
         return item
     }
 

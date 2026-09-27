@@ -6,6 +6,17 @@
 	<array>
 		<string>com.ivan.lectiopromax.refresh</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.ivan.lectiopromax</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>lectiopromax</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
