@@ -57,7 +57,9 @@ enum WidgetFeedBuilder {
 
             let plan = WeekAgenda.plan(for: iso, in: week, modules: modules,
                                        className: className, rolling: rolling)
-            let day = Self.day(iso, plan: plan)
+            var day = Self.day(iso, plan: plan)
+            let due = work(due: iso, in: snapshot)
+            day.work = due.isEmpty ? nil : due
             if !day.items.isEmpty || day.note != nil { feed.days.append(day) }
         }
         return feed
@@ -117,6 +119,25 @@ enum WidgetFeedBuilder {
         item.optional = optional
         item.key = ScheduleWatch.lessonKey(lesson)
         return item
+    }
+
+    /// Homework and assignments due on a day and not done yet, the way the
+    /// Homework tab lists them: assignments first.
+    private static func work(due iso: String, in snapshot: LectioSnapshot) -> [WidgetFeed.Work] {
+        snapshot.workItems
+            .filter { $0.due == iso && !snapshot.isCompleted($0) }
+            .sorted { $0.isAssignment && !$1.isAssignment }
+            .map { item in
+                let key = SubjectPalette.subjectKey(item.code)
+                let own = LectioDates.tidy(item.text).components(separatedBy: "\n").first ?? ""
+                let title = LectioDates.tidy(item.title).components(separatedBy: "\n").first ?? item.title
+                var text = item.isAssignment || own.isEmpty ? title : own
+                if item.isAssignment && !item.dueTime.isEmpty { text += " · " + item.dueTime }
+                return WidgetFeed.Work(subject: key.map(SubjectNames.name(forKey:)) ?? item.code.uppercased(),
+                                       text: text,
+                                       colour: key.map { SubjectPalette.choice(forKey: $0).rawValue } ?? "gray",
+                                       isAssignment: item.isAssignment)
+            }
     }
 
     /// The colour the Schedule tab paints it, by name.

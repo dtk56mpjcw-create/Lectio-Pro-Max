@@ -40,12 +40,24 @@ struct WidgetFeed: Codable, Equatable {
         }
     }
 
+    /// Homework or an assignment for the day, not yet done.
+    struct Work: Codable, Equatable, Hashable {
+        /// "Maths".
+        var subject: String
+        /// What to do: the homework itself, or the assignment's name.
+        var text: String
+        var colour: String = "gray"
+        var isAssignment: Bool = false
+    }
+
     struct Day: Codable, Equatable {
         /// yyyy-MM-dd, a Danish date.
         var date: String
         /// What the day is when it isn't an ordinary one ("Autumn break").
         var note: String? = nil
         var items: [Item] = []
+        /// Due that day. Optional so a feed written before it existed reads.
+        var work: [Work]? = nil
     }
 
     var signedIn = true
