@@ -165,7 +165,10 @@ private struct WeekRow: Identifiable {
                     // "1–4".
                     // All day says itself with its tag; something starting
                     // later says when.
-                    let side = slot.dayShape == "all" ? ""
+                    // The last day of something over several days didn't
+                    // start today: no time beside it (its note says when it
+                    // ends).
+                    let side = slot.dayShape == "all" || slot.dayShape == "ends" ? ""
                         : (slot.through == nil && slot.dayShape == nil ? "\(n)" : slot.hours.shortStart)
                     for (k, lesson) in slot.main.enumerated() {
                         out.append(WeekRow(id: "m\(n)|" + lesson.id, kind: .lesson(lesson),

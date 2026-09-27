@@ -48,6 +48,8 @@ struct AccessoryView: View {
                 if current != nil {
                     Text(item.title + (item.room.isEmpty ? "" : " · " + item.room)
                          + " until " + WidgetFeed.clock(item.end))
+                } else if !item.beginsHere {
+                    Text(item.title + " · " + item.hours)
                 } else if when == "Next" {
                     Text(WidgetFeed.clock(item.start) + " " + item.title
                          + (item.room.isEmpty ? "" : " · " + item.room))

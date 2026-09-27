@@ -118,6 +118,7 @@ enum WidgetFeedBuilder {
         item.changed = lesson.changed
         item.optional = optional
         item.key = ScheduleWatch.lessonKey(lesson)
+        item.shape = lesson.dayShape
         return item
     }
 

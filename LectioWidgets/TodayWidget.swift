@@ -225,7 +225,7 @@ struct AgendaRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             Stripe(colour: item.cancelled ? "gray" : item.colour, width: 3, height: 30)
-            Text(WidgetFeed.clock(item.start))
+            Text(item.beginsHere ? WidgetFeed.clock(item.start) : (item.shape == "all" ? "All day" : "–"))
                 .font(.subheadline.weight(highlighted ? .semibold : .regular))
                 .monospacedDigit()
                 .foregroundStyle(highlighted ? .primary : .secondary)

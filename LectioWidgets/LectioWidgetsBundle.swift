@@ -219,8 +219,9 @@ struct CompactRow: View {
     var extra: String? = nil
 
     private var detail: String {
-        if item.cancelled { return WidgetFeed.clock(item.start) + " · Cancelled" }
-        var parts = [WidgetFeed.clock(item.start)]
+        let when = item.shape == nil ? WidgetFeed.clock(item.start) : item.hours
+        if item.cancelled { return when + " · Cancelled" }
+        var parts = [when]
         if !item.room.isEmpty { parts.append(item.room) }
         if showsTopic, !item.topic.isEmpty { parts.append(item.topic) }
         if item.optional { parts.append("After school") }
@@ -307,9 +308,10 @@ extension WidgetFeed {
         shortDateFormatter.string(from: date)
     }
 
-    /// "9:50–11:25".
+    /// "9:50–11:25", or "from 8:00", "until 16:00", "All day" for a day
+    /// of something longer.
     static func span(_ item: Item) -> String {
-        clock(item.start) + "–" + clock(item.end)
+        item.hours
     }
 
     /// An example day for the widget gallery, around the time it's shown.

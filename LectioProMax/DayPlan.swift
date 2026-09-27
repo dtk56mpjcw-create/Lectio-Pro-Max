@@ -103,6 +103,25 @@ extension Lesson {
         return known.isEmpty ? nil : known
     }
 
+    /// Who a note says it's for, in words — and only when that isn't you.
+    /// Lectio writes it before the name: "1g: Læsescreening" is every first
+    /// year ("1g" is Lectio's short for them), "1i, 1j: NV-eksamen" two
+    /// classes. In your own schedule that's you, so it says nothing; for
+    /// another year it's "2nd years".
+    var audienceNote: String? {
+        let t = title.trimmingCharacters(in: .whitespaces)
+        guard let colon = t.firstIndex(of: ":"),
+              let tokens = Lesson.audience(String(t[..<colon])) else { return nil }
+        let own = ClassNames.current
+        if !own.isEmpty && isRelevant(toClass: own) { return nil }
+        let words = tokens.map { token -> String in
+            guard let g = Rx.match("^(\\d)\\.?\\s?g$", token), let n = Int(g[1]) else { return token }
+            let suffix = n == 1 ? "st" : n == 2 ? "nd" : n == 3 ? "rd" : "th"
+            return "\(n)\(suffix) years"
+        }
+        return words.joined(separator: ", ")
+    }
+
     /// Whether an all-day item is for you. Lectio shows every year's all-day
     /// items to everyone; "3m, 1i: Tidying up the Foyer" isn't yours if
     /// you're in 1j.
@@ -221,6 +240,12 @@ enum ClassNames {
             ownPattern = newPattern
             LessonMemo.forgetClasses()
         }
+    }
+
+    /// The class the rules are using now, as learnt from the profile.
+    static var current: String {
+        lock.lock(); defer { lock.unlock() }
+        return own
     }
 
     /// The year of a class: its first digit ("1j" → 1, "HF1b" → 1).
@@ -492,18 +517,20 @@ extension Lesson {
         }
         guard days.count >= 2, let index = days.firstIndex(of: dayISO) else { return nil }
 
+        // The last day says when it ends; the days before only which day
+        // that is — an end time on the first day read as ending today.
         var parts = ["Day \(index + 1) of \(days.count)"]
-        if endTime != "00:00" {
-            let time = endTime.hasPrefix("0") ? String(endTime.dropFirst()) : endTime
-            if dayISO == lastDay {
-                parts.append("until " + time)
-            } else {
-                // "until Thu 16:00" within the week, "until 3 Oct 16:00" beyond.
-                let label = LectioDates.dayLabel(iso: lastDay).split(separator: " ").map(String.init)
-                let near = days.count - index <= 6
-                let when = near ? (label.first ?? "") : label.dropFirst().joined(separator: " ")
-                parts.append("until " + when + " " + time)
+        if dayISO == lastDay {
+            if endTime != "00:00" {
+                parts.append("ends " + (endTime.hasPrefix("0") ? String(endTime.dropFirst()) : endTime))
             }
+        } else if lastDay == LectioDates.shift(iso: dayISO, byDays: 1) {
+            parts.append("ends tomorrow")
+        } else {
+            // "ends Thu" within the week, "ends 3 Oct" beyond.
+            let label = LectioDates.dayLabel(iso: lastDay).split(separator: " ").map(String.init)
+            let near = days.count - index <= 6
+            parts.append("ends " + (near ? (label.first ?? "") : label.dropFirst().joined(separator: " ")))
         }
         return parts.joined(separator: " · ")
     }
@@ -911,7 +938,7 @@ struct DayPlan {
         // Away all day — a trip, a day off — the school's optional things
         // aren't on for you.
         let awayInModules = !plan.slots.isEmpty && plan.slots.allSatisfy { slot in
-            slot.main.count == 1 && slot.main[0].markKind == .trip && slot.main[0].dayShape == "all"
+            slot.main.count == 1 && slot.main[0].markKind == .trip && slot.main[0].dayShape != nil
         }
         let awayAllDay = plan.slots.isEmpty
             && plan.status.contains(where: { $0.kind == .trip || $0.kind == .noSchool })
@@ -966,21 +993,20 @@ struct DayPlan {
             wholeDay = .note(note)
         }
 
+        // The first and the last day of something over several days are
+        // what Calendar calls them: it starts at its time and runs on past
+        // the day (no end today), and it ends at its time having come from
+        // yesterday (no start today) — even when that's 8:00 or 16:00.
         if let g = Rx.match("^from (\\d{1,2}:\\d{2})$", label), let s = Lesson.minutes(from: g[1]) {
-            if s <= dayStart { return wholeDay }
+            if s <= dayStart && !item.isFor(className: className) { return wholeDay }
             var copy = DayPlan.timedCopy(item, from: s, to: s < dayEnd ? dayEnd : nil, title: item.title)
             copy.dayShape = "starts"
             return .timed(copy)
         }
         if let g = Rx.match("^until (\\d{1,2}:\\d{2})$", label), let e = Lesson.minutes(from: g[1]) {
             if e <= dayStart { return .skip }
-            // A trip back at 16:00 is a whole day that runs a little long.
-            if e > dayEnd, item.isFor(className: className) {
-                var copy = DayPlan.timedCopy(item, from: dayStart, to: e, title: item.title)
-                copy.dayShape = "all"
-                return .timed(copy)
-            }
-            if e >= dayEnd { return wholeDay }
+            if e >= dayEnd && !item.isFor(className: className) { return wholeDay }
+            // Yours, back at 16:00: the day runs a little long.
             var copy = DayPlan.timedCopy(item, from: dayStart, to: e, title: item.title)
             copy.dayShape = "ends"
             return .timed(copy)

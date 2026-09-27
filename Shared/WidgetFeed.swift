@@ -33,6 +33,24 @@ struct WidgetFeed: Codable, Equatable {
         /// Lectio's id for it, so a tap opens this very lesson (see AppLink).
         /// Optional so a feed written before it existed still reads.
         var key: String? = nil
+        /// A day of something longer, as the Schedule tab shows it: "all"
+        /// (the whole day), "starts" (runs on past today), "ends" (came
+        /// from yesterday). Nil for an ordinary lesson.
+        var shape: String? = nil
+
+        /// "9:50–11:25", or "from 8:00", "until 16:00", "All day".
+        var hours: String {
+            switch shape {
+            case "all": return "All day"
+            case "starts": return "from " + WidgetFeed.clock(start)
+            case "ends": return "until " + WidgetFeed.clock(end)
+            default: return WidgetFeed.clock(start) + "–" + WidgetFeed.clock(end)
+            }
+        }
+
+        /// Whether it really begins at `start` today — not a day it goes
+        /// on from yesterday, or a day-long note placed at the day's start.
+        var beginsHere: Bool { shape == nil || shape == "starts" }
 
         /// Opens it in the app.
         var link: URL {

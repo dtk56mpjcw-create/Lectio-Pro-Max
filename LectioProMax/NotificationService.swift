@@ -202,7 +202,9 @@ enum NotificationService {
         let now = Date()
         var added = 0
 
-        for item in feed.items where !item.cancelled && !item.optional {
+        // Only things that start then: not the second day of a trip, nor a
+        // day-long note placed at the start of the day.
+        for item in feed.items where !item.cancelled && !item.optional && item.beginsHere {
             guard added < room else { break }
             let fire = item.start.addingTimeInterval(-Double(lead * 60))
             guard fire > now else { continue }

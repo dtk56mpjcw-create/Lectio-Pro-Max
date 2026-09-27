@@ -99,7 +99,7 @@ struct ScheduleRulesTests {
         #expect(reading.main.first?.headline == "NV-læsedag")
         #expect(reading.main.first?.dayShape == "starts")
         #expect(reading.module.number == 3 && reading.through?.number == 4)
-        #expect(reading.main.first?.spanNote(on: "2026-10-06") == "Day 1 of 2 · until Wed 15:15")
+        #expect(reading.main.first?.spanNote(on: "2026-10-06") == "Day 1 of 2 · ends tomorrow")
 
         #expect(!plan.allDay.contains { $0.headline == "AP-eksamen" })
     }
@@ -135,6 +135,39 @@ struct ScheduleRulesTests {
         #expect(plan.slots.isEmpty)
         #expect(plan.status.first?.headline == "Efterårsferie")
         #expect(plan.status.first?.kind == .noSchool)
+    }
+
+    // MARK: - Over several days (week 36)
+
+    static let tripWeek = week([
+        tile("Pre-IB intro trip\n2/9-2026 08:00 til 3/9-2026 16:00\nHold: Alle 1j-elever\nLærere: KB, AB, CD, EF"),
+        tile("1g: Læsescreening\n4/9-2026 Hele dagen"),
+    ])
+
+    /// As Calendar shows it: the first day starts at 8:00 and runs on past
+    /// the day — no end time today — and the second comes from yesterday
+    /// and ends at 16:00, a little past the school day.
+    @Test func tripOverTwoDays() {
+        let first = Self.plan("2026-09-02", in: Self.tripWeek)
+        #expect(first.slots.first?.main.first?.dayShape == "starts")
+        #expect(first.slots.first?.hours.start == "08:00")
+        #expect(first.slots.first?.main.first?.spanNote(on: "2026-09-02") == "Day 1 of 2 · ends tomorrow")
+
+        let second = Self.plan("2026-09-03", in: Self.tripWeek)
+        #expect(second.slots.first?.main.first?.dayShape == "ends")
+        #expect(second.slots.first?.hours.end == "16:00")
+        #expect(second.slots.first?.overrunAfter == 45)
+        #expect(second.slots.first?.main.first?.spanNote(on: "2026-09-03") == "Day 2 of 2 · ends 16:00")
+    }
+
+    /// "1g" is Lectio's short for every first year: in a first year's own
+    /// schedule it says nothing, so it isn't shown.
+    @Test func ownYearIsntSpelledOut() {
+        ClassNames.use("1j")
+        #expect(Lesson(title: "1g: Læsescreening").audienceNote == nil)
+        #expect(Lesson(title: "1i, 1j: NV-eksamen").audienceNote == nil)
+        #expect(Lesson(title: "2g: Terminsprøver").audienceNote == "2nd years")
+        #expect(Lesson(title: "3m, 1i: Tidying up the Foyer").audienceNote == "3m, 1i")
     }
 
     // MARK: - An ordinary day (Wednesday, week 38)
