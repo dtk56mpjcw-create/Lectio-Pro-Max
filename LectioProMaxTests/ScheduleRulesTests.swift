@@ -256,10 +256,13 @@ struct ScheduleRulesTests {
     @Test func dayOfHowMany() {
         let trip = Lesson(title: "Pre-IB intro trip", team: "1i kl, 1j kl",
                           span: "2026-09-02 08:00|2026-09-03 16:00")
-        #expect(trip.spanNote(on: "2026-09-02") == "Day 1 of 2 · until Thu 16:00")
-        #expect(trip.spanNote(on: "2026-09-03") == "Day 2 of 2 · until 16:00")
+        // An end time only on the day it ends: on the first it read as
+        // ending that day.
+        #expect(trip.spanNote(on: "2026-09-02") == "Day 1 of 2 · ends tomorrow")
+        #expect(trip.spanNote(on: "2026-09-03") == "Day 2 of 2 · ends 16:00")
         // Midnight to midnight: the last day is the day before.
         let holiday = Lesson(title: "Vinterferie", span: "2027-02-15 00:00|2027-02-20 00:00")
+        #expect(holiday.spanNote(on: "2027-02-15") == "Day 1 of 5 · ends Fri")
         #expect(holiday.spanNote(on: "2027-02-19") == "Day 5 of 5")
         #expect(holiday.spanNote(on: "2027-02-20") == nil)
     }
