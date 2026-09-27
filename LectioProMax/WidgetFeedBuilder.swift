@@ -49,7 +49,7 @@ enum WidgetFeedBuilder {
     static func build(from snapshot: LectioSnapshot, now: Date = Date()) -> WidgetFeed {
         var feed = WidgetFeed()
         let className = snapshot.profile.className
-        ClassNames.use(className)
+        ClassNames.use(snapshot.profile)
         let today = LectioDates.isoString(from: now)
 
         var modulesByWeek: [String: [ScheduleModule]] = [:]

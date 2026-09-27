@@ -286,6 +286,64 @@ struct ScheduleRulesTests {
         #expect(Lesson(code: "ap la", title: "x", team: "1i ap la, 1j ap la").isClassLesson)
     }
 
+    @Test func classesNamedByTheYearTheyStarted() throws {
+        let autumn = try #require(ISO8601DateFormatter().date(from: "2026-09-18T10:00:00Z"))
+        let spring = try #require(ISO8601DateFormatter().date(from: "2027-03-01T10:00:00Z"))
+        // A year and letters: the first digit.
+        #expect(ClassNames.year(of: "1j", now: autumn) == "1")
+        #expect(ClassNames.year(of: "3.g", now: autumn) == "3")
+        #expect(ClassNames.year(of: "HF2b", now: autumn) == "2")
+        // Started in 2025: a 2nd year all through 2026/27.
+        #expect(ClassNames.year(of: "25a", now: autumn) == "2")
+        #expect(ClassNames.year(of: "25a", now: spring) == "2")
+        #expect(ClassNames.year(of: "2026x", now: autumn) == "1")
+        // Not a year anyone could have started in: the first digit again.
+        #expect(ClassNames.year(of: "10b", now: autumn) == "1")
+    }
+
+    @Test func studentsWithoutAClass() {
+        defer { ClassNames.use(Profile(className: "1j", isStudent: true)) }
+
+        ClassNames.use(Profile(className: "", isStudent: true))
+        #expect(ClassNames.isClassless)
+        // Their teams are their subjects.
+        #expect(Lesson(code: "da", title: "x", team: "Dansk C 2526-01").isClassLesson)
+        // Not the whole school, and not something voluntary.
+        #expect(!Lesson(code: "", title: "Temadag", team: "Alle kursister").isClassLesson)
+        #expect(!Lesson(code: "", title: "Kor", team: "Frivillig kor").isClassLesson)
+
+        // With a class, only its teams are lessons again.
+        ClassNames.use(Profile(className: "1j", isStudent: true))
+        #expect(!ClassNames.isClassless)
+        #expect(!Lesson(code: "da", title: "x", team: "Dansk C 2526-01").isClassLesson)
+        #expect(Lesson(code: "ma", title: "x", team: "1j ma").isClassLesson)
+
+        // A teacher has no class either, but isn't a student.
+        ClassNames.use(Profile(name: "Bo Berg", isStudent: false))
+        #expect(!ClassNames.isClassless)
+    }
+
+    @Test func whoTheProfileIs() {
+        func page(_ title: String) -> String {
+            "<html><body><div id='s_m_HeaderContent_MainTitle'>\(title)</div></body></html>"
+        }
+        let pupil = LectioParser.parseProfile(page("Eleven Ivan Surov, 1j - Skema"))
+        #expect(pupil.name == "Ivan Surov")
+        #expect(pupil.className == "1j")
+        #expect(pupil.isStudent == true)
+
+        let adult = LectioParser.parseProfile(page("Kursisten Anna Hansen - Skema"))
+        #expect(adult.name == "Anna Hansen")
+        #expect(adult.className.isEmpty)
+        #expect(adult.isStudent == true)
+
+        let hf = LectioParser.parseProfile(page("Kursisten Anna Hansen, HF1b - Skema"))
+        #expect(hf.className == "HF1b")
+
+        let teacher = LectioParser.parseProfile(page("Læreren Bo Berg - Skema"))
+        #expect(teacher.isStudent == false)
+    }
+
     // MARK: - Danish time
 
     @Test func todayIsDanish() throws {

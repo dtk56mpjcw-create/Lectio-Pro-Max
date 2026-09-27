@@ -107,7 +107,7 @@ enum ScheduleWatch {
         var alerts: [ChangeAlert] = []
         var record = Record(days: [:], messages: old.messages, work: old.work)
         let className = snapshot.profile.className
-        ClassNames.use(className)
+        ClassNames.use(snapshot.profile)
 
         // The schedule: today and the next school day.
         for iso in watchedDays(now: now) {

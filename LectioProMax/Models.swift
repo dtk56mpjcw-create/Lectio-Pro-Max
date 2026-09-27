@@ -172,7 +172,8 @@ struct Profile: Codable, Hashable {
     /// From the page header. Optional so profiles cached before it existed
     /// still decode.
     var schoolName: String? = nil
-    /// Whether Lectio calls you "Eleven". A teacher's or a parent's login
+    /// Whether Lectio calls you "Eleven" (or "Kursisten", in adult
+    /// education). A teacher's or a parent's login
     /// works too, but the class, the student card and absence are a
     /// student's. Optional for cached profiles.
     var isStudent: Bool? = nil

@@ -70,6 +70,7 @@ extension Lesson {
     static func classTeamParts(_ team: String) -> [String] {
         if let known = LessonMemo.teamParts(team) { return known }
         let patterns = ClassNames.teamPatterns
+        let classless = ClassNames.isClassless
         let parts: [String] = team.split(separator: ",").compactMap { raw in
             let t = raw.trimmingCharacters(in: .whitespaces)
             for pattern in patterns {
@@ -77,10 +78,20 @@ extension Lesson {
                     return g[1].trimmingCharacters(in: .whitespaces)
                 }
             }
+            // No class to go by: a team of your own is the subject itself.
+            if classless && Lesson.isOwnTeam(t) { return t }
             return nil
         }
         LessonMemo.remember(parts, forTeam: team)
         return parts
+    }
+
+    /// For a student without a class: a team that isn't a whole group
+    /// ("Alle kursister", "Alle 1. HF-elever") or something voluntary.
+    static func isOwnTeam(_ team: String) -> Bool {
+        let lower = team.lowercased()
+        return !lower.isEmpty && !lower.hasPrefix("alle ") && !lower.contains("elever")
+            && !lower.contains("kursister") && !Lesson.isVoluntary(team)
     }
 
     /// "1g: AP-eksamen" -> "AP-eksamen"; "1i, 1j: NV-eksamen" -> "NV-eksamen".
@@ -196,6 +207,7 @@ enum ClassNames {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var own = ""
     nonisolated(unsafe) private static var ownPattern: String?
+    nonisolated(unsafe) private static var classless = false
 
     /// "1j" and "1i ap la": a year, one to three letters.
     static let usual = "^\\d[a-zA-ZæøåÆØÅ]{1,3}\\s+(.+)$"
@@ -242,15 +254,53 @@ enum ClassNames {
         }
     }
 
+    /// From the profile: the class, and whether you're a student without
+    /// one.
+    static func use(_ profile: Profile) {
+        use(profile.className)
+        setClassless(profile.isStudent == true
+                     && profile.className.trimmingCharacters(in: .whitespaces).isEmpty)
+    }
+
+    /// A student without a class — adult education, single subjects —
+    /// has teams that are subjects of their own ("Dansk C 2526-01") and no
+    /// class to recognise them by. Then any team that isn't a whole group
+    /// or something voluntary counts as a lesson (see classTeamParts).
+    static func setClassless(_ value: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        guard value != classless else { return }
+        classless = value
+        LessonMemo.forgetClasses()
+    }
+
+    static var isClassless: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return classless
+    }
+
     /// The class the rules are using now, as learnt from the profile.
     static var current: String {
         lock.lock(); defer { lock.unlock() }
         return own
     }
 
-    /// The year of a class: its first digit ("1j" → 1, "HF1b" → 1).
-    static func year(of className: String) -> Character? {
-        className.first(where: \.isNumber)
+    /// The year of school a class is in. Usually its first digit ("1j" →
+    /// 1, "HF1b" → 1, "2.b" → 2). Some schools name classes by the year
+    /// they started ("25a", "2025a"): then it's counted from that, the
+    /// school year beginning in August — "25a" is a 2nd year in 2026/27.
+    static func year(of className: String, now: Date = Date()) -> Character? {
+        let digits = className.drop { !$0.isNumber }.prefix { $0.isNumber }
+        if digits.count >= 2, let started = Int(digits) {
+            let full = digits.count == 2 ? 2000 + started : started
+            let cal = LectioDates.calendar
+            let year = cal.component(.year, from: now)
+            let schoolYear = cal.component(.month, from: now) >= 8 ? year : year - 1
+            let grade = schoolYear - full + 1
+            if (2000...2100).contains(full), (1...5).contains(grade) {
+                return Character(String(grade))
+            }
+        }
+        return className.first(where: \.isNumber)
     }
 }
 

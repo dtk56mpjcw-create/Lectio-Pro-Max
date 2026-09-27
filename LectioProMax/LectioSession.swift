@@ -17,7 +17,7 @@ final class LectioSession {
     var snapshot = LectioSnapshot() {
         // Lessons are told apart from events by their class; learn how this
         // school writes classes as soon as the profile is known.
-        didSet { ClassNames.use(snapshot.profile.className) }
+        didSet { ClassNames.use(snapshot.profile) }
     }
     var isLoading = false
     var isLoggedIn = false

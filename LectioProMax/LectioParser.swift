@@ -414,12 +414,17 @@ enum LectioParser {
         var profile = Profile()
 
         if let title = root.first(id: "s_m_HeaderContent_MainTitle") {
-            let text = title.text
+            let text = title.text.trimmingCharacters(in: .whitespacesAndNewlines)
             // "Eleven Ivan Surov, 1j - Skema": the class runs to the " - ",
-            // so a class written "HF 1b" or "1.a" comes out whole.
-            if let g = Rx.match("Eleven\\s+(.+?),\\s*(.+?)(?:\\s+-\\s+|\\s*$)", text) {
+            // so a class written "HF 1b" or "1.a" comes out whole. A student
+            // in adult education is a "Kursist", and may have no class:
+            // "Kursisten Anna Hansen - Skema".
+            if let g = Rx.match("^(?:Eleven|Kursisten|Kursist)\\s+(.+?),\\s*(.+?)(?:\\s+-\\s+|\\s*$)", text) {
                 profile.name = g[1].trimmingCharacters(in: .whitespaces)
                 profile.className = g[2].trimmingCharacters(in: .whitespaces)
+                profile.isStudent = true
+            } else if let g = Rx.match("^(?:Eleven|Kursisten|Kursist)\\s+(.+?)(?:\\s+-\\s+|\\s*$)", text) {
+                profile.name = g[1].trimmingCharacters(in: .whitespaces)
                 profile.isStudent = true
             } else {
                 profile.name = text
