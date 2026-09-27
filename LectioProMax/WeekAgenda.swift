@@ -225,6 +225,7 @@ private struct WeekDayCard: View {
     var onPick: (String) -> Void
 
     @State private var unfolded = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var folded: Bool { startsFolded && !unfolded }
     private var nowMinutes: Int? { now.map { DayList.minutes(of: $0) } }
@@ -239,7 +240,9 @@ private struct WeekDayCard: View {
                     foldedLine(rows)
                 } else {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                        if index > 0 { Divider().padding(.leading, WeekLine.textInset) }
+                        if index > 0 {
+                            Divider().padding(.leading, WeekLine.textInset(TypeScale.factor(dynamicTypeSize)))
+                        }
                         line(row)
                     }
                 }
@@ -372,12 +375,21 @@ private struct WeekDayCard: View {
 private struct WeekLine: View {
     enum Timing { case over, now, later }
 
+    /// The side column: wide enough for a time like "16:00" at the text
+    /// size in use (it used to fit "8:00" and cut "16:00" to "16:…").
+    static func sideWidth(_ scale: CGFloat) -> CGFloat {
+        min(40 * scale, 64)
+    }
+
     /// Where the name starts, for the dividers between lines.
-    static let textInset: CGFloat = 14 + 30 + 10 + 4 + 10
+    static func textInset(_ scale: CGFloat) -> CGFloat {
+        14 + sideWidth(scale) + 10 + 4 + 10
+    }
 
     let row: WeekRow
     let state: Timing
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var isFree: Bool {
         if case .free = row.kind { return true }
@@ -387,7 +399,7 @@ private struct WeekLine: View {
     var body: some View {
         HStack(spacing: 10) {
             side
-                .frame(width: 30)
+                .frame(width: WeekLine.sideWidth(TypeScale.factor(dynamicTypeSize)))
             Capsule()
                 .fill(stripe)
                 .frame(width: 4, height: 20)
