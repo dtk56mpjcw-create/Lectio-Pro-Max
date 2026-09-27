@@ -70,34 +70,12 @@ enum LectioError: LocalizedError {
     }
 }
 
-/// Lectio rolls its session cookies forward on every authenticated page load
-/// (`LastAuthenticatedPageLoad2` is literally a timestamp it rewrites each
-/// time). Our URLSession deliberately stores nothing, so every renewed cookie
-/// was being thrown away and the app kept replaying the set captured at login
-/// until Lectio stopped accepting it — which is what "signs you out" was.
-/// This collects what comes back so the session can keep it.
-actor CookieCollector {
-    static let shared = CookieCollector()
-    private var jar: [String: HTTPCookie] = [:]
-
-    func absorb(_ cookies: [HTTPCookie]) {
-        for cookie in cookies where cookie.domain.lowercased().contains("lectio.dk") {
-            jar[cookie.name] = cookie
-        }
-    }
-
-    func drain() -> [HTTPCookie] {
-        let all = Array(jar.values)
-        jar.removeAll()
-        return all
-    }
-}
-
 enum LectioService {
 
-    private static let session: URLSession = {
+    /// Cookies are the jar's (see LectioCookies), set on each request and
+    /// each step of a redirect by LectioHTTP — never stored by URLSession.
+    static let session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
-        // We manage cookies ourselves, sourced from the WKWebView we logged in with.
         config.httpCookieStorage = nil
         config.httpShouldSetCookies = false
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
@@ -107,12 +85,6 @@ enum LectioService {
         return URLSession(configuration: config)
     }()
 
-    /// Set only for a background check (see BackgroundCheck): a session
-    /// with a cookie store of its own, which keeps and sends cookies the way
-    /// a browser does. Requests made inside it go through it and let it
-    /// handle the cookies; everything else is exactly as before.
-    @TaskLocal static var browser: URLSession?
-
     static func cookieHeader(_ cookies: [HTTPCookie]) -> String {
         return cookies.map { $0.name + "=" + $0.value }.joined(separator: "; ")
     }
@@ -121,37 +93,27 @@ enum LectioService {
     static func isLoginWall(_ url: URL?) -> Bool {
         guard let s = url?.absoluteString.lowercased() else { return false }
         return s.contains("login.aspx")
+            || s.contains("login_list")
             || s.contains("unilogin")
             || s.contains("broker")
             || s.contains("mitid")
             || s.contains("login.microsoftonline")
     }
 
+    /// A Lectio page. `cookies` only seeds the jar the first time; every
+    /// request uses the jar as it stands when it's sent (see LectioHTTP).
     static func fetchHTML(_ urlString: String, cookies: [HTTPCookie]) async throws -> String {
         guard let url = URL(string: urlString) else { throw LectioError.badURL }
 
-        let client = browser ?? session
         var request = URLRequest(url: url)
-        if browser == nil {
-            request.setValue(cookieHeader(cookies), forHTTPHeaderField: "Cookie")
-        }
         request.setValue(LectioConfig.userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                          forHTTPHeaderField: "Accept")
         request.setValue("da,en;q=0.8", forHTTPHeaderField: "Accept-Language")
 
-        let (data, response) = try await client.data(for: request)
-
-        if let http = response as? HTTPURLResponse {
-            // Keep whatever Lectio just handed back, even on a redirect.
-            if let fields = http.allHeaderFields as? [String: String], let from = http.url {
-                let renewed = HTTPCookie.cookies(withResponseHeaderFields: fields, for: from)
-                if !renewed.isEmpty { await CookieCollector.shared.absorb(renewed) }
-            }
-            if isLoginWall(http.url) { throw LectioError.needsLogin }
-            guard (200..<300).contains(http.statusCode) else {
-                throw LectioError.badResponse(http.statusCode)
-            }
+        let (data, http) = try await LectioHTTP.send(request, via: session, seed: cookies)
+        guard (200..<300).contains(http.statusCode) else {
+            throw LectioError.badResponse(http.statusCode)
         }
 
         guard let html = String(data: data, encoding: .utf8)
@@ -172,9 +134,8 @@ enum LectioService {
     static func fetchData(_ urlString: String, cookies: [HTTPCookie]) async throws -> Data {
         guard let url = URL(string: urlString) else { throw LectioError.badURL }
         var request = URLRequest(url: url)
-        request.setValue(cookieHeader(cookies), forHTTPHeaderField: "Cookie")
         request.setValue(LectioConfig.userAgent, forHTTPHeaderField: "User-Agent")
-        let (data, _) = try await session.data(for: request)
+        let (data, _) = try await LectioHTTP.send(request, via: session, seed: cookies)
         return data
     }
 

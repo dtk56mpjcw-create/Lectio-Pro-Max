@@ -1,17 +1,17 @@
 import Foundation
+import Security
 
-/// Stores the Lectio session cookies ourselves.
+/// Where the Lectio session is kept between launches: the Keychain, the
+/// place iOS meant for sign-ins. Only on this phone ("ThisDeviceOnly": not
+/// in backups, not synced), readable once the phone has been unlocked after
+/// a restart, so the background check can use it while it's locked.
 ///
-/// This is the piece the app was missing. It delegated cookie persistence to
-/// WKWebView, but WebKit — correctly, by the HTTP spec — drops *session*
-/// cookies when the app terminates. Lectio's `ASP.NET_SessionId` is exactly
-/// that: a session cookie. So every cold start began with a cookie set that
-/// could no longer authenticate, Lectio answered with the login page, and the
-/// app concluded the user was signed out. Backgrounding the app kept working,
-/// which is why this only ever showed up on a full close-and-reopen.
+/// WebKit alone can't be trusted with it: by the HTTP spec it drops
+/// session cookies when the app is closed, and Lectio's session is one.
+/// An older version kept the cookies in a file; it's moved over once.
 ///
-/// The file lives in the app's own sandboxed container and is excluded from
-/// device backups, since it holds live session tokens.
+/// Read and written through LectioCookies, which is the only thing that
+/// should touch it.
 enum CookieVault {
 
     private struct Stored: Codable {
@@ -23,37 +23,43 @@ enum CookieVault {
         var isSecure: Bool
     }
 
-    private static var url: URL? {
-        let fm = FileManager.default
-        guard let dir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
-        if !fm.fileExists(atPath: dir.path) {
-            try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        }
-        return dir.appendingPathComponent("lectio-cookies.json")
+    private static let service = "com.ivan.lectiopromax.session"
+    private static let account = "lectio-cookies"
+    /// The Keychain outlives the app. A fresh install starts signed out, as
+    /// people expect; this marks that it has.
+    private static let installedKey = "lectio.keychainReady"
+
+    private static var base: [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrService as String: service,
+         kSecAttrAccount as String: account]
     }
 
     static func save(_ cookies: [HTTPCookie]) {
-        guard var target = CookieVault.url else { return }
         let stored = cookies.map {
             Stored(name: $0.name, value: $0.value, domain: $0.domain,
                    path: $0.path.isEmpty ? "/" : $0.path,
                    expires: $0.expiresDate, isSecure: $0.isSecure)
         }
         guard let data = try? JSONEncoder().encode(stored) else { return }
-        // Readable once the phone has been unlocked after a restart, so a
-        // background check can use it while the phone is locked; encrypted
-        // until then, like the rest of the app's data.
-        try? data.write(to: target, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-
-        var values = URLResourceValues()
-        values.isExcludedFromBackup = true
-        try? target.setResourceValues(values)
+        let attributes: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        let status = SecItemUpdate(base as CFDictionary, attributes as CFDictionary)
+        if status == errSecItemNotFound {
+            let add = base.merging(attributes) { _, new in new }
+            SecItemAdd(add as CFDictionary, nil)
+        }
     }
 
     static func load() -> [HTTPCookie] {
-        guard let target = CookieVault.url,
-              let data = try? Data(contentsOf: target),
-              let stored = try? JSONDecoder().decode([Stored].self, from: data) else { return [] }
+        forgetIfReinstalled()
+        var data = readKeychain()
+        if data == nil, let legacy = legacyURL, let old = try? Data(contentsOf: legacy) {
+            data = old
+        }
+        guard let data, let stored = try? JSONDecoder().decode([Stored].self, from: data) else { return [] }
 
         let now = Date()
         var cookies: [HTTPCookie] = []
@@ -64,17 +70,50 @@ enum CookieVault {
                 .name: item.name,
                 .value: item.value,
                 .domain: item.domain,
-                .path: item.path
+                .path: item.path,
             ]
             if let expiry = item.expires { properties[.expires] = expiry }
             if item.isSecure { properties[.secure] = "TRUE" }
             if let cookie = HTTPCookie(properties: properties) { cookies.append(cookie) }
         }
+
+        // Moved over from the old file: into the Keychain, and the file gone.
+        if readKeychain() == nil, !cookies.isEmpty {
+            save(cookies)
+            if let legacy = legacyURL { try? FileManager.default.removeItem(at: legacy) }
+        }
         return cookies
     }
 
     static func clear() {
-        guard let target = CookieVault.url else { return }
-        try? FileManager.default.removeItem(at: target)
+        SecItemDelete(base as CFDictionary)
+        if let legacy = legacyURL { try? FileManager.default.removeItem(at: legacy) }
+    }
+
+    // MARK: - Private
+
+    private static func readKeychain() -> Data? {
+        var query = base
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess else { return nil }
+        return result as? Data
+    }
+
+    private static func forgetIfReinstalled() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: installedKey) else { return }
+        defaults.set(true, forKey: installedKey)
+        // A cookie file means this isn't a fresh install but an update from
+        // before the Keychain: keep the session, it's about to move over.
+        if let legacy = legacyURL, FileManager.default.fileExists(atPath: legacy.path) { return }
+        SecItemDelete(base as CFDictionary)
+    }
+
+    /// Where the old version kept them.
+    private static var legacyURL: URL? {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("lectio-cookies.json")
     }
 }

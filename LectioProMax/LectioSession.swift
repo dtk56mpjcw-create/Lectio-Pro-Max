@@ -45,9 +45,6 @@ final class LectioSession: ObservableObject {
     /// Weeks to warm up once `key` has actually arrived, so a swipe never has
     /// three fetches and three parses competing for the same CPU.
     private var pendingWarm: [String: [String]] = [:]
-    /// Cookies are read from WKWebView's store, which is a hop to the main
-    /// thread each time; once we have a working set, reuse it.
-    private var cachedCookies: [HTTPCookie] = []
     private var saveTask: Task<Void, Never>?
 
     /// When each week was last fetched. Deliberately NOT persisted: on a cold
@@ -243,7 +240,6 @@ final class LectioSession: ObservableObject {
                 weekFetchedAt[code] = Date()
                 failedWeeks.remove(code)
                 weekErrors[code] = nil
-                await absorbRenewedCookies()
                 scheduleSave()
                 warmNeighbours(of: code)
                 return
@@ -253,16 +249,12 @@ final class LectioSession: ObservableObject {
                 // "signed out" to disk — which is why the app started asking
                 // for a login on every launch. refresh() waits properly for the
                 // cookie store, so let it be the one to judge.
-                cachedCookies = []
                 sessionVerified = false
                 lastError = "Lectio didn't accept the session."
                 requestReverification()
                 break
             } catch {
                 if isCancellation(error) { return }
-                // Deliberately keep `cachedCookies`: discarding them here meant
-                // one failed attempt poisoned every attempt after it, because
-                // the next read had nothing to fall back on.
                 lastError = error.localizedDescription
             }
         }
@@ -339,7 +331,6 @@ final class LectioSession: ObservableObject {
             sessionVerified = true
             retriedColdStart = false
             renewedThisCycle = false
-            await absorbRenewedCookies()
             scheduleSave()
             await refreshReminders()
 
@@ -355,9 +346,10 @@ final class LectioSession: ObservableObject {
             }
             flushDeferredWeeks(failed: false)
         } catch LectioError.needsLogin {
-            // Lectio won't accept these cookies. Before believing the session is
-            // gone, let the hidden WebView do what a browser does on every visit:
-            // follow Lectio's auto-login and pick up the refreshed cookies.
+            // Lectio has already had its chance to renew the session with the
+            // key (LectioHTTP follows its auto-login, then tries once more
+            // without the dead session). As a last resort, let the hidden
+            // WebView do what a browser does on a visit.
             isLoading = false
             if !renewedThisCycle {
                 renewedThisCycle = true
@@ -366,12 +358,12 @@ final class LectioSession: ObservableObject {
                     return
                 }
             }
-            // Renewal failed too — now it really is a sign-out.
+            // Renewal failed too: ask for a sign-in. The key is kept — a
+            // failure can be the network rather than Lectio, and the next
+            // launch tries it again; a new sign-in replaces it anyway.
             isLoggedIn = false
             authState = .signedOut
             sessionVerified = false
-            cachedCookies = []
-            CookieVault.clear()
             showLogin = true
             errorMessage = nil
             deferredWeeks.removeAll()
@@ -389,7 +381,6 @@ final class LectioSession: ObservableObject {
         showLogin = false
         isLoggedIn = true
         authState = .authenticated
-        cachedCookies = []
         failedWeeks.removeAll()
         weekErrors.removeAll()
         weekFetchedAt.removeAll()
@@ -397,6 +388,9 @@ final class LectioSession: ObservableObject {
         deferredWeeks.removeAll()
         // Let Lectio finish establishing the session before we request anything.
         try? await Task.sleep(nanoseconds: 600_000_000)
+        // What WebKit has now is this sign-in: it replaces whatever was kept.
+        let fresh = await currentCookiesRetrying(attempts: 5)
+        if carriesAuth(fresh) { await LectioCookies.shared.replace(with: fresh) }
         await refresh()
     }
 
@@ -407,8 +401,7 @@ final class LectioSession: ObservableObject {
         await store.removeData(ofTypes: types, modifiedSince: Date(timeIntervalSince1970: 0))
         snapshot = LectioSnapshot()
         clearCache()
-        CookieVault.clear()
-        cachedCookies = []
+        await LectioCookies.shared.clear()
         // What belongs to the account, not the phone: reminders (and their
         // notifications), drafts, the Deleted list, the signature, subject
         // colours, the remembered end of the school day, cached lessons and
@@ -476,64 +469,77 @@ final class LectioSession: ObservableObject {
 
     // MARK: - Cookies
 
-    /// Puts the cookies we persisted back where both halves of the app expect
-    /// them: our own request header, and WebKit's store, so the hidden WebView
-    /// can renew the session if Lectio ever rejects them.
+    /// The jar (see LectioCookies) from the Keychain. An install from before
+    /// the jar takes what WebKit has. WebKit is given the jar's cookies, so
+    /// the hidden WebView can renew the session if it ever has to.
     private func restoreSavedCookies() async {
-        let saved = CookieVault.load()
-        guard !saved.isEmpty else { return }
-        cachedCookies = saved
+        if !(await LectioCookies.shared.hasCredentials()) {
+            let web = await currentCookiesRetrying(attempts: 4)
+            if carriesAuth(web) { await LectioCookies.shared.absorb(web) }
+        }
+        await pushJarToWebKit()
+    }
+
+    /// WebKit's store made to match the jar — including no session cookie
+    /// when the jar has dropped a dead one.
+    private func pushJarToWebKit() async {
         let store = WKWebsiteDataStore.default().httpCookieStore
-        for cookie in saved {
+        let jar = await LectioCookies.shared.snapshot()
+        let jarNames = Set(jar.map { $0.name.lowercased() })
+        for cookie in await currentCookies()
+        where cookie.name.lowercased() == LectioCookies.sessionName && !jarNames.contains(LectioCookies.sessionName) {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                store.delete(cookie) { continuation.resume() }
+            }
+        }
+        for cookie in jar {
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 store.setCookie(cookie) { continuation.resume() }
             }
         }
     }
 
-    /// Takes whatever cookies Lectio handed back during the last fetches and
-    /// keeps them — both for this run and, via WebKit's store, for the next
-    /// launch. Without this the app replayed the set captured at login until
-    /// Lectio stopped honouring it.
-    private func absorbRenewedCookies() async {
-        let renewed = await CookieCollector.shared.drain()
-        guard !renewed.isEmpty else { return }
-
-        var merged: [String: HTTPCookie] = [:]
-        for cookie in cachedCookies { merged[cookie.name] = cookie }
-        for cookie in renewed { merged[cookie.name] = cookie }
-        cachedCookies = Array(merged.values)
-        CookieVault.save(cachedCookies)
-
-        let store = WKWebsiteDataStore.default().httpCookieStore
-        for cookie in renewed {
-            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                store.setCookie(cookie) { continuation.resume() }
-            }
-        }
+    /// For the test button (Settings, builds from Xcode): throws the session
+    /// away as if it had run out, and refreshes. True when the app got back
+    /// in by itself, without a sign-in.
+    func simulateExpiredSession() async -> Bool {
+        await LectioCookies.shared.dropSession()
+        await pushJarToWebKit()
+        await refresh()
+        return isLoggedIn && !showLogin
     }
 
-    /// Re-establishes the session the way a browser would: the hidden WebView
-    /// follows Lectio's own auto-login and accepts the cookies it hands back,
-    /// which our URLSession cannot do on its own. It is never allowed to
-    /// conclude the user is signed out — it either renews, or it doesn't.
+    /// The last resort, when Lectio's renewal over plain requests didn't
+    /// take: the hidden WebView loads Lectio as a browser would and follows
+    /// whatever it's sent through. It is never allowed to conclude the user
+    /// is signed out — it either renews, or it doesn't.
     private func renewSessionSilently() async -> Bool {
         if renewalInFlight { return false }
         renewalInFlight = true
         defer { renewalInFlight = false }
 
         guard let url = URL(string: LectioConfig.forsideURL) else { return false }
+        await pushJarToWebKit()
         let web = cookieStoreKeepAlive
         _ = web.load(URLRequest(url: url))
 
-        for _ in 0..<40 {                       // up to ~8 seconds
+        // Settled: loaded, and at the same address for a moment — a step of
+        // a sign-in can hand over to the next one right after it loads.
+        var last: URL?
+        var steady = 0
+        for _ in 0..<60 {                       // up to ~12 seconds
             try? await Task.sleep(nanoseconds: 200_000_000)
-            if !web.isLoading { break }
+            if web.isLoading { steady = 0; continue }
+            if web.url == last { steady += 1 } else { steady = 0; last = web.url }
+            if steady >= 3 { break }
         }
-        if LectioService.isLoginWall(web.url) { return false }
+        guard let landed = web.url, LectioHTTP.isLectio(landed),
+              !LectioService.isLoginWall(landed) else { return false }
 
-        let cookies = await usableCookies(attempts: 4)
-        return !cookies.isEmpty
+        let cookies = await currentCookiesRetrying(attempts: 3)
+        guard carriesAuth(cookies) else { return false }
+        await LectioCookies.shared.absorb(cookies)
+        return true
     }
 
     // MARK: - Messages
@@ -571,7 +577,6 @@ final class LectioSession: ObservableObject {
             scheduleSave()
             // The inbox knows the real unread state; the dashboard only guesses.
             snapshot.unreadMessages = threads.filter { $0.unread }.count
-            await absorbRenewedCookies()
         } catch LectioError.needsLogin {
             inboxError = "Lectio didn't accept the session."
             requestReverification()
@@ -637,7 +642,6 @@ final class LectioSession: ObservableObject {
         if let notes = try? await LectioStudyService.loadLessonNotes(cookies: cookies) {
             lessonNotes = notes
             lessonNotesAt = Date()
-            await absorbRenewedCookies()
         }
     }
 
@@ -655,7 +659,6 @@ final class LectioSession: ObservableObject {
            let loaded = try? await LectioStudyService.loadAbsence(cookies: cookies) {
             absence = loaded
             absenceAt = Date()
-            await absorbRenewedCookies()
             await refreshReminders()
         }
         absenceLoading = false
@@ -675,7 +678,6 @@ final class LectioSession: ObservableObject {
         if let report = try? await LectioMeService.loadGrades(cookies: cookies) {
             grades = report
             gradesAt = Date()
-            await absorbRenewedCookies()
         }
     }
 
@@ -686,7 +688,6 @@ final class LectioSession: ObservableObject {
         if let plan = try? await LectioStudyService.loadStudyPlan(cookies: cookies) {
             studyPlan = plan
             studyPlanAt = Date()
-            await absorbRenewedCookies()
         }
     }
 
@@ -706,24 +707,15 @@ final class LectioSession: ObservableObject {
         return await usableCookies(attempts: 3)
     }
 
-    /// Everything we know, newest source winning: what we saved to disk last
-    /// run, what we've picked up this run, and whatever WebKit can tell us now.
-    ///
-    /// Merging matters. WebKit keeps Lectio's persistent cookies across
-    /// launches but drops the session one, and our own vault keeps the session
-    /// one — neither is complete on its own after a cold start.
+    /// The jar's cookies (see LectioCookies). If it has nothing to sign in
+    /// with — an install from before the jar — it takes what WebKit has.
     private func usableCookies(attempts: Int) async -> [HTTPCookie] {
-        var merged: [String: HTTPCookie] = [:]
-        for cookie in CookieVault.load() { merged[cookie.name] = cookie }
-        for cookie in cachedCookies { merged[cookie.name] = cookie }
-        for cookie in await currentCookiesRetrying(attempts: attempts) { merged[cookie.name] = cookie }
-
-        let all = Array(merged.values)
-        if !all.isEmpty {
-            cachedCookies = all
-            CookieVault.save(all)
+        let jar = LectioCookies.shared
+        if !(await jar.hasCredentials()) {
+            let web = await currentCookiesRetrying(attempts: attempts)
+            if carriesAuth(web) { await jar.absorb(web) }
         }
-        return all
+        return await jar.snapshot()
     }
 
     /// WKWebView's cookie store can answer empty for a moment on a cold start,
@@ -797,11 +789,9 @@ final class LectioSession: ObservableObject {
     }
 
     /// What a background check fetched, already merged with what we had.
-    /// The cookies it rolled forward are in the vault and WebKit now, so
-    /// the next request reads them afresh rather than reusing ours.
+    /// (Its cookies are in the shared jar already.)
     func adopt(_ merged: LectioSnapshot) {
         snapshot = merged
-        cachedCookies = []
         if !merged.currentWeekCode.isEmpty {
             weekFetchedAt[merged.currentWeekCode] = Date()
         }

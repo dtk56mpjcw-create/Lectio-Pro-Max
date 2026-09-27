@@ -61,18 +61,14 @@ enum LectioForms {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded; charset=UTF-8",
                          forHTTPHeaderField: "Content-Type")
-        request.setValue(LectioService.cookieHeader(cookies), forHTTPHeaderField: "Cookie")
         request.setValue(LectioConfig.userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue(pageURL, forHTTPHeaderField: "Referer")
         request.timeoutInterval = 60
         request.httpBody = encoded(form).data(using: .utf8)
 
-        let (data, response) = try await session.data(for: request)
-        await absorbCookies(from: response)
-
-        let http = response as? HTTPURLResponse
-        if LectioService.isLoginWall(http?.url) { throw LectioError.needsLogin }
-        let status = http?.statusCode ?? 0
+        // Cookies, redirects and a signed-out answer: see LectioHTTP.
+        let (data, http) = try await LectioHTTP.send(request, via: session, seed: cookies)
+        let status = http.statusCode
         guard (200..<300).contains(status) else { throw LectioError.badResponse(status) }
 
         return String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
@@ -87,14 +83,6 @@ enum LectioForms {
         config.timeoutIntervalForResource = 600
         return URLSession(configuration: config)
     }()
-
-    static func absorbCookies(from response: URLResponse) async {
-        guard let http = response as? HTTPURLResponse,
-              let headers = http.allHeaderFields as? [String: String],
-              let from = http.url else { return }
-        let renewed = HTTPCookie.cookies(withResponseHeaderFields: headers, for: from)
-        if !renewed.isEmpty { await CookieCollector.shared.absorb(renewed) }
-    }
 
     /// ASP.NET reads the body as UTF-8 percent-encoding, and Lectio ships a
     /// canary field (`masterfootervalue` = "X1!ÆØÅ") to check it survived.

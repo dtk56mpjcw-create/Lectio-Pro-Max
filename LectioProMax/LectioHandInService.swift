@@ -72,16 +72,11 @@ enum LectioHandInService {
         guard let url = URL(string: link) else { throw LectioError.badURL }
 
         var request = URLRequest(url: url)
-        request.setValue(LectioService.cookieHeader(cookies), forHTTPHeaderField: "Cookie")
         request.setValue(LectioConfig.userAgent, forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 120
 
-        let (data, response) = try await session.data(for: request)
-        await absorbCookies(from: response)
-
-        let http = response as? HTTPURLResponse
-        if LectioService.isLoginWall(http?.url) { throw LectioError.needsLogin }
-        let status = http?.statusCode ?? 0
+        let (data, http) = try await LectioHTTP.send(request, via: session, seed: cookies)
+        let status = http.statusCode
         guard (200..<300).contains(status) else { throw UploadError.uploadRejected(status) }
         guard !data.isEmpty else { throw LectioError.emptyBody }
 
@@ -138,17 +133,14 @@ enum LectioHandInService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.setValue(LectioService.cookieHeader(cookies), forHTTPHeaderField: "Cookie")
         request.setValue(LectioConfig.userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue(LectioConfig.base + "/", forHTTPHeaderField: "Referer")
         request.timeoutInterval = 120        // uploads are not 15-second affairs
         request.httpBody = body
 
-        let (responseData, response) = try await session.data(for: request)
-        await absorbCookies(from: response)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let (responseData, http) = try await LectioHTTP.send(request, via: session, seed: cookies)
+        let status = http.statusCode
 
-        if LectioService.isLoginWall((response as? HTTPURLResponse)?.url) { throw LectioError.needsLogin }
         if status == 413 { throw UploadError.fileTooLarge }
         guard (200..<300).contains(status) else { throw UploadError.uploadRejected(status) }
 
@@ -233,30 +225,17 @@ enum LectioHandInService {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded; charset=UTF-8",
                          forHTTPHeaderField: "Content-Type")
-        request.setValue(LectioService.cookieHeader(cookies), forHTTPHeaderField: "Cookie")
         request.setValue(LectioConfig.userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue(handIn.pageURL, forHTTPHeaderField: "Referer")
         request.timeoutInterval = 60
         request.httpBody = urlEncoded(form).data(using: .utf8)
 
-        let (data, response) = try await session.data(for: request)
-        await absorbCookies(from: response)
-        let http = response as? HTTPURLResponse
-        if LectioService.isLoginWall(http?.url) { throw LectioError.needsLogin }
-        let status = http?.statusCode ?? 0
+        let (data, http) = try await LectioHTTP.send(request, via: session, seed: cookies)
+        let status = http.statusCode
         guard (200..<300).contains(status) else { throw UploadError.postbackRejected(status) }
 
         let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
         return LectioParser.parseHandIn(html, pageURL: handIn.pageURL)
-    }
-
-    /// Keep the session rolling forward, same as the read-only fetches do.
-    private static func absorbCookies(from response: URLResponse) async {
-        guard let http = response as? HTTPURLResponse,
-              let fields = http.allHeaderFields as? [String: String],
-              let from = http.url else { return }
-        let renewed = HTTPCookie.cookies(withResponseHeaderFields: fields, for: from)
-        if !renewed.isEmpty { await CookieCollector.shared.absorb(renewed) }
     }
 
     // MARK: - Encoding

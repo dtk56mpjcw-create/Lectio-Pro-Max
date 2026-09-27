@@ -10,6 +10,10 @@ struct SettingsScreen: View {
     @State private var notifications: UNAuthorizationStatus?
     @State private var confirmingSignOut = false
 
+    @State private var sessionStatus: LectioCookies.Status?
+    @State private var testResult: String?
+    @State private var testing = false
+
     @AppStorage(NotifyPrefs.changesKey) private var notifyChanges = true
     @AppStorage(NotifyPrefs.messagesKey) private var notifyMessages = true
     @AppStorage(NotifyPrefs.workKey) private var notifyWork = true
@@ -81,6 +85,23 @@ struct SettingsScreen: View {
                     .buttonStyle(.plain)
                 }
 
+                #if DEBUG
+                section("Testing",
+                        footer: "Only in builds from Xcode. Expire session throws the Lectio session away as if it had run out, to check the app gets back in by itself with the auto-login key.") {
+                    row("Auto-login key", "key.fill", .gray, value: keyText, chevron: nil)
+                    Divider().padding(.leading, 56)
+                    row("Session", "clock.arrow.circlepath", .gray, value: sessionText, chevron: nil)
+                    Divider().padding(.leading, 56)
+                    Button {
+                        Task { await expireSession() }
+                    } label: {
+                        row("Expire session", "bolt.horizontal.fill", .orange, value: testResult, chevron: nil)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(testing)
+                }
+                #endif
+
                 footer
             }
             .padding(.horizontal, Metrics.margin)
@@ -89,7 +110,10 @@ struct SettingsScreen: View {
         }
         .scrollIndicators(.hidden)
         .background { AppBackground() }
-        .task { await readNotificationStatus() }
+        .task {
+            await readNotificationStatus()
+            sessionStatus = await LectioCookies.shared.status()
+        }
         .onChange(of: notifyChanges) { _, on in if on { Task { await askIfNeeded() } } }
         .onChange(of: notifyMessages) { _, on in if on { Task { await askIfNeeded() } } }
         .onChange(of: notifyWork) { _, on in if on { Task { await askIfNeeded() } } }
@@ -248,6 +272,28 @@ struct SettingsScreen: View {
         case .notDetermined: return "Turn on"
         default: return ""
         }
+    }
+
+    // MARK: Testing the session
+
+    private var keyText: String {
+        guard let status = sessionStatus else { return "" }
+        guard status.hasKey else { return "Missing" }
+        return status.keyExpires.map { "Until " + $0.formatted(date: .abbreviated, time: .omitted) } ?? "Saved"
+    }
+
+    private var sessionText: String {
+        guard let status = sessionStatus else { return "" }
+        return status.hasSession ? "Active" : "None"
+    }
+
+    private func expireSession() async {
+        testing = true
+        testResult = "Checking…"
+        let renewed = await session.simulateExpiredSession()
+        testResult = renewed ? "Got back in" : "Needed a sign-in"
+        sessionStatus = await LectioCookies.shared.status()
+        testing = false
     }
 
     /// Asks for permission the first time something is switched on.

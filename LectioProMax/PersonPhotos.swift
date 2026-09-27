@@ -121,14 +121,13 @@ final class PersonPhotos: ObservableObject {
     private nonisolated static func fetch(_ link: String, cookies: [HTTPCookie]) async -> Data? {
         guard let url = URL(string: link) else { return nil }
         var request = URLRequest(url: url)
-        request.setValue(LectioService.cookieHeader(cookies), forHTTPHeaderField: "Cookie")
         request.setValue(LectioConfig.userAgent, forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 25
 
-        guard let (data, response) = try? await LectioForms.session.data(for: request) else { return nil }
-        let http = response as? HTTPURLResponse
-        if LectioService.isLoginWall(http?.url) { return nil }
-        guard (200..<300).contains(http?.statusCode ?? 0), !data.isEmpty else { return nil }
+        // A signed-out answer throws, and becomes no photo.
+        guard let (data, http) = try? await LectioHTTP.send(request, via: LectioForms.session, seed: cookies)
+        else { return nil }
+        guard (200..<300).contains(http.statusCode), !data.isEmpty else { return nil }
         return data
     }
 }

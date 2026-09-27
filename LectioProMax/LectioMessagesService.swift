@@ -296,11 +296,10 @@ enum LectioMessagesService {
 
             guard let url = URL(string: full) else { continue }
             var request = URLRequest(url: url)
-            request.setValue(LectioService.cookieHeader(cookies), forHTTPHeaderField: "Cookie")
             request.setValue(LectioConfig.userAgent, forHTTPHeaderField: "User-Agent")
             request.timeoutInterval = 45
 
-            guard let (data, _) = try? await LectioForms.session.data(for: request),
+            guard let (data, _) = try? await LectioHTTP.send(request, via: LectioForms.session, seed: cookies),
                   let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let items = object["items"] as? [[Any]] else { continue }
 
