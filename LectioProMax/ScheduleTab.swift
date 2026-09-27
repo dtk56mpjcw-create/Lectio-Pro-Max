@@ -59,7 +59,7 @@ final class LessonOpener {
 /// it measured its height once and cut the day off. Here each page is simply
 /// as tall as the screen.
 struct ScheduleTab: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
 
     @State private var selectedDate: String = LectioDates.isoString(from: Date())
     /// Where each pager rests: a swipe writes it, and writing it jumps.
@@ -182,7 +182,7 @@ struct ScheduleTab: View {
                 // Pull the week again so the new event turns up straight away.
                 session.retryWeek(weekCode)
             }
-            .environmentObject(session)
+            .environment(session)
         }
     }
 
@@ -515,7 +515,7 @@ private struct ScreenZoomHost: UIViewRepresentable {
 
 /// One day of the pager: its own scroll view, with its own pull to refresh.
 private struct DayPage: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     let date: String
     let bottomInset: CGFloat
     let barLine: CGFloat
@@ -643,7 +643,7 @@ struct WeekFocus: Equatable {
 }
 
 private struct WeekPage: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     let monday: String
     let bottomInset: CGFloat
     let barLine: CGFloat
@@ -695,7 +695,7 @@ private struct WeekPage: View {
 /// The week behind the calendar button: a card per day (see WeekAgenda),
 /// or the loading state while it's fetched.
 struct WeekOverview: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     let weekCode: String
     let monday: String
     var onPick: (String) -> Void
@@ -722,7 +722,7 @@ struct WeekOverview: View {
 /// Shown while a week is still being fetched — and, if the fetch failed, as a
 /// retry instead of a spinner that would otherwise never stop.
 struct WeekPlaceholder: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     let weekCode: String
 
     var body: some View {

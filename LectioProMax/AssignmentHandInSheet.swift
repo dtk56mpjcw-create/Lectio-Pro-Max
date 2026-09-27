@@ -10,7 +10,7 @@ struct AssignmentHandInSheet: View {
     let done: Bool
     let toggle: () -> Void
 
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @Environment(\.dismiss) private var dismiss
 
     @State private var handIn: HandIn?

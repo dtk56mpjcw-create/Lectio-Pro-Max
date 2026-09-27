@@ -14,10 +14,17 @@ enum WidgetFeedBuilder {
     /// The last feed handed out, so an unchanged one isn't written, the
     /// widgets aren't reloaded and the reminders aren't rebuilt for nothing.
     private(set) static var latest: WidgetFeed?
+    /// What the last feed was made from (see `inputs`).
+    private static var lastInputs: Int?
 
     /// Hands the feed to the widgets and the lesson reminders, when it's
-    /// changed.
+    /// changed. The app saves often — a ticked-off homework, a week you
+    /// swiped to — and most saves change nothing the feed is made from;
+    /// those cost a quick fingerprint instead of nine days worked out.
     static func publish(_ snapshot: LectioSnapshot, now: Date = Date()) {
+        let fingerprint = inputs(snapshot, now: now)
+        if latest != nil && fingerprint == lastInputs { return }
+        lastInputs = fingerprint
         let feed = build(from: snapshot, now: now)
         if let latest, latest.signedIn, latest.days == feed.days { return }
         latest = feed
@@ -31,6 +38,7 @@ enum WidgetFeedBuilder {
     static func signedOut() {
         let feed = WidgetFeed(signedIn: false)
         latest = feed
+        lastInputs = nil
         feed.save()
         WidgetCenter.shared.reloadAllTimelines()
     }
@@ -63,6 +71,31 @@ enum WidgetFeedBuilder {
             if !day.items.isEmpty || day.note != nil { feed.days.append(day) }
         }
         return feed
+    }
+
+    /// Everything the feed is made from: the date, the class, the weeks it
+    /// covers, the homework due, the subject colours and the end of the
+    /// school day.
+    private static func inputs(_ snapshot: LectioSnapshot, now: Date) -> Int {
+        var hasher = Hasher()
+        let today = LectioDates.isoString(from: now)
+        hasher.combine(today)
+        hasher.combine(snapshot.profile.className)
+        var codes: [String] = []
+        for offset in 0..<horizon {
+            let code = LectioDates.weekCode(iso: LectioDates.shift(iso: today, byDays: offset))
+            if !codes.contains(code) { codes.append(code) }
+        }
+        for code in codes {
+            hasher.combine(code)
+            hasher.combine(snapshot.weeks[code])
+        }
+        hasher.combine(snapshot.homework)
+        hasher.combine(snapshot.assignments)
+        hasher.combine(snapshot.completedKeys)
+        hasher.combine(SubjectColors.shared.picked)
+        hasher.combine(ScheduleWeek.rememberedDayEnd)
+        return hasher.finalize()
     }
 
     // MARK: - One day

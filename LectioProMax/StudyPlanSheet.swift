@@ -3,7 +3,7 @@ import SwiftUI
 /// Studieplan: what each subject is teaching this year, and how much of its
 /// Elevtid — the hours the subject expects of you — has actually been logged.
 struct StudyPlanSheet: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @Environment(\.dismiss) private var dismiss
 
     @State private var subjects: [StudyPlanSubject] = []

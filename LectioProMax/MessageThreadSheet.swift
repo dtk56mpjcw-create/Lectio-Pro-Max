@@ -3,7 +3,7 @@ import SwiftUI
 struct MessageThreadSheet: View {
     let summary: MessageThreadSummary
 
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @Environment(\.dismiss) private var dismiss
 
     @State private var thread: MessageThread?

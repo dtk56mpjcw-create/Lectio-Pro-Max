@@ -1065,7 +1065,7 @@ struct OpenButton<Content: View>: View {
     var asRow = false
     @ViewBuilder var label: () -> Content
 
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @Environment(LessonOpener.self) private var opener: LessonOpener?
     @State private var editingEvent = false
 
@@ -1090,7 +1090,7 @@ struct OpenButton<Content: View>: View {
             NewEventSheet(dayISO: dayISO, eventID: lesson.privateEventID) {
                 session.retryWeek(LectioDates.weekCode(iso: dayISO))
             }
-            .environmentObject(session)
+            .environment(session)
         }
     }
 }

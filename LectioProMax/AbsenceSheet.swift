@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AbsenceSheet: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @Environment(\.dismiss) private var dismiss
 
     @State private var explaining: AbsenceRecord?
@@ -66,7 +66,7 @@ struct AbsenceSheet: View {
         .presentationBackground(.clear)
         .task { await session.loadAbsence() }
         .sheet(item: $explaining) { record in
-            ExplainAbsenceSheet(record: record).environmentObject(session)
+            ExplainAbsenceSheet(record: record).environment(session)
         }
     }
 
@@ -165,7 +165,7 @@ struct AbsenceSheet: View {
 struct ExplainAbsenceSheet: View {
     let record: AbsenceRecord
 
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @Environment(\.dismiss) private var dismiss
 
     @State private var options: [String] = []

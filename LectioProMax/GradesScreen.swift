@@ -3,7 +3,7 @@ import SwiftUI
 /// Me → Grades: each subject's grades as Lectio lists them, your weighted
 /// average, and any notes your teachers wrote.
 struct GradesScreen: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     /// True until the first load has answered, so an empty screen never
     /// flashes "couldn't reach Lectio" before it's even asked.
     @State private var loading = true

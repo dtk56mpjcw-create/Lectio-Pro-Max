@@ -3,7 +3,7 @@ import UserNotifications
 
 /// Me → gear: how the app looks and behaves, and your account.
 struct SettingsScreen: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
 

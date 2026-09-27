@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NewMessageSheet: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @Environment(\.dismiss) private var dismiss
     /// Called with the subject once Lectio has taken the message; the sheet
     /// then closes, like Mail's does.

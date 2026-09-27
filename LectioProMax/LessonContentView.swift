@@ -15,7 +15,7 @@ struct LessonContentView: View {
     var feedbackTitle: String = ""
     var feedbackCode: String = ""
 
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
 
     @State private var detail: LessonDetail?
     @State private var loading = false
@@ -73,7 +73,7 @@ struct LessonContentView: View {
         }
         .sheet(isPresented: $showFeedback, onDismiss: { Task { await loadFeedback(force: true) } }) {
             FeedbackSheet(lessonLink: link, title: feedbackTitle, code: feedbackCode)
-                .environmentObject(session)
+                .environment(session)
         }
     }
 

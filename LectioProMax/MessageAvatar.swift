@@ -49,8 +49,8 @@ struct SenderAvatar: View {
     let personID: String?
     var size: CGFloat = 40
 
-    @EnvironmentObject private var session: LectioSession
-    @ObservedObject private var photos = PersonPhotos.shared
+    @Environment(LectioSession.self) private var session
+    private var photos: PersonPhotos { .shared }
 
     private var image: UIImage? {
         guard let personID else { return nil }

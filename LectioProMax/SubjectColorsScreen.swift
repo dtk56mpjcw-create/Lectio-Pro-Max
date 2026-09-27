@@ -3,7 +3,7 @@ import SwiftUI
 /// More → Subject colours: every subject on your schedule and homework, with
 /// the colour it has, and the rest of Apple's colours to choose from.
 struct SubjectColorsScreen: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @State private var open: String?
 
     private struct Subject: Identifiable {

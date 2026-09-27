@@ -1,3 +1,4 @@
+import Observation
 import SwiftUI
 import UIKit
 
@@ -17,11 +18,24 @@ import UIKit
 /// fetched for rows you actually scroll to, kept in memory for the session and
 /// on disk between them, and a person with no photo is remembered so we don't
 /// ask again. The thumbnails are about a kilobyte each.
+///
+/// Each face is observed on its own (a PhotoSlot per person): when one
+/// arrives, only that avatar redraws — not, as it did, every avatar on
+/// screen for every face that came in.
 @MainActor
-final class PersonPhotos: ObservableObject {
+final class PersonPhotos {
     static let shared = PersonPhotos()
 
-    @Published private(set) var images: [String: UIImage] = [:]
+    /// One per person asked about, created the first time an avatar asks,
+    /// so the avatar is watching it before the face arrives.
+    private var slots: [String: PhotoSlot] = [:]
+
+    private func slot(for id: String) -> PhotoSlot {
+        if let slot = slots[id] { return slot }
+        let slot = PhotoSlot()
+        slots[id] = slot
+        return slot
+    }
 
     /// People Lectio has TOLD us it has no photo for. Only an explicit
     /// `defaultfoto` counts: a request that merely failed is retried later.
@@ -45,11 +59,12 @@ final class PersonPhotos: ObservableObject {
         return url
     }()
 
-    func image(for id: String) -> UIImage? { images[id] }
+    func image(for id: String) -> UIImage? { slot(for: id).image }
 
     /// For signing out: other people's faces go with the account.
     func clear() {
-        images.removeAll()
+        for slot in slots.values { slot.image = nil }
+        slots.removeAll()
         withoutPhoto.removeAll()
         if let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) {
             files.forEach { try? FileManager.default.removeItem(at: $0) }
@@ -57,13 +72,13 @@ final class PersonPhotos: ObservableObject {
     }
 
     func load(_ id: String, cookies: [HTTPCookie]) async {
-        guard images[id] == nil, !withoutPhoto.contains(id), !inFlight.contains(id) else { return }
+        guard slot(for: id).image == nil, !withoutPhoto.contains(id), !inFlight.contains(id) else { return }
         inFlight.insert(id)
         defer { inFlight.remove(id) }
 
         let file = folder.appendingPathComponent(id + ".jpg")
-        if let data = try? Data(contentsOf: file), let cached = UIImage(data: data) {
-            images[id] = cached
+        if let cached = await Self.readCached(file) {
+            slot(for: id).image = cached
             return
         }
 
@@ -84,10 +99,17 @@ final class PersonPhotos: ObservableObject {
             return
         }
         guard let data = await Self.fetch(source, cookies: cookies),
-              let image = UIImage(data: data) else { return }
+              let image = await UIImage(data: data)?.byPreparingForDisplay() ?? UIImage(data: data) else { return }
 
         try? data.write(to: file, options: .atomic)
-        images[id] = image
+        slot(for: id).image = image
+    }
+
+    /// A saved face, read and decoded off the main thread, so a list
+    /// scrolling into faces it already has doesn't stutter.
+    private nonisolated static func readCached(_ file: URL) async -> UIImage? {
+        guard let data = try? Data(contentsOf: file), let image = UIImage(data: data) else { return nil }
+        return await image.byPreparingForDisplay() ?? image
     }
 
     // MARK: - Lectio
@@ -137,8 +159,8 @@ struct PersonAvatar: View {
     let target: ScheduleTarget
     var size: CGFloat = 30
 
-    @EnvironmentObject private var session: LectioSession
-    @ObservedObject private var photos = PersonPhotos.shared
+    @Environment(LectioSession.self) private var session
+    private var photos: PersonPhotos { .shared }
 
     private var initials: String {
         let words = target.shortName
@@ -226,4 +248,11 @@ struct PhotoViewer: View {
         .presentationDragIndicator(.visible)
         .presentationBackground(.clear)
     }
+}
+
+/// One person's face, watched on its own (see PersonPhotos).
+@MainActor
+@Observable
+final class PhotoSlot {
+    var image: UIImage?
 }

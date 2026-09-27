@@ -1,30 +1,37 @@
 import Foundation
+import Observation
 import UIKit
 import WebKit
 
 /// Holds the app's Lectio state. The session itself lives in WKWebView's own
 /// persistent cookie store on this device — nothing is sent to any server of ours.
+///
+/// Observable the modern way (Observation, iOS 17): a screen is updated when
+/// something it actually reads changes — not, as with ObservableObject,
+/// every screen that uses the session on every change to any of it (the
+/// spinner starting, the week you swiped to being noted, an error clearing).
 @MainActor
-final class LectioSession: ObservableObject {
+@Observable
+final class LectioSession {
 
-    @Published var snapshot = LectioSnapshot() {
+    var snapshot = LectioSnapshot() {
         // Lessons are told apart from events by their class; learn how this
         // school writes classes as soon as the profile is known.
         didSet { ClassNames.use(snapshot.profile.className) }
     }
-    @Published var isLoading = false
-    @Published var isLoggedIn = false
-    @Published var showLogin = false
-    @Published var errorMessage: String?
-    @Published var hasLoadedOnce = false
+    var isLoading = false
+    var isLoggedIn = false
+    var showLogin = false
+    var errorMessage: String?
+    var hasLoadedOnce = false
     /// Weeks whose fetch failed. The schedule shows a retry instead of a
     /// spinner that would otherwise sit there forever.
-    @Published var failedWeeks: Set<String> = []
+    var failedWeeks: Set<String> = []
     /// Why a week failed, so the retry screen can say something useful.
-    @Published var weekErrors: [String: String] = [:]
+    var weekErrors: [String: String] = [:]
     /// The week the schedule is actually showing, so a refresh can revalidate
     /// THAT week and not just whatever Lectio calls the current one.
-    @Published var visibleWeekCode: String = ""
+    var visibleWeekCode: String = ""
 
     /// Auth state survives relaunches, so the app always knows on cold start
     /// whether to wait for cookies, or go straight to the login screen.
@@ -38,30 +45,30 @@ final class LectioSession: ObservableObject {
         get { AuthState(rawValue: UserDefaults.standard.string(forKey: "lectio.authState") ?? "") ?? .unknown }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "lectio.authState") }
     }
-    @Published var weekCodes: [String] = []
-    @Published var selectedWeekCode: String = ""
+    var weekCodes: [String] = []
+    var selectedWeekCode: String = ""
 
-    private var loadingWeeks: Set<String> = []
+    @ObservationIgnored private var loadingWeeks: Set<String> = []
     /// Weeks to warm up once `key` has actually arrived, so a swipe never has
     /// three fetches and three parses competing for the same CPU.
-    private var pendingWarm: [String: [String]] = [:]
-    private var saveTask: Task<Void, Never>?
+    @ObservationIgnored private var pendingWarm: [String: [String]] = [:]
+    @ObservationIgnored private var saveTask: Task<Void, Never>?
 
     /// When each week was last fetched. Deliberately NOT persisted: on a cold
     /// start every cached week counts as stale, so the disk copy paints
     /// immediately and is then quietly replaced with what Lectio has now.
-    private var weekFetchedAt: [String: Date] = [:]
+    @ObservationIgnored private var weekFetchedAt: [String: Date] = [:]
     private static let weekFreshness: TimeInterval = 600   // 10 minutes
 
     /// True once a full refresh has actually succeeded with these cookies.
     /// Week fetches wait for it, because on a cold start they otherwise race
     /// the cookie store and fail against a session that is merely not ready.
-    private var sessionVerified = false
-    private var deferredWeeks: [String] = []
-    private var reverifyRequested = false
-    private var retriedColdStart = false
-    private var renewalInFlight = false
-    private var renewedThisCycle = false
+    @ObservationIgnored private var sessionVerified = false
+    @ObservationIgnored private var deferredWeeks: [String] = []
+    @ObservationIgnored private var reverifyRequested = false
+    @ObservationIgnored private var retriedColdStart = false
+    @ObservationIgnored private var renewalInFlight = false
+    @ObservationIgnored private var renewedThisCycle = false
 
     /// The cookies that actually carry authentication. A partial read — WebKit
     /// handing back one cookie but not the rest — is worse than no read at all,
@@ -75,7 +82,7 @@ final class LectioSession: ObservableObject {
     /// nothing was keeping that process alive. This one is created once, never
     /// navigates anywhere, and exists purely so the answer is real. (Unlike the
     /// earlier auth probe, it loads no URL, so it cannot get bounced to MitID.)
-    private lazy var cookieStoreKeepAlive: WKWebView = {
+    @ObservationIgnored private lazy var cookieStoreKeepAlive: WKWebView = {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = WKWebsiteDataStore.default()
         return WKWebView(frame: .zero, configuration: config)
@@ -92,7 +99,7 @@ final class LectioSession: ObservableObject {
         _ = cookieStoreKeepAlive     // wake WebKit before anyone asks for cookies
         await restoreSavedCookies()
         prepareWeeks()
-        loadCache()
+        await loadCache()
         // The widgets and lesson reminders start from the saved copy.
         if !snapshot.isEmpty { WidgetFeedBuilder.publish(snapshot) }
 
@@ -544,13 +551,13 @@ final class LectioSession: ObservableObject {
 
     // MARK: - Messages
 
-    @Published var threads: [MessageThreadSummary] = []
-    @Published var inboxLoading = false
-    @Published var inboxError: String?
-    @Published var recipients: [Recipient] = []
+    var threads: [MessageThreadSummary] = []
+    var inboxLoading = false
+    var inboxError: String?
+    var recipients: [Recipient] = []
 
-    private var inboxFetchedAt: Date?
-    private var recipientsFetchedAt: Date?
+    @ObservationIgnored private var inboxFetchedAt: Date?
+    @ObservationIgnored private var recipientsFetchedAt: Date?
     private static let inboxFreshness: TimeInterval = 180
 
     /// The full inbox, which the dashboard page doesn't give us — it only
@@ -626,14 +633,14 @@ final class LectioSession: ObservableObject {
 
     // MARK: - Lektier, absence, other people's schedules
 
-    @Published var lessonNotes: [LessonNote] = []
-    @Published var absence = LectioStudyService.Absence()
-    @Published var scheduleTargets: [ScheduleTarget] = []
-    @Published var absenceLoading = false
+    var lessonNotes: [LessonNote] = []
+    var absence = LectioStudyService.Absence()
+    var scheduleTargets: [ScheduleTarget] = []
+    var absenceLoading = false
 
-    private var lessonNotesAt: Date?
-    private var absenceAt: Date?
-    private var targetsAt: Date?
+    @ObservationIgnored private var lessonNotesAt: Date?
+    @ObservationIgnored private var absenceAt: Date?
+    @ObservationIgnored private var targetsAt: Date?
 
     func loadLessonNotes(force: Bool = false) async {
         if !force, let at = lessonNotesAt, Date().timeIntervalSince(at) < 600 { return }
@@ -666,10 +673,10 @@ final class LectioSession: ObservableObject {
 
     // MARK: - Me: grades and study hours
 
-    @Published var grades: GradeReport?
-    @Published var studyPlan: [StudyPlanSubject]?
-    private var gradesAt: Date?
-    private var studyPlanAt: Date?
+    var grades: GradeReport?
+    var studyPlan: [StudyPlanSubject]?
+    @ObservationIgnored private var gradesAt: Date?
+    @ObservationIgnored private var studyPlanAt: Date?
 
     func loadGrades(force: Bool = false) async {
         if !force, let at = gradesAt, Date().timeIntervalSince(at) < 600 { return }
@@ -760,10 +767,14 @@ final class LectioSession: ObservableObject {
 
     // MARK: - Offline cache
 
-    private func loadCache() {
-        guard let url = SnapshotCache.url,
-              let data = try? Data(contentsOf: url),
-              let decoded = try? JSONDecoder().decode(LectioSnapshot.self, from: data) else { return }
+    /// Read and decoded off the main thread: the saved copy holds every
+    /// week you've looked at and your inbox, and decoding it there held up
+    /// the first moments after launch on a smaller phone.
+    private func loadCache() async {
+        let decoded = await Task.detached(priority: .userInitiated) {
+            SnapshotCache.load()
+        }.value
+        guard let decoded else { return }
         snapshot = decoded
         threads = decoded.inbox ?? []
     }

@@ -1,12 +1,12 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var session = LectioSession()
+    @State private var session = LectioSession()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         RootView()
-            .environmentObject(session)
+            .environment(session)
             .task {
                 await session.bootstrap()
             }
@@ -14,7 +14,7 @@ struct ContentView: View {
             // follow the phone's own setting, which people expect to apply everywhere.
             .fullScreenCover(isPresented: $session.showLogin) {
                 LoginScreen()
-                    .environmentObject(session)
+                    .environment(session)
                     .interactiveDismissDisabled(true)
             }
             // Reopening the app pulls straight from Lectio, so what you see is
@@ -34,7 +34,7 @@ struct ContentView: View {
 /// Signing in: first which school (Lectio is per school — its number is in
 /// every address), then that school's own Lectio login.
 struct LoginScreen: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @State private var pickingSchool = !LectioConfig.hasChosenSchool
     @State private var schoolName = LectioConfig.schoolName
 

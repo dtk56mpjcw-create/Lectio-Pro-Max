@@ -15,7 +15,7 @@ struct FeedbackSheet: View {
     let title: String
     let code: String
 
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @Environment(\.dismiss) private var dismiss
     @StateObject private var editor = FeedbackEditor()
 

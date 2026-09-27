@@ -14,7 +14,7 @@ import SwiftUI
 /// button at the end of the bar, which turns into the field.
 struct SearchTab: View {
     let query: String
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
 
     @State private var openWork: WorkItem?
     @State private var openThread: MessageThreadSummary?
@@ -77,10 +77,10 @@ struct SearchTab: View {
             WorkDetailSheet(item: item,
                             done: session.snapshot.isCompleted(item),
                             toggle: { session.toggleCompleted(item) })
-                .environmentObject(session)
+                .environment(session)
         }
         .sheet(item: $openThread) { thread in
-            MessageThreadSheet(summary: thread).environmentObject(session)
+            MessageThreadSheet(summary: thread).environment(session)
         }
     }
 

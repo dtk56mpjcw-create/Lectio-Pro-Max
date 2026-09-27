@@ -6,7 +6,7 @@ import UIKit
 /// 36 seconds, so it's fetched again on that beat for as long as it's open;
 /// the screen goes to full brightness so it scans first time.
 struct StudentCardScreen: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
 

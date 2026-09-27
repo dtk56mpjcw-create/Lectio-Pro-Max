@@ -9,7 +9,7 @@ enum MeRoute: Hashable {
 }
 
 struct MeTab: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @State private var showingCard = false
 
     private var profile: Profile { session.snapshot.profile }
@@ -33,7 +33,7 @@ struct MeTab: View {
                 }
         }
         .fullScreenCover(isPresented: $showingCard) {
-            StudentCardScreen().environmentObject(session)
+            StudentCardScreen().environment(session)
         }
         .task { await loadAll(force: false) }
     }

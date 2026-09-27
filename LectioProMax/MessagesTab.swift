@@ -7,7 +7,7 @@ import SwiftUI
 /// moves a thread there. Lectio can't delete for good; the app can clear
 /// threads out of its own Deleted list.
 struct MessagesTab: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @State private var composing = false
     @State private var path: [MessageThreadSummary] = []
 
@@ -135,7 +135,7 @@ struct MessagesTab: View {
             NewMessageSheet(onSent: { subject in
                 Task { await messageSent(subject) }
             })
-            .environmentObject(session)
+            .environment(session)
         }
     }
 

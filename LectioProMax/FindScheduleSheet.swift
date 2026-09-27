@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Look up anyone else's timetable — a teacher, a class, a room.
 struct FindScheduleSheet: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @Environment(\.dismiss) private var dismiss
 
     @State private var query = ""
@@ -243,7 +243,7 @@ struct AlphabetIndex: View {
 struct TargetScheduleSheet: View {
     let target: ScheduleTarget
 
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @Environment(\.dismiss) private var dismiss
 
     @State private var week: ScheduleWeek?

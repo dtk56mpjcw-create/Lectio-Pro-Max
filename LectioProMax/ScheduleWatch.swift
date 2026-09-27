@@ -59,8 +59,27 @@ enum ScheduleWatch {
         }
     }
 
+    /// What the last absorb was made from, so a save that changes none of it
+    /// (most don't) costs a fingerprint rather than reading and writing the
+    /// record.
+    @MainActor private static var lastAbsorbed: Int?
+
     /// The app is on screen: whatever it shows counts as seen.
-    static func absorb(_ snapshot: LectioSnapshot, now: Date = Date()) {
+    @MainActor static func absorb(_ snapshot: LectioSnapshot, now: Date = Date()) {
+        var hasher = Hasher()
+        let days = watchedDays(now: now)
+        hasher.combine(days)
+        hasher.combine(snapshot.profile.className)
+        hasher.combine(snapshot.profile.name)
+        for iso in days { hasher.combine(snapshot.weeks[LectioDates.weekCode(iso: iso)]) }
+        hasher.combine(snapshot.messages)
+        hasher.combine(snapshot.homework)
+        hasher.combine(snapshot.assignments)
+        hasher.combine(snapshot.completedKeys)
+        let fingerprint = hasher.finalize()
+        guard fingerprint != lastAbsorbed else { return }
+        lastAbsorbed = fingerprint
+
         let old = record
         let updated = review(snapshot, against: old, now: now).record
         if updated != old { record = updated }
@@ -75,8 +94,9 @@ enum ScheduleWatch {
         return bundled(allowed, now: now)
     }
 
-    static func forget() {
+    @MainActor static func forget() {
         UserDefaults.standard.removeObject(forKey: storageKey)
+        lastAbsorbed = nil
     }
 
     // MARK: - Comparing

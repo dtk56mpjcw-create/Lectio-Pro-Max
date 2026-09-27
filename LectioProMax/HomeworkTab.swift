@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct HomeworkTab: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
 
     /// Not @AppStorage on purpose — see WorkFilter.
     @State private var filter = WorkFilter()
@@ -238,7 +238,7 @@ struct WorkRow: View {
     /// A swipe asks; the list shows the choice of times.
     var askReminder: () -> Void
     var setReminder: (ReminderTiming?) -> Void
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
 
     private var tint: Color { Color.forSubject(item.code) }
     private var reminder: ReminderTiming? { ReminderBook.shared.timing(for: item.key) }
@@ -463,7 +463,7 @@ struct WorkDetailSheet: View {
     let item: WorkItem
     let done: Bool
     let toggle: () -> Void
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @Environment(\.dismiss) private var dismiss
 
     private var tint: Color { Color.forSubject(item.code) }
@@ -513,7 +513,7 @@ struct WorkDetailSheet: View {
                 // on the dashboard, plus anything the teacher pinned to it.
                 if let link = item.link {
                     LessonContentView(link: link, placeholder: item.text)
-                        .environmentObject(session)
+                        .environment(session)
                 } else if !item.text.isEmpty {
                     Text(LectioDates.tidy(item.text))
                         .scaledFont(size: 16.5)

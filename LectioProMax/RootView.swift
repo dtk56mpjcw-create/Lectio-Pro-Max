@@ -8,7 +8,7 @@ enum AppTab: String, Hashable {
 /// finger-tracking highlight, morphing, and minimising on scroll — rather than
 /// the hand-rolled approximation this used to be.
 struct RootView: View {
-    @EnvironmentObject private var session: LectioSession
+    @Environment(LectioSession.self) private var session
     @State private var tab: AppTab = .schedule
     @State private var query = ""
 
