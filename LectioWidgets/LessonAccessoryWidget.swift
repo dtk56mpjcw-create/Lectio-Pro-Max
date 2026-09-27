@@ -60,22 +60,26 @@ struct AccessoryView: View {
         }
     }
 
-    /// The subject big; its time and room; then how far through it you
-    /// are, or when it is.
+    /// The subject as big as it fits whole; its time and room; then how
+    /// far through it you are, or when it is. Fixed sizes: the rectangle
+    /// doesn't grow with the text size, so three lines always fit.
     private var rectangular: some View {
         Group {
             if let item {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(item.title)
-                        .font(.system(.title3, weight: .bold))
-                        .widgetAccentable()
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                VStack(alignment: .leading, spacing: 1) {
+                    // The largest size that shows the whole name.
+                    ViewThatFits(in: .horizontal) {
+                        title(item.title, size: 19)
+                        title(item.title, size: 17)
+                        title(item.title, size: 15)
+                        title(item.title, size: 15)
+                            .minimumScaleFactor(0.75)
+                    }
                     Text(WidgetFeed.span(item) + (item.room.isEmpty ? "" : " · " + item.room))
-                        .font(.system(.body, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .monospacedDigit()
                         .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                        .minimumScaleFactor(0.8)
                     if let current {
                         ProgressView(timerInterval: current.start...current.end, countsDown: false) {
                             EmptyView()
@@ -83,10 +87,10 @@ struct AccessoryView: View {
                             EmptyView()
                         }
                         .progressViewStyle(.linear)
-                        .padding(.top, 5)
+                        .padding(.top, 4)
                     } else {
                         Text(when)
-                            .font(.system(.subheadline, weight: .medium))
+                            .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -94,10 +98,17 @@ struct AccessoryView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text(entry.feed?.signedIn == false ? "Open Lectio Pro Max to sign in." : "No more lessons coming up.")
-                    .font(.system(.body, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+    }
+
+    private func title(_ text: String, size: CGFloat) -> some View {
+        Text(text)
+            .font(.system(size: size, weight: .bold))
+            .widgetAccentable()
+            .lineLimit(1)
     }
 
     /// Now: a ring filling up through the lesson, the room inside.

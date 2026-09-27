@@ -212,9 +212,11 @@ struct HeroCard: View {
 }
 
 /// A lesson in a list: stripe, subject, and its time and room under it.
+/// `extra` sits at its end: "+1" when more lessons follow than fit.
 struct CompactRow: View {
     let item: WidgetFeed.Item
     var showsTopic = false
+    var extra: String? = nil
 
     private var detail: String {
         if item.cancelled { return WidgetFeed.clock(item.start) + " · Cancelled" }
@@ -227,7 +229,7 @@ struct CompactRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Stripe(colour: item.cancelled ? "gray" : item.colour, width: 3, height: 32)
+            Stripe(colour: item.cancelled ? "gray" : item.colour, width: 3, height: 29)
             VStack(alignment: .leading, spacing: 0) {
                 Text(item.title)
                     .font(.subheadline.weight(.semibold))
@@ -241,6 +243,11 @@ struct CompactRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
+            if let extra {
+                Text(extra)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
         }
         .opacity(item.optional ? 0.7 : 1)
     }

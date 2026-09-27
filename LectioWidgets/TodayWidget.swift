@@ -108,41 +108,50 @@ struct TodayView: View {
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)
         } else {
-            // The longest list that fits the space.
+            // As many lessons as fit. What doesn't is counted: on a line of
+            // its own when there's room, otherwise as "+1" on the last row.
             if large {
                 ViewThatFits(in: .vertical) {
-                    list(items, heading: heading, limit: 6, topics: true)
-                    list(items, heading: heading, limit: 5, topics: true)
-                    list(items, heading: heading, limit: 4, topics: true)
-                    list(items, heading: heading, limit: 3, topics: true)
-                    list(items, heading: heading, limit: 2, topics: true)
+                    list(items, heading: heading, rows: 6, countLine: true, topics: true)
+                    list(items, heading: heading, rows: 6, countLine: false, topics: true)
+                    list(items, heading: heading, rows: 5, countLine: true, topics: true)
+                    list(items, heading: heading, rows: 5, countLine: false, topics: true)
+                    list(items, heading: heading, rows: 4, countLine: true, topics: true)
+                    list(items, heading: heading, rows: 4, countLine: false, topics: true)
+                    list(items, heading: heading, rows: 3, countLine: false, topics: true)
+                    list(items, heading: heading, rows: 2, countLine: false, topics: true)
                 }
             } else {
                 ViewThatFits(in: .vertical) {
-                    list(items, heading: heading, limit: 3, topics: false)
-                    list(items, heading: heading, limit: 2, topics: false)
-                    list(items, heading: heading, limit: 1, topics: false)
+                    list(items, heading: heading, rows: 4, countLine: true, topics: false)
+                    list(items, heading: heading, rows: 4, countLine: false, topics: false)
+                    list(items, heading: heading, rows: 3, countLine: true, topics: false)
+                    list(items, heading: heading, rows: 3, countLine: false, topics: false)
+                    list(items, heading: heading, rows: 2, countLine: false, topics: false)
+                    list(items, heading: heading, rows: 1, countLine: false, topics: false)
                 }
             }
         }
     }
 
-    private func list(_ items: [WidgetFeed.Item], heading: String?, limit: Int, topics: Bool) -> some View {
-        // A "more" line takes a row's place.
-        let shown = items.count > limit ? Array(items.prefix(max(limit - 1, 1))) : items
-        return VStack(alignment: .leading, spacing: 6) {
+    private func list(_ items: [WidgetFeed.Item], heading: String?, rows: Int,
+                      countLine: Bool, topics: Bool) -> some View {
+        let shown = Array(items.prefix(rows))
+        let hidden = items.count - shown.count
+        return VStack(alignment: .leading, spacing: 4) {
             if let heading {
                 Text(heading.uppercased())
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.secondary)
             }
-            ForEach(shown, id: \.self) { item in
+            ForEach(Array(shown.enumerated()), id: \.element) { index, item in
                 Link(destination: item.link) {
-                    CompactRow(item: item, showsTopic: topics)
+                    CompactRow(item: item, showsTopic: topics,
+                               extra: !countLine && hidden > 0 && index == shown.count - 1 ? "+\(hidden)" : nil)
                 }
             }
-            if items.count > shown.count {
-                Text("\(items.count - shown.count) more")
+            if countLine && hidden > 0 {
+                Text("\(hidden) more")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
                     .padding(.leading, 11)
