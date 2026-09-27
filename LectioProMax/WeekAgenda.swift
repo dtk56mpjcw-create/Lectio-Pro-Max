@@ -139,6 +139,8 @@ private struct WeekRow: Identifiable {
     var label: String = ""
     var first: ScheduleModule? = nil
     var last: ScheduleModule? = nil
+    /// Grey after the name: which day of something longer ("Day 1 of 2").
+    var note: String? = nil
 
     var lesson: Lesson? {
         switch kind {
@@ -150,7 +152,7 @@ private struct WeekRow: Identifiable {
     /// The day's lines, top to bottom: all-day items, anything before
     /// school, each module from your first to your last (a free one in
     /// between says so; a double is one line), then after school.
-    static func rows(_ plan: DayPlan) -> [WeekRow] {
+    static func rows(_ plan: DayPlan, date: String) -> [WeekRow] {
         var out: [WeekRow] = []
         for item in plan.status { out.append(WeekRow(id: "s|" + item.id, kind: .status(item))) }
         for item in plan.allDay { out.append(WeekRow(id: "a|" + item.id, kind: .allDay(item))) }
@@ -165,14 +167,22 @@ private struct WeekRow: Identifiable {
                     // "1–4".
                     // All day says itself with its tag; something starting
                     // later says when.
-                    // The last day of something over several days didn't
-                    // start today: no time beside it (its note says when it
-                    // ends).
-                    let side = slot.dayShape == "all" || slot.dayShape == "ends" ? ""
-                        : (slot.through == nil && slot.dayShape == nil ? "\(n)" : slot.hours.shortStart)
+                    // Beside it: the module, or when a block starts. A day of
+                    // something longer says what the day has of it, as
+                    // Calendar's list does: its start on the first day,
+                    // "until 16:00" on the last, "All day" in between.
+                    let side: String
+                    switch slot.dayShape {
+                    case "all": side = "All\nday"
+                    case "ends": side = "until\n" + slot.hours.shortEnd
+                    case "starts": side = slot.hours.shortStart
+                    default: side = slot.through == nil ? "\(n)" : slot.hours.shortStart
+                    }
                     for (k, lesson) in slot.main.enumerated() {
+                        let day = lesson.spanNote(on: date)?.components(separatedBy: " · ").first
                         out.append(WeekRow(id: "m\(n)|" + lesson.id, kind: .lesson(lesson),
-                                           label: k == 0 ? side : "", first: slot.module, last: slot.last))
+                                           label: k == 0 ? side : "", first: slot.module, last: slot.last,
+                                           note: day))
                     }
                 } else if !slot.continuing.isEmpty {
                     for lesson in slot.continuing {
@@ -219,7 +229,7 @@ private struct WeekDayCard: View {
     private var nowMinutes: Int? { now.map { DayList.minutes(of: $0) } }
 
     var body: some View {
-        let rows = WeekRow.rows(plan)
+        let rows = WeekRow.rows(plan, date: date)
         VStack(spacing: 0) {
             header(rows)
             if !rows.isEmpty {
@@ -284,11 +294,20 @@ private struct WeekDayCard: View {
         .accessibilityHint("Opens the day")
     }
 
-    /// From your first module to your last: "8:00–15:15".
+    /// From your first module to your last: "8:00–15:15". A day of
+    /// something longer has no start (it came from yesterday) or no end
+    /// (it goes on): "from 8:00", "until 16:00", or "All day".
     private var hours: String? {
         let busy = plan.slots.filter { !$0.isFree }
         guard let first = busy.first, let last = busy.last else { return nil }
-        return first.hours.shortStart + "–" + last.hours.shortEnd
+        let start = first.dayShape == "ends" || first.dayShape == "all" ? nil : first.hours.shortStart
+        let end = last.dayShape == "starts" || last.dayShape == "all" ? nil : last.hours.shortEnd
+        switch (start, end) {
+        case let (s?, e?): return s + "–" + e
+        case let (s?, nil): return "from " + s
+        case let (nil, e?): return "until " + e
+        default: return "All day"
+        }
     }
 
     // MARK: Lines
@@ -394,6 +413,15 @@ private struct WeekLine: View {
             Image(systemName: "calendar")
                 .scaledFont(size: 14, weight: .semibold)
                 .foregroundStyle(.secondary)
+        } else if row.label.contains("\n") {
+            // "All day", "until 16:00": two small lines.
+            Text(row.label)
+                .scaledFont(size: 10.5, weight: .bold, design: .rounded)
+                .monospacedDigit()
+                .foregroundStyle(state == .now ? Palette.accent : Color(.secondaryLabel))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
         } else {
             Text(row.label)
                 .scaledFont(size: row.label.count > 2 ? 12.5 : 15, weight: .bold, design: .rounded)
@@ -450,7 +478,12 @@ private struct WeekLineMain: View {
                     .foregroundStyle(over ? Color(.secondaryLabel) : Color.primary)
                     .lineLimit(1)
                     .layoutPriority(1)
-                if lesson.markKind == nil, let topic = topic(lesson) {
+                if let note = row.note {
+                    Text(note)
+                        .scaledFont(size: 14)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                } else if lesson.markKind == nil, let topic = topic(lesson) {
                     Text(topic)
                         .scaledFont(size: 14)
                         .foregroundStyle(.secondary)
