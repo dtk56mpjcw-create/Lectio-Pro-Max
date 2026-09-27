@@ -51,19 +51,24 @@ struct WeekAgenda: View, Equatable {
         } else {
             VStack(spacing: 12) {
                 ForEach(shown, id: \.0) { date, plan in
-                    if date == today {
-                        TimelineView(.everyMinute) { context in
-                            WeekDayCard(date: date, plan: plan, isToday: true,
-                                        startsFolded: false, now: context.date, onPick: onPick)
+                    Group {
+                        if date == today {
+                            TimelineView(.everyMinute) { context in
+                                WeekDayCard(date: date, plan: plan, isToday: true,
+                                            startsFolded: false, now: context.date, onPick: onPick)
+                            }
+                        } else {
+                            WeekDayCard(date: date, plan: plan, isToday: false,
+                                        startsFolded: stillAhead && date < today, now: nil, onPick: onPick)
                         }
-                    } else {
-                        WeekDayCard(date: date, plan: plan, isToday: false,
-                                    startsFolded: stillAhead && date < today, now: nil, onPick: onPick)
                     }
+                    .id(date)       // so Today can scroll to it
                 }
                 if freeWeekend {
                     WeekendCard(saturday: dates[5], sunday: dates[6],
                                 isToday: dates[5] == today || dates[6] == today, onPick: onPick)
+                        .background { Color.clear.id(dates[6]) }
+                        .id(dates[5])
                 }
             }
         }

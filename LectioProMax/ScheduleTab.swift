@@ -70,6 +70,8 @@ struct ScheduleTab: View {
 
     @State private var opener = LessonOpener()
     @State private var switcher = ScreenZoom()
+    /// A day the week view should scroll to (Today, in week view).
+    @State private var weekFocus: WeekFocus?
 
     /// The pages run under the tab bar, so the last lesson needs room to
     /// scroll clear of it. The floor is the floating tab bar's own height, in
@@ -195,7 +197,9 @@ struct ScheduleTab: View {
             Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
-            if selectedDate != today {
+            // As in Calendar: only when it would take you somewhere — in the
+            // day view, another day; in the week view, another week.
+            if weekMode ? (weekPage != Self.monday(of: today)) : (selectedDate != today) {
                 Button("Today") { jumpToToday() }
                     .fontWeight(.semibold)
             }
@@ -310,7 +314,8 @@ struct ScheduleTab: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
                 ForEach(Self.weeks, id: \.self) { monday in
-                    WeekPage(monday: monday, bottomInset: bottomInset, barLine: barLine) { date in
+                    WeekPage(monday: monday, bottomInset: bottomInset, barLine: barLine,
+                             focus: weekFocus.flatMap { Self.monday(of: $0.date) == monday ? $0 : nil }) { date in
                         pick(date)
                     }
                     .containerRelativeFrame([.horizontal, .vertical])
@@ -401,6 +406,8 @@ struct ScheduleTab: View {
         } else {
             apply()
         }
+        // In the week view, land on today's card, not the top of the week.
+        if weekMode { weekFocus = WeekFocus(date: target) }
     }
 
     // MARK: Dates
@@ -628,15 +635,37 @@ private struct WeekHeading: View, Equatable {
 }
 
 /// One week of the week pager.
+/// A day for the week view to scroll to; a fresh id each time, so asking
+/// twice scrolls twice.
+struct WeekFocus: Equatable {
+    let date: String
+    let id = UUID()
+}
+
 private struct WeekPage: View {
     @EnvironmentObject private var session: LectioSession
     let monday: String
     let bottomInset: CGFloat
     let barLine: CGFloat
+    var focus: WeekFocus? = nil
     var onPick: (String) -> Void
     @State private var pageBottom: CGFloat = 0
 
     var body: some View {
+        ScrollViewReader { proxy in
+            page
+                .onChange(of: focus, initial: true) { _, focus in
+                    guard let focus else { return }
+                    // After the page has settled from the swipe to it.
+                    Task {
+                        try? await Task.sleep(nanoseconds: 350_000_000)
+                        withAnimation(.snappy) { proxy.scrollTo(focus.date, anchor: .top) }
+                    }
+                }
+        }
+    }
+
+    private var page: some View {
         ScrollView {
             VStack(spacing: 10) {
                 WeekHeading(week: session.snapshot.weeks[LectioDates.weekCode(iso: monday)],
