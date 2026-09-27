@@ -41,11 +41,16 @@ struct WeekAgenda: View, Equatable {
         // come; looking back at a finished week, you want all of it.
         let stillAhead = dates.contains { $0 >= today }
 
+        // A weekend with nothing on is one quiet line; a weekend day with
+        // something on is a day like any other.
+        let freeWeekend = plans.count == 7 && plans[5].isEmpty && plans[6].isEmpty
+        let shown = freeWeekend ? Array(zip(dates, plans).prefix(5)) : Array(zip(dates, plans))
+
         if plans.allSatisfy(\.isEmpty) {
             EmptyNotice(icon: "sun.max", text: "No lessons this week")
         } else {
             VStack(spacing: 12) {
-                ForEach(Array(zip(dates, plans)), id: \.0) { date, plan in
+                ForEach(shown, id: \.0) { date, plan in
                     if date == today {
                         TimelineView(.everyMinute) { context in
                             WeekDayCard(date: date, plan: plan, isToday: true,
@@ -56,22 +61,19 @@ struct WeekAgenda: View, Equatable {
                                     startsFolded: stillAhead && date < today, now: nil, onPick: onPick)
                     }
                 }
+                if freeWeekend {
+                    WeekendCard(saturday: dates[5], sunday: dates[6],
+                                isToday: dates[5] == today || dates[6] == today, onPick: onPick)
+                }
             }
         }
     }
 
     // MARK: Working it out
 
-    /// Monday to Friday always; the weekend only when something's on.
+    /// The whole week, as the day view has it: Monday to Sunday.
     static func dates(in week: ScheduleWeek, monday: String) -> [String] {
-        var out = (0..<5).map { LectioDates.shift(iso: monday, byDays: $0) }
-        for extra in [5, 6] {
-            let date = LectioDates.shift(iso: monday, byDays: extra)
-            if week.days.contains(where: { $0.date == date && $0.lessons.contains { !$0.isAllDay } }) {
-                out.append(date)
-            }
-        }
-        return out
+        (0..<7).map { LectioDates.shift(iso: monday, byDays: $0) }
     }
 
     static func plan(for date: String, in week: ScheduleWeek,
@@ -116,6 +118,62 @@ private extension DayPlan {
     var isEmpty: Bool {
         status.isEmpty && allDay.isEmpty && before.isEmpty && after.isEmpty
             && !slots.contains(where: \.hasAnything)
+    }
+}
+
+// MARK: - The weekend, when it's free
+
+/// "Weekend 3–4 Oct ··· Nothing on ›" — the same card as a day's header,
+/// on one line; opens the Saturday.
+private struct WeekendCard: View {
+    let saturday: String
+    let sunday: String
+    let isToday: Bool
+    var onPick: (String) -> Void
+
+    /// "3–4 Oct", or "31 Oct – 1 Nov" across a month.
+    private var dates: String {
+        let a = LectioDates.dayLabel(iso: saturday).split(separator: " ").map(String.init)
+        let b = LectioDates.dayLabel(iso: sunday).split(separator: " ").map(String.init)
+        guard a.count == 3, b.count == 3 else { return "" }
+        return a[2] == b[2] ? "\(a[1])–\(b[1]) \(b[2])" : "\(a[1]) \(a[2]) – \(b[1]) \(b[2])"
+    }
+
+    var body: some View {
+        Button {
+            onPick(saturday)
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                Text("Weekend")
+                    .scaledFont(size: 17, weight: .semibold)
+                    .foregroundStyle(isToday ? Palette.accent : Color.primary)
+                Text(dates)
+                    .scaledFont(size: 15)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 6)
+                Text("Nothing on")
+                    .scaledFont(size: 14, weight: .medium)
+                    .foregroundStyle(.secondary)
+                Image(systemName: "chevron.right")
+                    .scaledFont(size: 12.5, weight: .semibold)
+                    .foregroundStyle(.tertiary)
+            }
+            .lineLimit(1)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(RowPress())
+        .contentCard(radius: Metrics.inner + 4)
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous))
+        .overlay {
+            if isToday {
+                RoundedRectangle(cornerRadius: Metrics.inner + 4, style: .continuous)
+                    .strokeBorder(Palette.accent.opacity(0.7), lineWidth: 1.5)
+            }
+        }
+        .accessibilityLabel("Weekend, " + dates + ", nothing on")
+        .accessibilityHint("Opens Saturday")
     }
 }
 
