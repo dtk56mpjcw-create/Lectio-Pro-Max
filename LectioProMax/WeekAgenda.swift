@@ -168,13 +168,14 @@ private struct WeekRow: Identifiable {
                     // All day says itself with its tag; something starting
                     // later says when.
                     // Beside it: the module, or when a block starts. A day of
-                    // something longer says what the day has of it, as
-                    // Calendar's list does: its start on the first day,
-                    // "until 16:00" on the last, "All day" in between.
+                    // something longer says what the day has of it: its start
+                    // on the first day, its end on the last (the header says
+                    // "until 16:00"; here it's the plain time, the same size
+                    // as every other), "All day" in between.
                     let side: String
                     switch slot.dayShape {
                     case "all": side = "All\nday"
-                    case "ends": side = "until\n" + slot.hours.shortEnd
+                    case "ends": side = slot.hours.shortEnd
                     case "starts": side = slot.hours.shortStart
                     default: side = slot.through == nil ? "\(n)" : slot.hours.shortStart
                     }
