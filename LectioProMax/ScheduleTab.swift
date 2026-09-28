@@ -313,7 +313,15 @@ struct ScheduleTab: View {
             LazyHStack(spacing: 0) {
                 ForEach(Self.days, id: \.self) { date in
                     DayPage(date: date, bottomInset: bottomInset, barLine: barLine)
-                        .containerRelativeFrame([.horizontal, .vertical])
+                        // Only the width is the pager's: the height is simply
+                        // the height the pager gives it. Sizing it to the
+                        // pager vertically too made each page as tall as the
+                        // whole pager and then set it below the navigation
+                        // bar — and SwiftUI worked that height out again while
+                        // a finger was dragging the day, so on a day long
+                        // enough to scroll, a pull past its end was yanked
+                        // back mid-drag.
+                        .containerRelativeFrame(.horizontal)
                 }
             }
             .scrollTargetLayout()
@@ -337,7 +345,7 @@ struct ScheduleTab: View {
                              focus: weekFocus.flatMap { Self.monday(of: $0.date) == monday ? $0 : nil }) { date in
                         pick(date)
                     }
-                    .containerRelativeFrame([.horizontal, .vertical])
+                    .containerRelativeFrame(.horizontal)       // see dayPager
                 }
             }
             .scrollTargetLayout()
@@ -579,6 +587,15 @@ private struct DayPage: View {
         } action: { bottom in
             pageBottom = bottom
         }
+        #if DEBUG
+        // In Xcode's console: the day's visible height and content height
+        // whenever either changes. Neither should while you drag.
+        .onScrollGeometryChange(for: CGSize.self) { geometry in
+            CGSize(width: geometry.containerSize.height.rounded(), height: geometry.contentSize.height.rounded())
+        } action: { old, new in
+            print("[day \(date)] visible \(old.width)→\(new.width), content \(old.height)→\(new.height)")
+        }
+        #endif
         .scrollIndicators(.hidden)
         // The system's own pull to refresh, the work in a task of its own so
         // an update mid-refresh can't cancel it.
@@ -588,10 +605,9 @@ private struct DayPage: View {
 
 /// How far the end of a page's content has to stay above the page's bottom
 /// edge to scroll clear of the tab bar: however much of the page the bar
-/// covers. Measured rather than assumed, because a page can reach past the
-/// bottom of the screen — the pager makes it as tall as the screen and then
-/// sets it below the navigation bar — and a fixed allowance for the bar
-/// alone left the last lesson or event half under it on long days.
+/// covers. Measured rather than assumed: the pages run on under the bar,
+/// and a fixed allowance that didn't match left the last lesson or event
+/// half under it on long days.
 fileprivate func barClearance(pageBottom: CGFloat, barLine: CGFloat, atLeast floor: CGFloat) -> CGFloat {
     guard pageBottom > 0, barLine > 0 else { return floor }
     // A frame caught mid-transition can read oddly; never less than the
