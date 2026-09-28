@@ -54,12 +54,14 @@ struct LessonDetailContent: View {
             }
 
             if let link = lesson.link {
-                LessonContentView(link: link,
-                                  placeholder: [lesson.homework, lesson.note]
-                                    .filter { !$0.isEmpty }
-                                    .joined(separator: "\n\n"),
-                                  feedbackTitle: lesson.displayTitle,
-                                  feedbackCode: lesson.code)
+                // A Content card that opens the lesson's content on a page
+                // of its own, and Elevfeedback.
+                LessonOverview(link: link,
+                               placeholder: [lesson.homework, lesson.note]
+                                 .filter { !$0.isEmpty }
+                                 .joined(separator: "\n\n"),
+                               feedbackTitle: lesson.displayTitle,
+                               feedbackCode: lesson.code)
             }
 
             if let link = lesson.link, let url = URL(string: link) {

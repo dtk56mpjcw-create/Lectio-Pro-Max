@@ -77,6 +77,12 @@ struct LessonContentTests {
         #expect(!entry.text.contains("attach_file"))
     }
 
+    @Test func theContentCardSaysWhatsInside() {
+        let detail = LectioParser.parseLessonDetail(Self.spanishLesson)
+        #expect(detail.summary == "Homework · 2 links · 1 picture · 1 file")
+        #expect(detail.previewText.hasPrefix("You need to practise the dialogue on page 26"))
+    }
+
     @Test func listsKeepTheirMarkers() {
         let html = """
         <div class="ls-paper"><div class="lc-display-fragment">
