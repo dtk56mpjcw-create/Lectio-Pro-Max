@@ -30,6 +30,9 @@ struct WeekAgenda: View, Equatable {
             && a.dayEnd == b.dayEnd && a.week == b.week
     }
 
+    /// A day card's scroll id (see the cards in `body`).
+    static func cardID(_ date: String) -> String { "card-" + date }
+
     var body: some View {
         let dates = Self.dates(in: week, monday: monday)
         let modules = week.dayModules
@@ -62,13 +65,17 @@ struct WeekAgenda: View, Equatable {
                                         startsFolded: stillAhead && date < today, now: nil, onPick: onPick)
                         }
                     }
-                    .id(date)       // so Today can scroll to it
+                    // So Today can scroll to it. Not the bare date: the
+                    // week's page in the pager has Monday's date for its id,
+                    // and lining the pager up after a swipe or a pull found
+                    // Monday's card instead — the week jumped about.
+                    .id(Self.cardID(date))
                 }
                 if freeWeekend {
                     WeekendCard(saturday: dates[5], sunday: dates[6],
                                 isToday: dates[5] == today || dates[6] == today, onPick: onPick)
-                        .background { Color.clear.id(dates[6]) }
-                        .id(dates[5])
+                        .background { Color.clear.id(Self.cardID(dates[6])) }
+                        .id(Self.cardID(dates[5]))
                 }
             }
         }

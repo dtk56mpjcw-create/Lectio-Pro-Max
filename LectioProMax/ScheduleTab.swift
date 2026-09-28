@@ -659,7 +659,7 @@ private struct WeekPage: View {
                     // After the page has settled from the swipe to it.
                     Task {
                         try? await Task.sleep(nanoseconds: 350_000_000)
-                        withAnimation(.snappy) { proxy.scrollTo(focus.date, anchor: .top) }
+                        withAnimation(.snappy) { proxy.scrollTo(WeekAgenda.cardID(focus.date), anchor: .top) }
                     }
                 }
         }

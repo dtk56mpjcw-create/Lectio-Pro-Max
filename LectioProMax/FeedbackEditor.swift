@@ -281,7 +281,7 @@ struct FeedbackTextView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> UITextView {
-        let view = UITextView()
+        let view = WrappingTextView()
         view.backgroundColor = .clear
         view.isScrollEnabled = false
         view.alwaysBounceVertical = false
@@ -310,7 +310,10 @@ struct FeedbackTextView: UIViewRepresentable {
     /// on one line: fine for a sentence, but a long answer came out as lines
     /// running off both sides of the screen.
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
-        guard let width = proposal.width, width.isFinite, width > 0 else { return nil }
+        // The width on offer; when SwiftUI only asks what it would like
+        // (no width), the width it has now. Never the longest line's.
+        let offered = proposal.width.flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
+        guard let width = offered ?? (uiView.bounds.width > 0 ? uiView.bounds.width : nil) else { return nil }
         let fitted = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         return CGSize(width: width, height: ceil(fitted.height))
     }
@@ -329,6 +332,36 @@ struct FeedbackTextView: UIViewRepresentable {
 
         func textViewDidChangeSelection(_ textView: UITextView) {
             editor.refresh()
+        }
+    }
+}
+
+/// A text view with no width of its own.
+///
+/// With scrolling off, UITextView gives the width of its longest paragraph on
+/// one line as its natural width, and SwiftUI believes it whenever it asks
+/// what a view would like — so a long answer made the whole sheet wider than
+/// the screen, lines running off both sides and the heading pushed out of
+/// sight. With no natural width it takes the width it's given, and its
+/// natural height is the text's at that width.
+final class WrappingTextView: UITextView {
+    private var measuredWidth: CGFloat = 0
+
+    override var intrinsicContentSize: CGSize {
+        let width = bounds.width
+        guard width > 0 else {
+            return CGSize(width: UIView.noIntrinsicMetric, height: UIView.noIntrinsicMetric)
+        }
+        let fitted = sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return CGSize(width: UIView.noIntrinsicMetric, height: ceil(fitted.height))
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // A new width means a new height.
+        if bounds.width != measuredWidth {
+            measuredWidth = bounds.width
+            invalidateIntrinsicContentSize()
         }
     }
 }
