@@ -579,10 +579,12 @@ private struct WeekLineMain: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .layoutPriority(1)
+                // Before the name, as in the day: never "Canc…".
                 Text("Cancelled")
                     .scaledFont(size: 13, weight: .semibold)
                     .foregroundStyle(Palette.negative)
                     .lineLimit(1)
+                    .layoutPriority(2)
             case .outside(let item):
                 Text(item.headline)
                     .scaledFont(size: 15, weight: .medium)

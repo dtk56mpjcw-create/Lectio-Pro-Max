@@ -776,14 +776,16 @@ private struct SmallItem: View {
                         .scaledFont(size: 12.5, weight: .semibold)
                         .foregroundStyle(cancelledColor)
                         .lineLimit(1)
+                        #if DEBUG
+                        .fixedSize(horizontal: labelFixed, vertical: labelFixed)
+                        #endif
                         // Never squeezed: it gets its room first, then the
                         // name. Not by `.fixedSize()`: in this row, that made
                         // a long day's scroll catch near the end and jump
                         // back without a bounce (SCROLL_BUG.md, the scroll lab).
+                        // Last, so the stack sees it: under another modifier
+                        // it was lost, and the label shrank to "C…".
                         .layoutPriority(2)
-                        #if DEBUG
-                        .fixedSize(horizontal: labelFixed, vertical: labelFixed)
-                        #endif
                 }
             } else if lesson.isExam {
                 // "1g: Matematikscreening" during your English lesson.
