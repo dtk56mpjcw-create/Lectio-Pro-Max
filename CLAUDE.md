@@ -198,14 +198,17 @@ Mail (messages) and Reminders.
   exactly as tall as the room under the navigation bar (`pagerPage`), so the
   pager can't take over a pull past the end of a long day. Debug builds
   print "pager moved up/down" if the pager ever moves vertically. See
-  "Attempt 10" in `SCROLL_BUG.md`. Result: still jerks, but only on phones
-  with a home indicator (not the SE 3).
+  "Attempt 10" in `SCROLL_BUG.md`. Reported: still jerks, but only on phones
+  with a home indicator (not the SE 3); see below.
 - **Attempt 11**: also holds the tab bar measurements (`barLine`,
-  `safeBottom`) at the tallest bar. Result: still jerks.
-- **Attempt 12** (same branch, waiting for a test): no shrinking tab bar at
-  all (`.tabBarMinimizeBehavior` removed). 30 Sep is the only day long enough
-  to scroll far enough to shrink the bar, and the SE never jerked.
-  Hypothesis: the bar resizing under the paging pager makes it snap.
+  `safeBottom`) at the tallest bar.
+- **Attempts 10 and 11 are still untested.** The "still jerks" reports came
+  from an old build (its console showed `ScrollDebug` lines from `fc8e42b`
+  to `7eb549c` and no `NativePaging:` lines). Before trusting a test result,
+  make sure the console shows `NativePaging:` lines.
+- **Attempt 12** (no shrinking tab bar) was reverted at Dan's request: he
+  wants the shrinking bar. It's the next thing to try if 10 and 11, really
+  built, still jerk.
 - **Don't repeat those attempts.** Start by confirming the coupling with
   logging or a minimal repro.
 

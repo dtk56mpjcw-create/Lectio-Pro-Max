@@ -173,9 +173,22 @@ the pager moving, B isn't fully fixed (the page height is off). If they don't,
 B was right but not enough; go on with the experiments below. When it's
 confirmed, remove the debug logging (`watchForDrift`).
 
-**Result of attempt 10 (Dan, 28 Sep):** still jerks on the long day (Wed 30
-Sep), but only on phones without a home button; on the iPhone SE 3 it's fine.
-`42425b4` had noticed the same (iPhone 15 yes, SE no).
+**Attempts 10, 11 and 12 were never really tested.** The "still jerks" reports
+below came from an old build: Dan's console showed `ScrollDebug` lines ("DayPage
+2026-09-30 idle → interacting  y 9 of 282", "bottom 874.0 (was 0.0)") that only
+exist in `fc8e42b`, `8bc7cbf` and `7eb549c`, and none of attempt 10's
+`NativePaging:` lines, which print once at every start. The folder his Xcode
+builds from wasn't on this branch. Check that first next time: the console
+must show `NativePaging:` lines.
+
+What that old build's log does show (30 Sep, iPhone 17 size): the day is 924 pt
+of content in 758 pt, so it ends at offset 166; a fling there bounced normally
+(decelerating 186 → 166), but a slow pull only got to 172 and went
+"interacting → idle" at 166 with no bounce — the jerk, as before.
+
+**Reported for attempt 10 (from the old build, see above):** still jerks on
+the long day (Wed 30 Sep), but only on phones without a home button; on the
+iPhone SE 3 it's fine. `42425b4` had noticed the same (iPhone 15 yes, SE no).
 
 ### Attempt 11: C, the tab bar shrinking (waiting for Dan's test)
 
@@ -216,6 +229,10 @@ and the bar grows back when the page bounces at the end. The SE never jerked.
 - Change: `RootView` no longer sets `.tabBarMinimizeBehavior(.onScrollDown)`.
   The bar keeps its size, which is the system's default and iOS 27's only
   behaviour. One change, nothing else.
+- **Taken back out at Dan's request** (he wants the shrinking bar), before it
+  was ever built: the test above ran the old build. The shrinking bar is on
+  again. If attempts 10 and 11, really built, still jerk, this is the next
+  thing to test (turn it off for one run only).
 - Confirm: (1) on the SE, scroll Homework down: does the bar shrink? If not,
   that's why the SE never jerked. (2) Face ID phone, 30 Sep: jerk gone?
 - If it's gone: keep it; later, try going back from `NativePaging` to the
