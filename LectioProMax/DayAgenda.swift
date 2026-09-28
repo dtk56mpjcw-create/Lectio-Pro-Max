@@ -1033,6 +1033,9 @@ private struct NowLine: View {
                 .foregroundStyle(Palette.accent)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
+                // First pick of the room: otherwise the rule beside it takes
+                // half the line and "in 27 min" became "in 27…".
+                .layoutPriority(1)
             Rectangle().fill(Palette.accent.opacity(0.5)).frame(height: 1)
         }
         .padding(.leading, 15)

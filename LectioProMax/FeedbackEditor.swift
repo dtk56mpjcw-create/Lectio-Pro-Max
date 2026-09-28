@@ -292,6 +292,9 @@ struct FeedbackTextView: UIViewRepresentable {
         view.smartQuotesType = .no        // straight quotes survive the HTML better
         view.smartDashesType = .no
         view.delegate = context.coordinator
+        // Take the width it's given rather than asking for its longest line.
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
         editor.view = view
         editor.adopt(startingText)
         DispatchQueue.main.async { editor.refresh() }
@@ -302,6 +305,16 @@ struct FeedbackTextView: UIViewRepresentable {
         editor.view = view
     }
 
+    /// As tall as the text is at the width on offer. Without this, a text
+    /// view that doesn't scroll asks for the width of its longest paragraph
+    /// on one line: fine for a sentence, but a long answer came out as lines
+    /// running off both sides of the screen.
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
+        guard let width = proposal.width, width.isFinite, width > 0 else { return nil }
+        let fitted = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return CGSize(width: width, height: ceil(fitted.height))
+    }
+
     func makeCoordinator() -> Coordinator { Coordinator(editor: editor) }
 
     final class Coordinator: NSObject, UITextViewDelegate {
@@ -309,6 +322,8 @@ struct FeedbackTextView: UIViewRepresentable {
         init(editor: FeedbackEditor) { self.editor = editor }
 
         func textViewDidChange(_ textView: UITextView) {
+            // A new line makes it taller: measure again.
+            textView.invalidateIntrinsicContentSize()
             editor.touched()
         }
 

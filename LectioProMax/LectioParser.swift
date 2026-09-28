@@ -823,6 +823,14 @@ extension LectioParser {
                     continue
                 }
                 if element.hasClass("message-thread-message") {
+                    // Lectio draws the reply box as one too — "Vis", "Hjælp",
+                    // "Teksten må maksimalt være 100000 tegn lang". A block
+                    // with a text box in it is the composer, not a message.
+                    if element.firstWhere({ $0.name == "textarea"
+                        || ($0.attr("name") ?? "").contains("EditMode") }) != nil {
+                        pendingSender = ""
+                        continue
+                    }
                     result.messages.append(message(from: element, senderLine: pendingSender))
                     pendingSender = ""
                     continue        // its header and content are read above

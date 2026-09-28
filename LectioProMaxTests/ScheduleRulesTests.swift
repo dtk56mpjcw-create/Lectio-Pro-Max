@@ -366,6 +366,28 @@ struct ScheduleRulesTests {
 
     // MARK: - Parsing
 
+    @Test func theReplyBoxIsntAMessage() {
+        let html = """
+        <html><body>
+        <div class='message-thread-message-sender'>Ivan Surov (1j 12), 25-09-2026 20:54:13</div>
+        <div class='message-thread-message'>
+          <div class='message-thread-message-header'>Idk</div>
+          <div class='message-thread-message-content'>Yo</div>
+        </div>
+        <div class='message-thread-message'>
+          <textarea name='s$m$Content$Content$MessageThreadCtrl$MessagesGV$ctl03$EditModeContentBBTB$TbxNAME$tb'></textarea>
+          <span>Vis</span><span>Hjælp</span><span>Teksten må maksimalt være 100000 tegn lang</span>
+        </div>
+        </body></html>
+        """
+        let thread = LectioParser.parseThread(html, id: "1", pageURL: "")
+        #expect(thread.messages.count == 1)
+        #expect(thread.messages.first?.body == "Yo")
+        #expect(thread.messages.first?.sender == "Ivan Surov (1j 12)")
+        // The reply box is still found, for replying.
+        #expect(thread.canReply)
+    }
+
     @Test func tooltip() {
         let t = LectioParser.parseTooltip(
             "Ændret!\nAp Eksamen\n6/10-2026 08:00 til 09:35\nHold: 1i ap la, 1j ap la\nLærere: AM, KF, LS\nLokaler: 062, 064")
