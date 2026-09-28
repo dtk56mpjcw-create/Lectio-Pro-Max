@@ -11,8 +11,10 @@ catch, the jump back, no bounce.
 
 It explains every row of the evidence below: paging on (only a paging
 scroll view takes a drag over), the pager setup alone never jerking (made-up
-days had no such row), only 30 Sep, and the sideways wobble Dan saw. Phones
-without a home indicator are narrower, so the row presumably fit there.
+days had no such row), only 30 Sep, and the sideways wobble Dan saw. Why the
+SE 3 never jerked isn't known: its narrower screen lays the row out
+differently, and whether that row still came out too wide there wasn't
+measured.
 
 **The fix, waiting for Dan to confirm on the real Schedule:**
 - `55fb332`: every day and week page holds its content to the page's width
