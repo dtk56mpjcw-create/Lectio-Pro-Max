@@ -161,7 +161,7 @@ enum NotificationService {
 
     private static func scheduleAbsence(_ record: AbsenceRecord,
                                         centre: UNUserNotificationCenter) {
-        let calendar = Calendar.current
+        let calendar = LectioDates.calendar
         var components = calendar.dateComponents([.year, .month, .day], from: Date())
         components.hour = 8
         components.minute = 0
@@ -177,7 +177,8 @@ enum NotificationService {
         content.sound = .default
 
         let trigger = UNCalendarNotificationTrigger(
-            dateMatching: calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fire),
+            dateMatching: calendar.dateComponents([.calendar, .timeZone, .year, .month, .day, .hour, .minute],
+                                                  from: fire),
             repeats: false)
         centre.add(UNNotificationRequest(identifier: absencePrefix + record.id,
                                          content: content,

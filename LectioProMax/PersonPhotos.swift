@@ -107,14 +107,14 @@ final class PersonPhotos {
 
     /// A saved face, read and decoded off the main thread, so a list
     /// scrolling into faces it already has doesn't stutter.
-    private nonisolated static func readCached(_ file: URL) async -> UIImage? {
+    @concurrent private static func readCached(_ file: URL) async -> UIImage? {
         guard let data = try? Data(contentsOf: file), let image = UIImage(data: data) else { return nil }
         return await image.byPreparingForDisplay() ?? image
     }
 
     // MARK: - Lectio
 
-    private nonisolated static func pictureSource(for id: String,
+    @concurrent private static func pictureSource(for id: String,
                                                   cookies: [HTTPCookie]) async -> String? {
         var components = URLComponents(string: LectioConfig.base + "/contextcard/contextcard.aspx")
         components?.queryItems = [

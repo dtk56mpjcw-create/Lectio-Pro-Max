@@ -47,7 +47,16 @@ struct FeedProvider: TimelineProvider {
         for moment in feed?.moments(after: now) ?? [] {
             entries.append(FeedEntry(date: moment, feed: feed))
         }
-        completion(Timeline(entries: entries, policy: .atEnd))
+        // Nothing ahead (no feed yet, or nothing loaded past today): come
+        // back at midnight rather than asking again at once.
+        if entries.count == 1 {
+            let cal = WidgetFeed.calendar
+            let midnight = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now))
+                ?? now.addingTimeInterval(3600)
+            completion(Timeline(entries: entries, policy: .after(midnight)))
+        } else {
+            completion(Timeline(entries: entries, policy: .atEnd))
+        }
     }
 }
 

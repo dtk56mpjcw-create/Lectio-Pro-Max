@@ -163,9 +163,7 @@ struct MessagePreview: Identifiable, Codable, Hashable {
     var link: String? = nil
 }
 
-/// Homework and assignments merged into one thing the Homework tab can group,
-/// sort and tick off. `key` is stable across refreshes (unlike a fresh UUID),
-/// so completion survives reloads.
+/// Who's signed in, from the page header (see LectioParser.parseProfile).
 struct Profile: Codable, Hashable {
     var name: String = ""
     var className: String = ""
@@ -179,7 +177,9 @@ struct Profile: Codable, Hashable {
     var isStudent: Bool? = nil
 }
 
-
+/// Homework and assignments merged into one thing the Homework tab can group,
+/// sort and tick off. `key` is stable across refreshes (unlike a fresh UUID),
+/// so completion survives reloads.
 struct WorkItem: Identifiable, Hashable {
     var id: String { key }
     var key: String

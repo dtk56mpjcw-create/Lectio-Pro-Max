@@ -59,7 +59,7 @@ enum LectioFeedbackService {
 
     // MARK: - Reading
 
-    static func load(lessonLink: String, cookies: [HTTPCookie]) async throws -> LessonFeedback {
+    @concurrent static func load(lessonLink: String, cookies: [HTTPCookie]) async throws -> LessonFeedback {
         let url = feedbackURL(forLesson: lessonLink)
         guard !url.isEmpty else { throw FeedbackError.unavailable }
         let html = try await LectioService.fetchHTML(url, cookies: cookies)
@@ -150,7 +150,7 @@ enum LectioFeedbackService {
     /// And when the value genuinely can't be read back, it says nothing rather
     /// than claiming failure. A warning that fires on every save is worse than no
     /// warning at all, because it teaches you to ignore the one time it's real.
-    static func save(_ feedback: LessonFeedback,
+    @concurrent static func save(_ feedback: LessonFeedback,
                      html: String,
                      cookies: [HTTPCookie]) async throws -> LessonFeedback {
         // Lectio's hidden state is per-request, so always post against a page
@@ -189,7 +189,7 @@ enum LectioFeedbackService {
     /// Removes the feedback entirely, the way Lectio's own delete button does —
     /// which is a different thing from saving empty content: this takes the whole
     /// content block away rather than leaving an empty one behind.
-    static func deleteContent(_ feedback: LessonFeedback,
+    @concurrent static func deleteContent(_ feedback: LessonFeedback,
                               cookies: [HTTPCookie]) async throws -> LessonFeedback {
         let fresh = try await load(lessonLink: feedback.lessonURL, cookies: cookies)
         guard fresh.canDelete else { throw FeedbackError.cannotDelete }
@@ -230,7 +230,7 @@ enum LectioFeedbackService {
     /// archive — there's no way to attach a photo straight from a phone. Here the
     /// upload and the attach are one step, because the hand-in code already knows
     /// how to put a file in the archive.
-    static func attach(data: Data,
+    @concurrent static func attach(data: Data,
                        filename: String,
                        mimeType: String,
                        cookies: [HTTPCookie]) async throws -> String {
@@ -241,8 +241,8 @@ enum LectioFeedbackService {
 
     /// `encodeURIComponent`, which is what Lectio's own `GetResourceUrl` uses.
     private static func encodeComponent(_ s: String) -> String {
-        var allowed = CharacterSet.alphanumerics
-        allowed.insert(charactersIn: "-_.!~*'()")
+        // ASCII only, as JavaScript's: "æ" is %C3%A6.
+        let allowed = CharacterSet(charactersIn: LectioForms.asciiAlphanumerics + "-_.!~*'()")
         return s.addingPercentEncoding(withAllowedCharacters: allowed) ?? s
     }
 }

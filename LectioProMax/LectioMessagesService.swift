@@ -14,9 +14,12 @@ enum LectioMessagesService {
         case noRecipients
         case sendFailed
         case attachFailed(String)
+        case recipientNotAdded(String)
 
         var errorDescription: String? {
             switch self {
+            case .recipientNotAdded(let name):
+                return "Lectio didn't let “\(name)” be added. Nothing was sent."
             case .attachFailed(let name):
                 return "Lectio didn't take “\(name)”. Nothing was sent."
             case .cannotReply:
@@ -40,11 +43,11 @@ enum LectioMessagesService {
     /// Always asks for Nyeste by id. Plain beskeder2.aspx shows whichever
     /// folder you looked at last — Lectio remembers it — so after a visit to
     /// Deleted, the "inbox" came back as the deleted messages.
-    static func loadInbox(cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
+    @concurrent static func loadInbox(cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
         return try await loadFolder(.newest, cookies: cookies)
     }
 
-    static func loadThread(id: String, cookies: [HTTPCookie]) async throws -> MessageThread {
+    @concurrent static func loadThread(id: String, cookies: [HTTPCookie]) async throws -> MessageThread {
         let url = threadURL(id)
         let html = try await LectioService.fetchHTML(url, cookies: cookies)
         return LectioParser.parseThread(html, id: id, pageURL: url)
@@ -52,7 +55,7 @@ enum LectioMessagesService {
 
     // MARK: - Replying
 
-    static func reply(to thread: MessageThread,
+    @concurrent static func reply(to thread: MessageThread,
                       body: String,
                       attachments: [OutgoingAttachment] = [],
                       cookies: [HTTPCookie]) async throws -> MessageThread {
@@ -99,7 +102,7 @@ enum LectioMessagesService {
 
     // MARK: - New thread
 
-    static func createThread(to recipients: [Recipient],
+    @concurrent static func createThread(to recipients: [Recipient],
                              subject: String,
                              body: String,
                              attachments: [OutgoingAttachment] = [],
@@ -112,9 +115,11 @@ enum LectioMessagesService {
         // Recipients go on one at a time: fill the autocomplete's text and id
         // fields, then press "Tilføj modtager" — exactly what the page does.
         for recipient in recipients {
+            // Without the field there's no adding them — and sending anyway
+            // would reach fewer people than you chose, without a word.
             guard let inputName = root.firstWhere({
                 $0.name == "input" && ($0.attr("name") ?? "").hasSuffix("$addRecipientDD$inp")
-            })?.attr("name") else { break }
+            })?.attr("name") else { throw MessageError.recipientNotAdded(recipient.name) }
 
             let prefix = String(inputName.dropLast("$inp".count))
             var fields = LectioForms.fields(in: root)
@@ -209,7 +214,7 @@ enum LectioMessagesService {
         return inboxURL + "?mappeid=" + String(folder.rawValue)
     }
 
-    static func loadFolder(_ folder: MessageFolder, cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
+    @concurrent static func loadFolder(_ folder: MessageFolder, cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
         let html = try await LectioService.fetchHTML(folderURL(folder), cookies: cookies)
         return LectioParser.parseInbox(html)
     }
@@ -226,7 +231,7 @@ enum LectioMessagesService {
     // The command is posted to the folder the thread is showing in: ASP.NET
     // only accepts a command the page it came from actually offered.
 
-    static func setRead(threadID: String,
+    @concurrent static func setRead(threadID: String,
                         read: Bool,
                         in folder: MessageFolder,
                         cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
@@ -234,7 +239,7 @@ enum LectioMessagesService {
         return try await folderCommand(command, in: folder, cookies: cookies)
     }
 
-    static func toggleFlag(threadID: String,
+    @concurrent static func toggleFlag(threadID: String,
                            in folder: MessageFolder,
                            cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
         return try await folderCommand("FLAGMESSAGE_" + threadID, in: folder, cookies: cookies)
@@ -244,7 +249,7 @@ enum LectioMessagesService {
     /// what a row in Alle slettede offers; it isn't the same command twice).
     /// Lectio has no way to delete for good: deleted threads leave that
     /// folder on their own after three months.
-    static func setDeleted(threadID: String,
+    @concurrent static func setDeleted(threadID: String,
                            deleted: Bool,
                            in folder: MessageFolder,
                            cookies: [HTTPCookie]) async throws -> [MessageThreadSummary] {
@@ -273,7 +278,7 @@ enum LectioMessagesService {
     /// URLs are registered inline on the compose page — one per kind of
     /// recipient. `&reduced=0` asks for the complete list rather than the
     /// shortened one the page loads first.
-    static func recipientDirectory(cookies: [HTTPCookie]) async throws -> [Recipient] {
+    @concurrent static func recipientDirectory(cookies: [HTTPCookie]) async throws -> [Recipient] {
         let html = try await LectioService.fetchHTML(newMessageURL, cookies: cookies)
 
         var sources: [(key: String, url: String)] = []

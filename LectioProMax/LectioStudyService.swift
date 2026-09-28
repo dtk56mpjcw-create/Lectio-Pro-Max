@@ -5,20 +5,20 @@ enum LectioStudyService {
 
     // MARK: - Lektier
 
-    static func loadLessonNotes(cookies: [HTTPCookie]) async throws -> [LessonNote] {
+    @concurrent static func loadLessonNotes(cookies: [HTTPCookie]) async throws -> [LessonNote] {
         let html = try await LectioService.fetchHTML(
             LectioConfig.base + "/material_lektieoversigt.aspx", cookies: cookies)
         return LectioParser.parseLessonNotes(html)
     }
 
     /// Everything on a lesson's own page, including any pinned files.
-    static func loadLessonDetail(link: String, cookies: [HTTPCookie]) async throws -> LessonDetail {
+    @concurrent static func loadLessonDetail(link: String, cookies: [HTTPCookie]) async throws -> LessonDetail {
         let html = try await LectioService.fetchHTML(link, cookies: cookies)
         return LectioParser.parseLessonDetail(html)
     }
 
     /// The year's plan: every subject's units and the hours it expects of you.
-    static func loadStudyPlan(cookies: [HTTPCookie]) async throws -> [StudyPlanSubject] {
+    @concurrent static func loadStudyPlan(cookies: [HTTPCookie]) async throws -> [StudyPlanSubject] {
         let html = try await LectioService.fetchHTML(
             LectioConfig.base + "/studieplan.aspx?displaytype=ugeteksttabel", cookies: cookies)
         return LectioParser.parseStudyPlan(html)
@@ -34,7 +34,7 @@ enum LectioStudyService {
         var total: AbsenceSubject? { subjects.first { $0.isTotal } }
     }
 
-    static func loadAbsence(cookies: [HTTPCookie]) async throws -> Absence {
+    @concurrent static func loadAbsence(cookies: [HTTPCookie]) async throws -> Absence {
         async let overview = LectioService.fetchHTML(
             LectioConfig.base + "/subnav/fravaerelev.aspx", cookies: cookies)
         async let reasons = LectioService.fetchHTML(
@@ -48,7 +48,7 @@ enum LectioStudyService {
 
     /// The reasons Lectio offers a student. Read off the form rather than
     /// hard-coded, since a school can configure them.
-    static func reasonOptions(at pageURL: String, cookies: [HTTPCookie]) async throws -> [String] {
+    @concurrent static func reasonOptions(at pageURL: String, cookies: [HTTPCookie]) async throws -> [String] {
         let html = try await LectioService.fetchHTML(pageURL, cookies: cookies)
         let root = HTMLDocument.parse(html)
         guard let select = root.firstWhere({
@@ -61,7 +61,7 @@ enum LectioStudyService {
     }
 
     /// Explains an absence: Lectio's own dropdown plus a free-text note.
-    static func submitReason(pageURL: String,
+    @concurrent static func submitReason(pageURL: String,
                              reason: String,
                              comment: String,
                              cookies: [HTTPCookie]) async throws {
@@ -88,7 +88,7 @@ enum LectioStudyService {
     /// list, and their keys ("S80637481515") are the schedule ids with a letter
     /// in front. Classes and rooms aren't in those dropdowns, and their
     /// FindSkema listings are complete, so those still come from there.
-    static func loadScheduleTargets(cookies: [HTTPCookie]) async throws -> [ScheduleTarget] {
+    @concurrent static func loadScheduleTargets(cookies: [HTTPCookie]) async throws -> [ScheduleTarget] {
         var all: [ScheduleTarget] = []
 
         if let people = try? await LectioMessagesService.recipientDirectory(cookies: cookies) {
@@ -125,7 +125,7 @@ enum LectioStudyService {
     }
 
     /// One week of somebody else's timetable.
-    static func loadWeek(for target: ScheduleTarget,
+    @concurrent static func loadWeek(for target: ScheduleTarget,
                          weekCode: String,
                          cookies: [HTTPCookie]) async throws -> ScheduleWeek {
         var url = target.url

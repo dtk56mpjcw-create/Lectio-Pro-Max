@@ -40,7 +40,9 @@ struct RootView: View {
         .tabBarMinimizeBehavior(.onScrollDown)
         // A widget or a notification: go to what it showed (see AppLink).
         .onOpenURL { AppRouter.shared.open($0) }
-        .onChange(of: AppRouter.shared.request) { _, request in
+        // `initial`: a tap that launched the app can arrive before this
+        // view does, and must still pick the tab.
+        .onChange(of: AppRouter.shared.request, initial: true) { _, request in
             guard let request else { return }
             switch request.route {
             case .day, .lesson:

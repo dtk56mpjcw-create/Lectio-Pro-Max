@@ -784,7 +784,7 @@ struct DayPlan {
         var slots = modules.map { Slot(module: $0) }
         var seenNames: Set<String> = []
         guard let firstStart = dayStart else {
-            plan.after = timed
+            plan.after = DayPlan.once(timed)
             plan.allDay = notes
             return plan
         }
@@ -996,7 +996,17 @@ struct DayPlan {
             plan.also = []
             plan.after = plan.after.filter { isYours($0) }
         }
+        // Two tiles alike in all but their team (the same café for 1g and
+        // 2g) are one row; lists need each id once.
+        plan.before = DayPlan.once(plan.before)
+        plan.after = DayPlan.once(plan.after)
         return plan
+    }
+
+    /// Each lesson once, by id, in order.
+    static func once(_ lessons: [Lesson]) -> [Lesson] {
+        var seen: Set<String> = []
+        return lessons.filter { seen.insert($0.id).inserted }
     }
 
     /// Which of two things of yours at the same time holds the module:

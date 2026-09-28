@@ -47,7 +47,7 @@ enum LectioEventService {
     }
 
     /// Reads an existing appointment back out of its own edit form.
-    static func load(eventID: String, cookies: [HTTPCookie]) async throws -> Draft {
+    @concurrent static func load(eventID: String, cookies: [HTTPCookie]) async throws -> Draft {
         let html = try await LectioService.fetchHTML(formURL(eventID: eventID), cookies: cookies)
         let fields = LectioForms.fields(in: HTMLDocument.parse(html))
 
@@ -64,7 +64,7 @@ enum LectioEventService {
 
     /// Removes it for good — Lectio's "Slet" button, which is a postback with
     /// the argument "Delete".
-    static func delete(eventID: String, cookies: [HTTPCookie]) async throws {
+    @concurrent static func delete(eventID: String, cookies: [HTTPCookie]) async throws {
         let url = formURL(eventID: eventID)
         let html = try await LectioService.fetchHTML(url, cookies: cookies)
         let fields = LectioForms.fields(in: HTMLDocument.parse(html))
@@ -83,7 +83,7 @@ enum LectioEventService {
 
     /// Creates a new appointment, or saves an existing one when the draft
     /// carries an id — Lectio uses the same page and the same Gem button.
-    static func save(_ draft: Draft, cookies: [HTTPCookie]) async throws {
+    @concurrent static func save(_ draft: Draft, cookies: [HTTPCookie]) async throws {
         let title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { throw EventError.titleMissing }
         guard title.count <= titleLimit else { throw EventError.titleTooLong }

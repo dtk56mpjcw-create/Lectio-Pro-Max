@@ -86,11 +86,11 @@ enum LectioForms {
 
     /// ASP.NET reads the body as UTF-8 percent-encoding, and Lectio ships a
     /// canary field (`masterfootervalue` = "X1!ÆØÅ") to check it survived.
-    private static let allowed: CharacterSet = {
-        var set = CharacterSet.alphanumerics
-        set.insert(charactersIn: "-._~")
-        return set
-    }()
+    /// Only ASCII letters and digits go as they are, as a browser sends
+    /// them: `CharacterSet.alphanumerics` is every alphabet's, so "æøå"
+    /// used to go raw rather than as %C3%A6%C3%B8%C3%A5.
+    static let asciiAlphanumerics = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    static let allowed = CharacterSet(charactersIn: asciiAlphanumerics + "-._~")
 
     static func encoded(_ fields: [String: String]) -> String {
         return fields.map { key, value in

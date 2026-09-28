@@ -344,6 +344,18 @@ struct ScheduleRulesTests {
         #expect(teacher.isStudent == false)
     }
 
+    @Test func eachThingOnceBeforeAndAfterSchool() {
+        // The same study café for two year groups: two tiles, one row.
+        let first = Lesson(start: "15:30", end: "17:00", code: "", title: "Studiecafé", room: "Kantinen",
+                           team: "Alle 1. STX-elever")
+        var second = first
+        second.team = "Alle 2. STX-elever"
+        let day = ScheduleDay(date: "2026-09-29", label: "", lessons: [first, second])
+        let modules = [ScheduleModule(number: 1, start: "08:00", end: "09:35")]
+        let plan = DayPlan.build(day, modules: modules, className: "1j")
+        #expect(plan.after.count == 1)
+    }
+
     // MARK: - Danish time
 
     @Test func todayIsDanish() throws {

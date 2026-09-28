@@ -814,8 +814,10 @@ final class LectioSession {
     }
 }
 
-/// Deliberately outside the @MainActor class so the JSON encode genuinely runs
-/// off the main thread rather than hopping straight back onto it.
+/// Outside the @MainActor class, and `write` is @concurrent, so the JSON
+/// encode runs off the main thread. (With Approachable Concurrency on, a
+/// plain `nonisolated async` function runs on its caller's actor — here the
+/// main one — so being outside the class alone wasn't enough.)
 enum SnapshotCache {
     static var url: URL? {
         let dirs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
@@ -827,7 +829,7 @@ enum SnapshotCache {
         return try? JSONDecoder().decode(LectioSnapshot.self, from: data)
     }
 
-    static func write(_ snapshot: LectioSnapshot) async {
+    @concurrent static func write(_ snapshot: LectioSnapshot) async {
         guard var target = SnapshotCache.url,
               let data = try? JSONEncoder().encode(snapshot) else { return }
         // Messages, absence and the timetable: encrypted while the phone is

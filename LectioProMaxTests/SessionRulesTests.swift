@@ -54,4 +54,13 @@ struct SessionRulesTests {
                                        for: URL(string: "https://broker.unilogin.dk/")!)
         #expect(LectioCookies.merged([:], other, now: Date()).isEmpty)
     }
+
+    /// What a message or a hand-in comment sends: percent-encoded UTF-8, as
+    /// a browser sends it — Lectio's own canary field included.
+    @Test func formsAreEncodedLikeABrowser() {
+        #expect(LectioForms.encoded(["masterfootervalue": "X1!ÆØÅ"])
+                == "masterfootervalue=X1%21%C3%86%C3%98%C3%85")
+        #expect(LectioForms.encoded(["m$Content$tb": "Hej, kan vi mødes? 5 & 6 = 11"])
+                == "m%24Content%24tb=Hej%2C%20kan%20vi%20m%C3%B8des%3F%205%20%26%206%20%3D%2011")
+    }
 }

@@ -91,24 +91,24 @@ enum LectioMeService {
     static var studentCardURL: String { LectioConfig.base + "/digitaltStudiekort.aspx" }
     static var gradesURL: String { LectioConfig.base + "/grades/grade_report.aspx" }
 
-    static func loadStudentCard(cookies: [HTTPCookie]) async throws -> StudentCard {
+    @concurrent static func loadStudentCard(cookies: [HTTPCookie]) async throws -> StudentCard {
         let html = try await LectioService.fetchHTML(studentCardURL, cookies: cookies)
         return parseStudentCard(html)
     }
 
-    static func loadGrades(cookies: [HTTPCookie]) async throws -> GradeReport {
+    @concurrent static func loadGrades(cookies: [HTTPCookie]) async throws -> GradeReport {
         let html = try await LectioService.fetchHTML(gradesURL, cookies: cookies)
         return parseGrades(html)
     }
 
-    static func image(_ link: String, cookies: [HTTPCookie]) async -> UIImage? {
+    @concurrent static func image(_ link: String, cookies: [HTTPCookie]) async -> UIImage? {
         guard let data = try? await LectioService.fetchData(link, cookies: cookies) else { return nil }
         return UIImage(data: data)
     }
 
     /// A fresh QR code. Lectio's page asks for a new one with the current
     /// time on the end every 36 seconds, so a screenshot of it goes stale.
-    static func qrImage(for card: StudentCard, cookies: [HTTPCookie]) async -> UIImage? {
+    @concurrent static func qrImage(for card: StudentCard, cookies: [HTTPCookie]) async -> UIImage? {
         guard let base = card.qrURL else { return nil }
         let stamp = String(Int(Date().timeIntervalSince1970 * 1000))
         let link = base + (base.contains("?") ? "&" : "?") + "time=" + stamp

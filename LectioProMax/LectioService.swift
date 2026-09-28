@@ -140,7 +140,7 @@ enum LectioService {
     }
 
     /// Fetches a single message's body text for the message detail sheet.
-    static func fetchMessageBody(link: String, cookies: [HTTPCookie]) async throws -> String {
+    @concurrent static func fetchMessageBody(link: String, cookies: [HTTPCookie]) async throws -> String {
         let html = try await fetchHTML(link, cookies: cookies)
         let root = HTMLDocument.parse(html)
         if let content = root.allWithClass("message-thread-message-content").first {
@@ -153,7 +153,7 @@ enum LectioService {
     }
 
     /// Fetches one specific week of the schedule (for the swipe pager).
-    static func fetchWeek(code: String, cookies: [HTTPCookie]) async throws -> ScheduleWeek {
+    @concurrent static func fetchWeek(code: String, cookies: [HTTPCookie]) async throws -> ScheduleWeek {
         let html = try await fetchHTML(LectioConfig.skemaURL(weekCode: code), cookies: cookies)
         var week = LectioParser.parseSchedule(html).week
         if week.code.isEmpty { week.code = code }
@@ -167,7 +167,7 @@ enum LectioService {
     }
 
     /// Fetches the three pages the dashboard needs and parses them natively.
-    static func loadSnapshot(cookies: [HTTPCookie]) async throws -> LectioSnapshot {
+    @concurrent static func loadSnapshot(cookies: [HTTPCookie]) async throws -> LectioSnapshot {
         guard !cookies.isEmpty else { throw LectioError.needsLogin }
 
         async let forsideTask = attempt(LectioConfig.forsideURL, cookies: cookies)

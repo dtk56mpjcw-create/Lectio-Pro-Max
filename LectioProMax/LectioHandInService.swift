@@ -56,7 +56,7 @@ enum LectioHandInService {
 
     // MARK: - Reading
 
-    static func load(pageURL: String, cookies: [HTTPCookie]) async throws -> HandIn {
+    @concurrent static func load(pageURL: String, cookies: [HTTPCookie]) async throws -> HandIn {
         let html = try await LectioService.fetchHTML(pageURL, cookies: cookies)
         return LectioParser.parseHandIn(html, pageURL: pageURL)
     }
@@ -66,7 +66,7 @@ enum LectioHandInService {
     /// Fetches a document with the session's cookies and drops it in a temp
     /// file. Handing the URL to Safari instead looks like it works, but Safari
     /// has its own cookie jar and may well be met with the login page.
-    static func downloadDocument(link: String,
+    @concurrent static func downloadDocument(link: String,
                                  suggestedName: String,
                                  cookies: [HTTPCookie]) async throws -> URL {
         guard let url = URL(string: link) else { throw LectioError.badURL }
@@ -114,7 +114,7 @@ enum LectioHandInService {
 
     // MARK: - Step 1: put the file in Lectio's document store
 
-    static func uploadDocument(data: Data,
+    @concurrent static func uploadDocument(data: Data,
                                filename: String,
                                mimeType: String,
                                cookies: [HTTPCookie]) async throws -> String {
@@ -154,7 +154,7 @@ enum LectioHandInService {
 
     // MARK: - Step 2: attach it to the assignment
 
-    static func attachDocument(serializedID: String,
+    @concurrent static func attachDocument(serializedID: String,
                                comment: String,
                                to handIn: HandIn,
                                cookies: [HTTPCookie]) async throws -> HandIn {
@@ -170,7 +170,7 @@ enum LectioHandInService {
                                   cookies: cookies)
     }
 
-    static func sendComment(_ comment: String,
+    @concurrent static func sendComment(_ comment: String,
                             to handIn: HandIn,
                             cookies: [HTTPCookie]) async throws -> HandIn {
         var fields = handIn.form
@@ -186,7 +186,7 @@ enum LectioHandInService {
 
     /// Adds a classmate to a group hand-in: Lectio's Tilføj button, with them
     /// picked in its dropdown. Returns the page as it stands afterwards.
-    static func addGroupMember(_ studentID: String,
+    @concurrent static func addGroupMember(_ studentID: String,
                                to handIn: HandIn,
                                cookies: [HTTPCookie]) async throws -> HandIn {
         var fields = handIn.form
@@ -199,7 +199,7 @@ enum LectioHandInService {
     }
 
     /// Takes someone off a group hand-in, with the page's own remove link.
-    static func removeGroupMember(_ person: GroupPerson,
+    @concurrent static func removeGroupMember(_ person: GroupPerson,
                                   from handIn: HandIn,
                                   cookies: [HTTPCookie]) async throws -> HandIn {
         guard let target = person.removeTarget else { return handIn }
@@ -243,18 +243,8 @@ enum LectioHandInService {
     /// ASP.NET reads the body as UTF-8 percent-encoding. Lectio even ships a
     /// canary field (`masterfootervalue` = "X1!ÆØÅ") to check the encoding
     /// survived, so this has to be exact.
-    private static let formAllowed: CharacterSet = {
-        var set = CharacterSet.alphanumerics
-        set.insert(charactersIn: "-._~")
-        return set
-    }()
-
     private static func urlEncoded(_ fields: [String: String]) -> String {
-        return fields.map { key, value in
-            let k = key.addingPercentEncoding(withAllowedCharacters: formAllowed) ?? key
-            let v = value.addingPercentEncoding(withAllowedCharacters: formAllowed) ?? value
-            return k + "=" + v
-        }.joined(separator: "&")
+        LectioForms.encoded(fields)
     }
 
     private static func escapeForJSON(_ s: String) -> String {

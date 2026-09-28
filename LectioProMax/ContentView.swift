@@ -3,6 +3,10 @@ import SwiftUI
 struct ContentView: View {
     @State private var session = LectioSession()
     @Environment(\.scenePhase) private var scenePhase
+    /// Set when the app goes to the background, so coming back refreshes —
+    /// but pulling down Control Centre or a notification (which only makes
+    /// the app inactive for a moment) doesn't fetch four pages again.
+    @State private var wasAway = false
 
     var body: some View {
         RootView()
@@ -20,12 +24,16 @@ struct ContentView: View {
             // Reopening the app pulls straight from Lectio, so what you see is
             // whatever is actually on Lectio right now.
             .onChange(of: scenePhase) { _, newPhase in
-                if newPhase == .active && session.hasLoadedOnce && !session.showLogin {
-                    Task { await session.refresh() }
+                if newPhase == .active && wasAway {
+                    wasAway = false
+                    if session.hasLoadedOnce && !session.showLogin {
+                        Task { await session.refresh() }
+                    }
                 }
-                // Leaving the app: ask iOS to look for news in a while.
-                if newPhase == .background && session.isLoggedIn {
-                    BackgroundCheck.schedule()
+                if newPhase == .background {
+                    wasAway = true
+                    // Leaving the app: ask iOS to look for news in a while.
+                    if session.isLoggedIn { BackgroundCheck.schedule() }
                 }
             }
     }
