@@ -111,6 +111,10 @@ struct ScheduleTab: View {
     }
 
     var body: some View {
+        #if DEBUG
+        let _ = ScrollDebug.log("ScheduleTab redrawn")
+        let _ = Self._printChanges()
+        #endif
         NavigationStack(path: $opener.path) {
             pagers
                 .background { AppBackground() }
@@ -286,6 +290,9 @@ struct ScheduleTab: View {
             geometry.safeAreaInsets.bottom
         } action: { inset in
             // Only a real change is written: each write redraws the pages.
+            #if DEBUG
+            ScrollDebug.log("safe area bottom \(inset) (kept \(max(inset, safeBottom)))")
+            #endif
             if inset > safeBottom { safeBottom = inset }
         }
         // The bottom of the area the tab bar leaves free: this frame is the
@@ -296,6 +303,9 @@ struct ScheduleTab: View {
         .onGeometryChange(for: CGPoint.self) { geometry in
             CGPoint(x: geometry.size.width.rounded(), y: geometry.frame(in: .global).maxY.rounded())
         } action: { measured in
+            #if DEBUG
+            ScrollDebug.log("bar line \(measured.y) width \(measured.x) (was \(barLine))")
+            #endif
             if measured.x != measuredWidth || barLine <= 0 {
                 measuredWidth = measured.x
                 barLine = measured.y
@@ -562,6 +572,10 @@ private struct DayPage: View {
 
     var body: some View {
         let code = LectioDates.weekCode(iso: date)
+        #if DEBUG
+        let _ = ScrollDebug.log("DayPage \(date) redrawn")
+        let _ = Self._printChanges()
+        #endif
         ScrollView {
             VStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 10) {
@@ -585,15 +599,24 @@ private struct DayPage: View {
         .onGeometryChange(for: CGFloat.self) { geometry in
             geometry.frame(in: .global).maxY.rounded()
         } action: { bottom in
+            #if DEBUG
+            ScrollDebug.log("DayPage \(date) bottom \(bottom) (was \(pageBottom))")
+            #endif
             pageBottom = bottom
         }
         #if DEBUG
         // In Xcode's console: the day's visible height and content height
-        // whenever either changes. Neither should while you drag.
+        // whenever either changes (neither should while you drag), and each
+        // change of what the scroll view is doing, with where it is.
         .onScrollGeometryChange(for: CGSize.self) { geometry in
             CGSize(width: geometry.containerSize.height.rounded(), height: geometry.contentSize.height.rounded())
         } action: { old, new in
-            print("[day \(date)] visible \(old.width)→\(new.width), content \(old.height)→\(new.height)")
+            ScrollDebug.log("DayPage \(date) visible \(old.width)→\(new.width), content \(old.height)→\(new.height)")
+        }
+        .onScrollPhaseChange { old, new, context in
+            let g = context.geometry
+            let end = g.contentSize.height + g.contentInsets.top + g.contentInsets.bottom - g.containerSize.height
+            ScrollDebug.log("DayPage \(date) \(old) → \(new)  y \(Int(g.contentOffset.y + g.contentInsets.top)) of \(Int(end))")
         }
         #endif
         .scrollIndicators(.hidden)

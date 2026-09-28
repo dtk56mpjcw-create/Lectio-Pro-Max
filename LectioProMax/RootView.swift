@@ -13,6 +13,10 @@ struct RootView: View {
     @State private var query = ""
 
     var body: some View {
+        #if DEBUG
+        let _ = ScrollDebug.log("RootView redrawn")
+        let _ = Self._printChanges()
+        #endif
         TabView(selection: $tab) {
             Tab("Schedule", systemImage: "calendar", value: AppTab.schedule) {
                 // Its own navigation stack draws the background.

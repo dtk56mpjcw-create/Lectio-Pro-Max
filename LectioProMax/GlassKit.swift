@@ -168,6 +168,17 @@ struct PressableCard: ButtonStyle {
     }
 }
 
+#if DEBUG
+/// A timestamped line in Xcode's console, for chasing scrolling problems:
+/// what changed, and when, next to what the scroll view was doing.
+enum ScrollDebug {
+    private static let start = Date()
+    static func log(_ text: String) {
+        print(String(format: "⏱ %.3f ", Date().timeIntervalSince(start)) + text)
+    }
+}
+#endif
+
 /// With Reduce Motion on, a press dims instead of shrinking — Apple's advice
 /// is to swap movement for a fade rather than drop the feedback.
 private struct PressableCardBody: View {
@@ -180,5 +191,10 @@ private struct PressableCardBody: View {
             .opacity(configuration.isPressed && reduceMotion ? 0.7 : 1)
             .animation(.spring(response: 0.3, dampingFraction: 0.7),
                        value: configuration.isPressed)
+            #if DEBUG
+            .onChange(of: configuration.isPressed) { _, pressed in
+                ScrollDebug.log("card pressed: \(pressed)")
+            }
+            #endif
     }
 }
