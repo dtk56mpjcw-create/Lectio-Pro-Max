@@ -23,32 +23,21 @@ enum Palette {
     /// Destructive and failure states — Sign out, Delete. Apple uses system red.
     static var ember: Color { .red }
 
-    // Status colours for TEXT. The system orange, green and red are made for
-    // fills and icons: as small text on a white card they measure about
-    // 2.2:1, 2.2:1 and 3.6:1 — hard to read outdoors. In light mode these are
-    // the same hues taken darker (about 4.8:1, 5.0:1 and 5.5:1); in dark mode
-    // the system colours already read well and are used as they are.
+    // Status colours: Apple's own orange, green and red, as Apple's apps use
+    // them. The system retunes them for Dark Mode, and Increase Contrast
+    // (Settings › Accessibility › Display & Text Size) swaps in Apple's
+    // darker versions for anyone who needs small text easier to read.
+    // They were hand-darkened in light mode once, for contrast; Dan chose
+    // Apple's colours as they are.
 
     /// "Changed", "Due in 2 hours", "2 to explain".
-    static let warning = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? .systemOrange
-            : UIColor(red: 0.70, green: 0.35, blue: 0.0, alpha: 1)
-    })
+    static let warning = Color.orange
 
     /// "Handed in", "Saved".
-    static let positive = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? .systemGreen
-            : UIColor(red: 0.12, green: 0.50, blue: 0.22, alpha: 1)
-    })
+    static let positive = Color.green
 
     /// "Cancelled", "2 days late".
-    static let negative = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? .systemRed
-            : UIColor(red: 0.80, green: 0.13, blue: 0.13, alpha: 1)
-    })
+    static let negative = Color.red
 }
 
 enum Metrics {

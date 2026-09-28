@@ -138,8 +138,9 @@ Mail (messages) and Reminders.
    - group glass in a `GlassEffectContainer`.
 3. **Colour comes from the system.**
    - The accent is the `AccentColor` asset (system blue).
-   - Status text uses `Palette.warning/positive/negative`, which are darker in
-     light mode so small text reaches about 4.5:1 contrast.
+   - Status text uses `Palette.warning/positive/negative`: Apple's system
+     orange, green and red as they are (Dan's choice, Sep 2026). Increase
+     Contrast gives Apple's darker versions. No hand-picked colours.
    - **No gradients, glows, beige or "warm sunset" palettes.** The app had
      one, and it looked generated rather than native.
    - Subject colours come from `SubjectPalette`: Apple's system colours, the
