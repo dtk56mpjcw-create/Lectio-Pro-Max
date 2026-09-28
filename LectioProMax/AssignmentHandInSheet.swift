@@ -58,6 +58,14 @@ struct AssignmentHandInSheet: View {
                     }
                 }
 
+                // An upload, a comment or a download that failed. It used to
+                // be noted and never shown: the spinner just went away, and
+                // a hand-in that hadn't reached Lectio looked like one that
+                // had simply not said "Sent".
+                if let actionError {
+                    Banner(text: actionError)
+                }
+
                 openInLectio
             }
         }

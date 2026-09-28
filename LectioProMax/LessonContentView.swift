@@ -20,6 +20,8 @@ struct LessonContentView: View {
     @State private var detail: LessonDetail?
     @State private var loading = false
     @State private var loadError: String?
+    /// A pinned file that wouldn't download.
+    @State private var fileError: String?
     @State private var preview: PreviewDocument?
     @State private var downloading: String?
     @State private var feedback: LessonFeedback?
@@ -61,6 +63,14 @@ struct LessonContentView: View {
                 if detail.isEmpty && placeholder.isEmpty {
                     EmptyNotice(icon: "doc.text", text: "Nothing attached to this lesson")
                 }
+            } else if let loadError, !loading {
+                // Noted and never shown before: without homework to show in
+                // the meantime, a lesson page that didn't load was just blank.
+                Banner(text: loadError)
+            }
+
+            if let fileError {
+                Banner(text: fileError)
             }
 
             if let feedback = feedback, feedback.available {
@@ -196,6 +206,7 @@ struct LessonContentView: View {
         guard !cache.isDetailFresh(link) || (wantFeedback && !cache.isFeedbackFresh(link)) else { return }
 
         loading = detail == nil
+        loadError = nil
         let cookies = await session.requestCookies()
         await cache.load(link, detail: true, feedback: wantFeedback, cookies: cookies)
         loading = false
@@ -222,6 +233,7 @@ struct LessonContentView: View {
 
     private func open(_ file: LessonFile) async {
         downloading = file.link
+        fileError = nil
         defer { downloading = nil }
         let cookies = await session.requestCookies()
         do {
@@ -229,7 +241,7 @@ struct LessonContentView: View {
                 link: file.link, suggestedName: file.name, cookies: cookies)
             preview = PreviewDocument(url: saved)
         } catch {
-            loadError = error.localizedDescription
+            fileError = "Couldn't open “\(file.name)”: " + error.localizedDescription
         }
     }
 }

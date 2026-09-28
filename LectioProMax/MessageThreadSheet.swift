@@ -39,6 +39,13 @@ struct MessageThreadSheet: View {
                             EmptyNotice(icon: "lock", text: "This thread can't be replied to")
                         }
                     }
+
+                    // A reply or an attachment that failed. It used to be
+                    // noted and never shown, so a reply that didn't go looked
+                    // the same as one still on its way.
+                    if let sendError {
+                        Banner(text: sendError)
+                    }
                 }
                 .padding(.horizontal, Metrics.margin)
                 .padding(.top, 24)

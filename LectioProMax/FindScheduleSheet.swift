@@ -291,6 +291,15 @@ struct TargetScheduleSheet: View {
                         VStack(alignment: .leading, spacing: 12) {
                             if loading {
                                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 50)
+                            } else if errorMessage != nil {
+                                // Not "Nothing scheduled": that's what a week
+                                // that didn't load used to say.
+                                VStack(spacing: 4) {
+                                    EmptyNotice(icon: "wifi.exclamationmark", text: "Couldn't load this week")
+                                    Button("Try again") { Task { await load() } }
+                                        .scaledFont(size: 16, weight: .semibold)
+                                        .frame(minHeight: 44)
+                                }
                             } else if let week = week, !week.days.isEmpty {
                                 ForEach(week.days) { day in
                                     dayBlock(day)
@@ -399,6 +408,11 @@ struct TargetScheduleSheet: View {
             week = try await LectioStudyService.loadWeek(
                 for: target, weekCode: weekCode, cookies: cookies)
         } catch {
+            // Stepped on to another week meanwhile: that load takes over.
+            if Task.isCancelled { return }
+            // The week before stays out of it: kept, it showed under the
+            // new week's arrows as if it were that week.
+            week = nil
             errorMessage = error.localizedDescription
         }
         loading = false

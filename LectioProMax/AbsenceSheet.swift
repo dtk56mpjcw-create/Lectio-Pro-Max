@@ -225,6 +225,12 @@ struct ExplainAbsenceSheet: View {
                             .disabled(saving)
                     }
 
+                    // Noted and never shown before: a reason Lectio didn't
+                    // take looked like the button doing nothing.
+                    if let errorMessage {
+                        Banner(text: errorMessage)
+                    }
+
                     Button {
                         Task { await save() }
                     } label: {

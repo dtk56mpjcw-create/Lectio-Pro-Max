@@ -62,6 +62,12 @@ struct NewEventSheet: View {
                         .scaledFont(size: 13.5)
                         .foregroundStyle(.secondary)
 
+                    // Why Lectio didn't take it (its own validator's words
+                    // when it gives some). Noted and never shown before.
+                    if let errorMessage {
+                        Banner(text: errorMessage)
+                    }
+
                     saveButton
                     if isEditing { deleteButton }
                 }

@@ -63,6 +63,13 @@ struct FeedbackSheet: View {
                                 text: "This lesson has no Elevfeedback")
                 }
 
+                // A save, delete, upload or export that failed, under the
+                // button that started it. Noted and never shown before, so a
+                // save that didn't reach Lectio just looked unconfirmed.
+                if let actionError {
+                    Banner(text: actionError)
+                }
+
                 if let feedback = feedback, feedback.canDelete {
                     deleteRow
                 }

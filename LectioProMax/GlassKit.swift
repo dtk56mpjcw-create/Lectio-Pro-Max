@@ -146,6 +146,8 @@ struct EmptyNotice: View {
     }
 }
 
+/// A warning line on a card. Also where a send, save or upload that failed
+/// says why, next to the button that started it.
 struct Banner: View {
     let text: String
     var body: some View {
