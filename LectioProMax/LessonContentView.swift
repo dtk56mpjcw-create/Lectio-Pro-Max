@@ -5,8 +5,8 @@ import SwiftUI
 /// them out), and any pinned files — downloaded with the session's cookies and
 /// opened in-app.
 ///
-/// Shown on the lesson's Content page and in the homework sheet, because both
-/// are looking at the same underlying Lectio page.
+/// Shown on the Content side of a lesson's page and in the homework sheet,
+/// because both are looking at the same underlying Lectio page.
 struct LessonContentView: View {
     let link: String
     /// Shown immediately while the page loads, so there's never a blank wait.
@@ -168,116 +168,45 @@ struct LessonContentView: View {
     }
 }
 
-/// On the lesson page: its content as one card that opens a page of its own,
-/// and its Elevfeedback.
-///
-/// The content used to be spread down the lesson page, and a long homework
-/// with a picture pushed everything else a few screens away. Dan's idea: a
-/// Content page. The card says how the homework starts and what else there
-/// is ("Homework · 2 links · 1 picture"), so most days there's no need to
-/// open it.
-struct LessonOverview: View {
+/// The lesson's Elevfeedback, on the Overview side of its page. It loads the
+/// lesson's Lectio page along with the tab, through the shared cache, so the
+/// Content side is ready by the time you swipe to it.
+struct LessonFeedbackCard: View {
     let link: String
-    /// The schedule's own copy of the homework and note, while the page loads.
-    var placeholder: String = ""
-    /// For Elevfeedback: the lesson's name and subject code. Only a real
-    /// lesson has the tab.
-    var feedbackTitle: String = ""
-    var feedbackCode: String = ""
+    /// The lesson's name and subject code, for the Elevfeedback sheet.
+    var title: String = ""
+    var code: String = ""
 
     @Environment(LectioSession.self) private var session
 
-    @State private var detail: LessonDetail?
-    @State private var loading = false
     @State private var feedback: LessonFeedback?
     @State private var showFeedback = false
 
-    init(link: String, placeholder: String = "", feedbackTitle: String = "", feedbackCode: String = "") {
+    init(link: String, title: String = "", code: String = "") {
         self.link = link
-        self.placeholder = placeholder
-        self.feedbackTitle = feedbackTitle
-        self.feedbackCode = feedbackCode
-        _detail = State(initialValue: LessonCache.shared.detail(link))
-        _feedback = State(initialValue: feedbackTitle.isEmpty ? nil : LessonCache.shared.feedback(link))
-    }
-
-    /// Left out only when there's nothing to open: Lectio's page came back
-    /// empty, or couldn't be had, and the schedule had no homework either.
-    private var showsContent: Bool {
-        if let detail, !detail.isEmpty { return true }
-        return loading || !placeholder.isEmpty
+        self.title = title
+        self.code = code
+        _feedback = State(initialValue: LessonCache.shared.feedback(link))
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if showsContent {
-                contentCard
-            }
+        Group {
+            // A lesson without the tab is normal: no card, and no message.
             if let feedback = feedback, feedback.available {
-                feedbackCard(feedback)
+                card(feedback)
             }
         }
         .task { await load() }
-        .sheet(isPresented: $showFeedback, onDismiss: { Task { await loadFeedback(force: true) } }) {
-            FeedbackSheet(lessonLink: link, title: feedbackTitle, code: feedbackCode)
+        .sheet(isPresented: $showFeedback, onDismiss: { Task { await loadFeedback() } }) {
+            FeedbackSheet(lessonLink: link, title: title, code: code)
                 .environment(session)
         }
-    }
-
-    private var contentCard: some View {
-        let fromPage = detail?.previewText ?? ""
-        let preview = fromPage.isEmpty ? LectioDates.tidy(placeholder) : fromPage
-        let summary = detail?.summary ?? ""
-        return NavigationLink {
-            LessonContentScreen(link: link, placeholder: placeholder)
-        } label: {
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(spacing: 6) {
-                    Text("CONTENT")
-                        .scaledFont(size: 12, weight: .heavy)
-                        .tracking(0.7)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .scaledFont(size: 12.5, weight: .bold)
-                        .foregroundStyle(Palette.accent)
-                }
-                if !preview.isEmpty {
-                    Text(preview)
-                        .scaledFont(size: 16)
-                        .lineSpacing(3)
-                        .lineLimit(3)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else if loading {
-                    HStack(spacing: 9) {
-                        ProgressView().controlSize(.small)
-                        Text("Loading from Lectio…")
-                            .scaledFont(size: 15)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                if !summary.isEmpty {
-                    Text(summary)
-                        .scaledFont(size: 13.5, weight: .medium)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-            }
-            .foregroundStyle(.primary)
-            .padding(15)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentCard(radius: Metrics.inner + 2)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressableCard())
-        .accessibilityHint("Opens the homework and everything else for this lesson")
     }
 
     /// Elevfeedback is a tab on the same Lectio page, so it costs one more
     /// request — made only when a lesson page is actually open, never while
     /// drawing a week of the schedule.
-    private func feedbackCard(_ feedback: LessonFeedback) -> some View {
+    private func card(_ feedback: LessonFeedback) -> some View {
         Button { showFeedback = true } label: {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 6) {
@@ -311,58 +240,25 @@ struct LessonOverview: View {
         .buttonStyle(.plain)
     }
 
-    /// The page and its Elevfeedback together, through the shared cache (the
-    /// Content page then opens with the page already here).
+    /// The tab and the lesson's page together, through the shared cache:
+    /// only what's out of date is asked for.
     private func load() async {
-        guard !link.isEmpty, !loading else { return }
+        guard !link.isEmpty else { return }
         let cache = LessonCache.shared
-        let wantFeedback = !feedbackTitle.isEmpty
-        guard !cache.isDetailFresh(link) || (wantFeedback && !cache.isFeedbackFresh(link)) else {
-            detail = cache.detail(link)
-            if wantFeedback { feedback = cache.feedback(link) }
-            return
+        if !cache.isFeedbackFresh(link) || !cache.isDetailFresh(link) {
+            let cookies = await session.requestCookies()
+            await cache.load(link, detail: true, feedback: true, cookies: cookies)
         }
-
-        loading = detail == nil
-        let cookies = await session.requestCookies()
-        await cache.load(link, detail: true, feedback: wantFeedback, cookies: cookies)
-        loading = false
-
-        if let fresh = cache.detail(link) { detail = fresh }
-        // A lesson without the tab is normal, not an error worth a banner.
-        if wantFeedback, let fresh = cache.feedback(link) { feedback = fresh }
+        if let fresh = cache.feedback(link) { feedback = fresh }
     }
 
     /// After the Elevfeedback sheet closes: what was just written, fresh.
-    private func loadFeedback(force: Bool) async {
-        guard !feedbackTitle.isEmpty, !link.isEmpty else { return }
-        guard force || feedback == nil else { return }
+    private func loadFeedback() async {
+        guard !link.isEmpty else { return }
         let cookies = await session.requestCookies()
         if let fresh = try? await LectioFeedbackService.load(lessonLink: link, cookies: cookies) {
             feedback = fresh
             LessonCache.shared.store(feedback: fresh, for: link)
         }
-    }
-}
-
-/// A lesson's Content page, pushed from its Content card: the note, the
-/// homework and everything else on the lesson's Lectio page, in full.
-struct LessonContentScreen: View {
-    let link: String
-    var placeholder: String = ""
-
-    var body: some View {
-        ScrollView {
-            LessonContentView(link: link, placeholder: placeholder)
-                .padding(.horizontal, Metrics.margin)
-                .padding(.top, 8)
-                .padding(.bottom, 36)
-        }
-        .scrollIndicators(.hidden)
-        .background { AppBackground() }
-        // Small in the bar, as the lesson page's own title is.
-        .navigationTitle("Content")
-        .toolbarTitleDisplayMode(.inline)
-        .toolbarRole(.editor)
     }
 }

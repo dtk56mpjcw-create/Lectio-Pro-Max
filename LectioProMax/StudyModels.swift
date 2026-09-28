@@ -284,39 +284,7 @@ struct LessonDetail {
 
     var files: [LessonFile] { sections.flatMap { $0.entries.flatMap { $0.files } } }
     var isEmpty: Bool { note.isEmpty && sections.allSatisfy { $0.entries.allSatisfy { $0.isEmpty } } }
-
-    /// What the lesson page's Content card shows of it: the start of the
-    /// homework, or else the note, or else whatever comes first.
-    var previewText: String {
-        let homework = sections.first { LessonWording.section($0.title) == "Homework" }
-        if let text = homework?.entries.map(\.text).first(where: { !$0.isEmpty }) {
-            return LectioDates.tidy(text)
-        }
-        if !note.isEmpty { return LectioDates.tidy(note) }
-        return LectioDates.tidy(sections.flatMap(\.entries).map(\.text).first { !$0.isEmpty } ?? "")
-    }
-
-    /// What's inside, in the page's order: "Homework · 2 links · 1 picture".
-    var summary: String {
-        var parts: [String] = []
-        if !note.isEmpty { parts.append("Note") }
-        for section in sections where section.entries.contains(where: { !$0.isEmpty }) {
-            let name = LessonWording.section(section.title)
-            // "Content" says nothing on a card called Content.
-            if name != "Content", !parts.contains(name) { parts.append(name) }
-        }
-        let blocks = sections.flatMap { $0.entries.flatMap(\.blocks) }
-        let links = Set(blocks.flatMap { $0.runs.compactMap(\.link) }).count
-        let pictures = blocks.filter { if case .image = $0 { return true } else { return false } }.count
-        func count(_ n: Int, _ word: String) -> String? {
-            n == 0 ? nil : "\(n) \(word)" + (n == 1 ? "" : "s")
-        }
-        parts += [count(links, "link"), count(pictures, "picture"), count(files.count, "file")]
-            .compactMap { $0 }
-        return parts.joined(separator: " · ")
-    }
 }
-
 
 extension ScheduleTarget {
     /// Lectio writes a student's class into their name: "Ababacarr Mbye Jaye

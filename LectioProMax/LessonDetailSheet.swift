@@ -1,12 +1,11 @@
 import SwiftUI
 
-/// Everything about a lesson: the header, room and teacher, a card for its
-/// content (which opens the Content page) and student feedback. Always
-/// pushed (`LessonDetailScreen`): the Content card needs a stack to push onto.
+/// The Overview side of a lesson's page: the header, room and teacher, and
+/// Elevfeedback. Its homework and other content are on the Content side, not
+/// here (Dan's choice): the overview stays short.
 struct LessonDetailContent: View {
     let lesson: Lesson
     let dayISO: String
-
 
     private var tint: Color { Color.forSubject(lesson.code) }
     private var state: LessonState { lesson.state(onDay: dayISO) }
@@ -54,14 +53,7 @@ struct LessonDetailContent: View {
             }
 
             if let link = lesson.link {
-                // A Content card that opens the lesson's content on a page
-                // of its own, and Elevfeedback.
-                LessonOverview(link: link,
-                               placeholder: [lesson.homework, lesson.note]
-                                 .filter { !$0.isEmpty }
-                                 .joined(separator: "\n\n"),
-                               feedbackTitle: lesson.displayTitle,
-                               feedbackCode: lesson.code)
+                LessonFeedbackCard(link: link, title: lesson.displayTitle, code: lesson.code)
             }
 
             if let link = lesson.link, let url = URL(string: link) {
@@ -120,39 +112,56 @@ struct LessonDetailContent: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentCard(radius: Metrics.inner)
     }
+}
 
-    private func textSection(_ title: String, _ body: String) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(title.uppercased())
-                .scaledFont(size: 12, weight: .heavy)
-                .tracking(0.7)
-                .foregroundStyle(.secondary)
-            Text(LectioDates.tidy(body))
-                .scaledFont(size: 16.5)
-                .lineSpacing(3)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(15)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentCard(radius: Metrics.inner + 2)
-    }
+/// The two sides of a lesson's page.
+enum LessonPage: Hashable {
+    case overview, content
 }
 
 /// A lesson pushed onto the Schedule or Search stack (the standard push)
 /// from the card that was tapped. The system back button replaces the sheet's close button —
 /// nothing floats over the schedule's own controls any more.
+///
+/// Two sides, as in Dan's reference: Overview (the lesson and its
+/// Elevfeedback) and Content (its note, homework and everything else on its
+/// Lectio page). Chosen with the system's segmented control, which is Liquid
+/// Glass on iOS 26, on a glass capsule over the page, or by swiping between
+/// them (native paging). Something with no Lectio page of its own, such as
+/// your own event, has only the overview, and no chooser.
 struct LessonDetailScreen: View {
     let lesson: Lesson
     let dayISO: String
 
+    @State private var page: LessonPage = .overview
+
     var body: some View {
-        ScrollView {
-            LessonDetailContent(lesson: lesson, dayISO: dayISO)
-                .padding(.horizontal, Metrics.margin)
-                .padding(.top, 8)
-                .padding(.bottom, 36)
+        Group {
+            if let link = lesson.link {
+                TabView(selection: $page) {
+                    scrolling {
+                        LessonDetailContent(lesson: lesson, dayISO: dayISO)
+                    }
+                    .tag(LessonPage.overview)
+                    scrolling {
+                        LessonContentView(link: link,
+                                          placeholder: [lesson.homework, lesson.note]
+                                            .filter { !$0.isEmpty }
+                                            .joined(separator: "\n\n"))
+                    }
+                    .tag(LessonPage.content)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                // An inset, not iOS 26's safeAreaBar: that one misplaces
+                // controls pinned like this on iOS 27's first betas, and the
+                // classmate's iPhone 15 runs iOS 27.
+                .safeAreaInset(edge: .top, spacing: 0) { chooser }
+            } else {
+                scrolling {
+                    LessonDetailContent(lesson: lesson, dayISO: dayISO)
+                }
+            }
         }
-        .scrollIndicators(.hidden)
         .background { AppBackground() }
         // A small title in the bar, as Calendar's "Event Details" has, so the
         // back button isn't floating on its own; the lesson's own name stays
@@ -161,6 +170,35 @@ struct LessonDetailScreen: View {
         .navigationTitle(lesson.isClassLesson || lesson.isPrivateEvent ? "Lesson" : "Event")
         .toolbarTitleDisplayMode(.inline)
         .toolbarRole(.editor)
+    }
+
+    /// Overview or Content: a tap here, or a swipe on the page.
+    private var chooser: some View {
+        Picker("Show", selection: $page.animation(.snappy)) {
+            Text("Overview").tag(LessonPage.overview)
+            Text("Content").tag(LessonPage.content)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .padding(4)
+        .glassEffect(.regular, in: .capsule)
+        .padding(.horizontal, Metrics.margin)
+        .padding(.top, 2)
+        .padding(.bottom, 8)
+    }
+
+    /// One side of the page, scrolling on its own. Never wider than the page
+    /// (see pageWide): a side that could move sideways would let the paging
+    /// take a drag from it, the Schedule's old long-day jerk.
+    private func scrolling<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        ScrollView {
+            content()
+                .padding(.horizontal, Metrics.margin)
+                .padding(.top, 8)
+                .padding(.bottom, 36)
+                .pageWide()
+        }
+        .scrollIndicators(.hidden)
     }
 }
 

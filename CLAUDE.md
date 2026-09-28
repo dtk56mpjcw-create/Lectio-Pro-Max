@@ -109,6 +109,7 @@ problem.
 | Parsing | `LectioParser.swift`, `HTMLDocument.swift`, `HTMLNode.swift`: Lectio's HTML scraped; selectors reverse-engineered from real pages; Danish text |
 | Schedule logic | `DayPlan.swift` (what an item is, `ClassNames`), `DayAgenda.swift`, `WeekAgenda.swift`, `LectioDates.swift` (always Danish time: `LectioDates.calendar`) |
 | Schedule UI | `ScheduleTab.swift`: day and week pagers, `DayPage`/`WeekPage`, `ScreenZoom` day↔week switch, `PageHeading` |
+| Lesson page | `LessonDetailSheet.swift` (`LessonDetailScreen`: Overview and Content, a segmented control on a glass capsule plus paging; Overview is lesson info and Elevfeedback only, by Dan's choice), `LessonContentView.swift`, `LessonContentReader.swift` (Lectio's editor HTML into paragraphs, links, pictures), `LessonBlocksView.swift` |
 | Widgets | `Shared/WidgetFeed.swift` (JSON in the app group), `WidgetFeedBuilder.swift`, `LectioWidgets/` |
 | Background and notifications | `BackgroundCheck.swift`, `ScheduleWatch.swift`, `NotificationService.swift`, `Reminder*.swift` |
 | Design kit | `GlassKit.swift` (Palette, Metrics, ContentCard, GlassCircleButton, PressableCard…), `TypeScale.swift`, `SubjectColor.swift`, `NavigationChrome.swift` |

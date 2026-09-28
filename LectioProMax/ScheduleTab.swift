@@ -565,7 +565,8 @@ extension View {
     /// caught, jumped back and never bounced. One row a little too wide was
     /// enough: a cancelled item in Also on, with "Cancelled" in full next to
     /// a long name and a room. Found with the scroll lab (SCROLL_BUG.md).
-    fileprivate func pageWide() -> some View {
+    /// Also the lesson page's Overview and Content, which page sideways too.
+    func pageWide() -> some View {
         containerRelativeFrame(.horizontal, alignment: .leading)
     }
 }
