@@ -237,9 +237,12 @@ SwiftUI scroll facts learned the hard way:
 - Content wider than a vertical scroll view, even by a little, lets it move
   sideways, and a paging scroll view around it then takes the drag over.
   Pages inside a pager hold their content to the page's width (`pageWide()`).
-- A `Text` can't be drawn narrower than a letter and "…". Squeezed past
-  that (in an `HStack` where other items have higher `layoutPriority`), it
-  sticks out and makes its row wider than offered.
+- A row can come out wider than it's offered. The "Also on" row did with
+  "Cancelled" at full width (by `.fixedSize()` or a higher `layoutPriority`)
+  next to a long name and a room; with the label cut to "C…", or gone, it
+  didn't. Exactly which piece stuck out wasn't measured; the likely one is
+  the room, squeezed to "0…". `pageWide()` keeps the scrolling safe either
+  way.
 - `.layoutPriority` only counts as the outermost modifier; under another
   one it's lost.
 - Scroll ids must be unique across nested scroll views. Week cards use

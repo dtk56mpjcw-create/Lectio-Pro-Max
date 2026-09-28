@@ -21,8 +21,10 @@ measured.
   (`pageWide()`, `containerRelativeFrame(.horizontal)` in `ScheduleTab`),
   so no row can make a page wider than the screen. The lab's "Day no wider
   than the page" switch is the same thing, and it ended the jerk.
-- `ae1c45b`: the row itself fits: the room number shares the space with the
-  name instead of getting nothing (it drew "0…" and stuck out).
+- `ae1c45b`: the row itself: the room number shares the space with the name
+  instead of being squeezed to "0…". Which piece of the row stuck out
+  wasn't measured (the console lines weren't sent); the room is the likely
+  one. `pageWide()` keeps the scrolling safe whatever a row does.
 - Native paging and the shrinking tab bar both stay as they are.
 
 Found with the scroll lab: pieces switched off one at a time, then the real

@@ -763,10 +763,9 @@ private struct SmallItem: View {
             // The room shares what's left with the name, the shorter one
             // whole first: "002" stays "002", a long room and a long name
             // split it ("190 Fodbo…"). It used to come after the name, and
-            // next to "Cancelled" in full it got nothing: squeezed past the
-            // smallest it can be drawn ("0…"), it pushed the row wider than
-            // its card, and the day wider than the page (see pageWide in
-            // ScheduleTab).
+            // next to "Cancelled" in full it was squeezed to "0…" and the
+            // row came out wider than its card, and the day wider than the
+            // page (see pageWide in ScheduleTab).
             if !lesson.room.isEmpty {
                 Text(LessonText.abbreviated(lesson.room))
                     .scaledFont(size: 13, weight: .semibold)
