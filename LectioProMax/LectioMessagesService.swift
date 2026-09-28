@@ -293,8 +293,7 @@ enum LectioMessagesService {
 
         var byID: [String: Recipient] = [:]
         for source in sources {
-            let kind = kindFor(source.key)
-            guard kind != nil else { continue }
+            guard let kind = kindFor(source.key) else { continue }
             var path = source.url
             if !path.contains("&reduced=0") { path += "&reduced=0" }
             let full = path.hasPrefix("http") ? path : "https://www.lectio.dk" + path
@@ -313,7 +312,7 @@ enum LectioMessagesService {
                       let name = row[0] as? String,
                       let id = row[1] as? String,
                       !name.isEmpty, !id.isEmpty else { continue }
-                byID[id] = Recipient(id: id, name: name, kind: kind!)
+                byID[id] = Recipient(id: id, name: name, kind: kind)
             }
         }
 
