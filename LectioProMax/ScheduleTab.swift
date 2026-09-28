@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Routing
 
@@ -72,9 +73,6 @@ struct ScheduleTab: View {
     @State private var switcher = ScreenZoom()
     /// A day the week view should scroll to (Today, in week view).
     @State private var weekFocus: WeekFocus?
-    /// Where each pager's current swipe began (see `settle`).
-    @State private var daySwipe = SwipeStart()
-    @State private var weekSwipe = SwipeStart()
 
     /// The pages run under the tab bar, so the last lesson needs room to
     /// scroll clear of it. The floor is the floating tab bar's own height, in
@@ -320,13 +318,16 @@ struct ScheduleTab: View {
                 }
             }
             .scrollTargetLayout()
+            // Pages a day at a time: see NativePaging.
+            .background(alignment: .topLeading) { NativePaging().frame(width: 1, height: 1) }
         }
         .scrollPosition(id: $dayPage, anchor: .center)
         .scrollIndicators(.hidden)
         .onAppear { align(proxy, on: selectedDate) }
-        .onScrollPhaseChange { old, new, context in
-            settle(proxy, pages: Self.days, swipe: daySwipe, nearest: dayPage ?? selectedDate,
-                   from: old, to: new, context: context)
+        .onScrollPhaseChange { _, phase, context in
+            if phase == .idle, Self.isBetweenPages(context.geometry) {
+                align(proxy, on: dayPage ?? selectedDate, animated: true)
+            }
         }
     }
 
@@ -342,56 +343,23 @@ struct ScheduleTab: View {
                 }
             }
             .scrollTargetLayout()
+            .background(alignment: .topLeading) { NativePaging().frame(width: 1, height: 1) }
         }
         .scrollPosition(id: $weekPage, anchor: .center)
         .scrollIndicators(.hidden)
         .onAppear { align(proxy, on: Self.monday(of: selectedDate)) }
-        .onScrollPhaseChange { old, new, context in
-            settle(proxy, pages: Self.weeks, swipe: weekSwipe, nearest: weekPage ?? Self.monday(of: selectedDate),
-                   from: old, to: new, context: context)
-        }
-    }
-
-    /// Paging — a day or a week at a time — done here, when a swipe ends.
-    ///
-    /// Not with `.scrollTargetBehavior(.paging)`: a scroll behaviour is
-    /// handed down to every scroll view inside the one it's set on, so each
-    /// day and week paged too, up and down. A long day could then only rest
-    /// at its top or its bottom, and a pull past its end snapped back
-    /// without the bounce — the jerk that only long days had. Nothing is set
-    /// on the pagers now, so nothing reaches the days, and they scroll as
-    /// any list does.
-    ///
-    /// - Let go with a flick: on to the next page that way (back to the one
-    ///   it started on if it hardly moved).
-    /// - Let go without one, part-way: the nearest page.
-    private func settle(_ proxy: ScrollViewProxy, pages: [String], swipe: SwipeStart, nearest: String,
-                        from old: ScrollPhase, to new: ScrollPhase, context: ScrollPhaseChangeContext) {
-        let geometry = context.geometry
-        let width = geometry.containerSize.width
-        guard width > 0, !pages.isEmpty else { return }
-        switch new {
-        case .interacting where old != .interacting:
-            swipe.offset = geometry.contentOffset.x
-        case .decelerating where old == .interacting:
-            let start = Int((swipe.offset / width).rounded())
-            let moved = geometry.contentOffset.x - swipe.offset
-            let step = abs(moved) > 12 ? (moved > 0 ? 1 : -1) : 0
-            let target = pages[min(max(start + step, 0), pages.count - 1)]
-            DispatchQueue.main.async {
-                withAnimation(.snappy(duration: 0.3)) { proxy.scrollTo(target, anchor: .center) }
+        .onScrollPhaseChange { _, phase, context in
+            if phase == .idle, Self.isBetweenPages(context.geometry) {
+                align(proxy, on: weekPage ?? Self.monday(of: selectedDate), animated: true)
             }
-        case .idle where Self.isBetweenPages(geometry):
-            align(proxy, on: nearest, animated: true)
-        default:
-            break
         }
     }
 
     /// Whether a pager came to rest part-way between two pages. Normally it
-    /// doesn't — paging sees to that — and then it's left alone: scrolling
-    /// it to where it already is, after every swipe, could still be under
-    /// way when your finger came down to scroll the day, and caught it.
+    /// doesn't — paging (NativePaging) sees to that — and then it's left
+    /// alone: scrolling it to where it already is, after every swipe, could
+    /// still be under way when your finger came down to scroll the day, and
+    /// caught it.
     static func isBetweenPages(_ geometry: ScrollGeometry) -> Bool {
         let width = geometry.containerSize.width
         guard width > 0 else { return false }
@@ -622,10 +590,71 @@ private struct DayPage: View {
 }
 
 
-/// Where a pager's swipe began (see ScheduleTab.settle). A plain object:
-/// noting it mustn't redraw anything mid-swipe.
-final class SwipeStart {
-    var offset: CGFloat = 0
+/// UIKit's own paging — the snap `.scrollTargetBehavior(.paging)` gives —
+/// switched on for the pager alone.
+///
+/// Not `.scrollTargetBehavior(.paging)` itself: a scroll behaviour is handed
+/// down to every scroll view inside the one it's set on, so each day and
+/// week paged too, up and down, and any behaviour at all on them (even one
+/// that changed nothing) had SwiftUI decide where each of their scrolls
+/// ends — on a long day, a release past the end jumped instead of bouncing.
+/// UIKit's paging belongs to the one scroll view it's switched on for; the
+/// days and weeks inside scroll as any list does.
+///
+/// Placed as a background of the pager's stack, so the first scroll view
+/// above it is the pager. SwiftUI switches paging off again when it updates
+/// a scroll view it wasn't told to page — an earlier probe that switched it
+/// on once left the pager scrolling freely — so this one watches the
+/// setting and puts it straight back.
+struct NativePaging: UIViewRepresentable {
+    func makeUIView(context: Context) -> Probe { Probe() }
+
+    func updateUIView(_ probe: Probe, context: Context) {
+        probe.attach()
+    }
+
+    final class Probe: UIView {
+        private weak var pager: UIScrollView?
+        private var watch: NSKeyValueObservation?
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            isUserInteractionEnabled = false
+            backgroundColor = .clear
+        }
+
+        required init?(coder: NSCoder) {
+            super.init(coder: coder)
+        }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            attach()
+            // Once more after SwiftUI has finished setting the scroll view up.
+            DispatchQueue.main.async { [weak self] in self?.attach() }
+        }
+
+        func attach() {
+            guard window != nil else { return }
+            var view = superview
+            while let current = view, !(current is UIScrollView) { view = current.superview }
+            guard let scroll = view as? UIScrollView else {
+                #if DEBUG
+                print("NativePaging: no scroll view above the probe")
+                #endif
+                return
+            }
+            if scroll !== pager {
+                pager = scroll
+                watch = scroll.observe(\.isPagingEnabled) { scroll, _ in
+                    MainActor.assumeIsolated {
+                        if !scroll.isPagingEnabled { scroll.isPagingEnabled = true }
+                    }
+                }
+            }
+            if !scroll.isPagingEnabled { scroll.isPagingEnabled = true }
+        }
+    }
 }
 
 /// How far the end of a page's content has to stay above the page's bottom
