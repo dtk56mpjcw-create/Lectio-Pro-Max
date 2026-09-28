@@ -87,7 +87,7 @@ struct SettingsScreen: View {
 
                 #if DEBUG
                 section("Testing",
-                        footer: "Only in builds from Xcode. Expire session throws the Lectio session away as if it had run out, to check the app gets back in by itself with the auto-login key.") {
+                        footer: "Only in Debug builds (Xcode's Run in Debug), never in Release. Expire session throws the Lectio session away as if it had run out, to check the app gets back in by itself with the auto-login key.") {
                     row("Auto-login key", "key.fill", .gray, value: keyText, chevron: nil)
                     Divider().padding(.leading, 56)
                     row("Session", "clock.arrow.circlepath", .gray, value: sessionText, chevron: nil)
