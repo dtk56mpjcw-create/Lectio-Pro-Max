@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Everything about a lesson: the header, room and teacher, the lesson's own
-/// page and student feedback. Shown pushed (`LessonDetailScreen`) or, where
-/// there's no stack to push onto, as a sheet (`LessonDetailSheet`).
+/// Everything about a lesson: the header, room and teacher, a card for its
+/// content (which opens the Content page) and student feedback. Always
+/// pushed (`LessonDetailScreen`): the Content card needs a stack to push onto.
 struct LessonDetailContent: View {
     let lesson: Lesson
     let dayISO: String
@@ -135,19 +135,6 @@ struct LessonDetailContent: View {
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentCard(radius: Metrics.inner + 2)
-    }
-}
-
-/// A lesson as a sheet, for places with no navigation stack to push onto.
-struct LessonDetailSheet: View {
-    let lesson: Lesson
-    let dayISO: String
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        DetailSheetScaffold(onClose: { dismiss() }) {
-            LessonDetailContent(lesson: lesson, dayISO: dayISO)
-        }
     }
 }
 
