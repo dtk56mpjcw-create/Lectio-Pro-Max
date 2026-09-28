@@ -198,7 +198,11 @@ Mail (messages) and Reminders.
   exactly as tall as the room under the navigation bar (`pagerPage`), so the
   pager can't take over a pull past the end of a long day. Debug builds
   print "pager moved up/down" if the pager ever moves vertically. See
-  "Attempt 10" in `SCROLL_BUG.md`.
+  "Attempt 10" in `SCROLL_BUG.md`. Result: still jerks, but only on phones
+  with a home indicator (not the SE 3).
+- **Attempt 11** (same branch, waiting for a test): also holds the tab bar
+  measurements (`barLine`, `safeBottom`) at the tallest bar, so pages don't
+  change length when iOS 26's bar shrinks mid-scroll.
 - **Don't repeat those attempts.** Start by confirming the coupling with
   logging or a minimal repro.
 

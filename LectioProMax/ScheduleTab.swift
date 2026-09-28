@@ -81,8 +81,11 @@ struct ScheduleTab: View {
     @State private var safeBottom: CGFloat = 0
     private var bottomInset: CGFloat { max(safeBottom, 84) }
     /// Where the tab bar starts, in points from the top of the screen. Each
-    /// page measures itself against it (see `barClearance`).
+    /// page measures itself against it (see `barClearance`). Held at the
+    /// bar's tallest: see `pagers`.
     @State private var barLine: CGFloat = 0
+    /// The width `barLine` was measured at: a new width measures afresh.
+    @State private var measuredWidth: CGFloat = 0
     /// The room a page has under the navigation bar (see `pagerPage`).
     @State private var pageHeight: CGFloat = 0
 
@@ -277,20 +280,40 @@ struct ScheduleTab: View {
         }
         .ignoresSafeArea(.container, edges: .bottom)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Both measurements below are held at the tab bar's tallest. On a
+        // phone with a home indicator the bar shrinks as you scroll down and
+        // grows back as you scroll up, and measured live, every page's room
+        // at the bottom (so its length) changed under your finger right at
+        // the end of a long day: the jerk those phones had and the SE, with
+        // a home button, never did. Each write here redraws every page, so
+        // only a real change is written.
         .onGeometryChange(for: CGFloat.self) { geometry in
             geometry.safeAreaInsets.bottom
         } action: { inset in
-            safeBottom = inset
+            if inset > safeBottom { safeBottom = inset }
         }
         // The bottom of the area the tab bar leaves free: this frame is the
         // one inside the safe area (the pagers only draw past it), so its
         // bottom edge is the top of the bar. Taking the reported inset off
         // as well counted the bar twice — 84 pt of empty space under the
         // last lesson.
-        .onGeometryChange(for: CGFloat.self) { geometry in
-            geometry.frame(in: .global).maxY.rounded()
-        } action: { line in
-            barLine = line
+        .onGeometryChange(for: CGPoint.self) { geometry in
+            CGPoint(x: geometry.size.width.rounded(), y: geometry.frame(in: .global).maxY.rounded())
+        } action: { measured in
+            if measured.x != measuredWidth || barLine <= 0 {
+                measuredWidth = measured.x
+                barLine = measured.y
+            } else if measured.y < barLine, barLine - measured.y < 150 {
+                // Up to a whole bar higher: the bar grown back, or a first
+                // reading taken before there was one. More than that (a
+                // keyboard) is passing, and would leave a screen of space.
+                barLine = measured.y
+            }
+            #if DEBUG
+            if measured.y != barLine {
+                print("NativePaging: \(Date().formatted(.dateTime.hour().minute().second().secondFraction(.fractional(3)))) tab bar line \(measured.y), held at \(barLine)")
+            }
+            #endif
         }
     }
 

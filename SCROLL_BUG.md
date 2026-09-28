@@ -173,6 +173,31 @@ the pager moving, B isn't fully fixed (the page height is off). If they don't,
 B was right but not enough; go on with the experiments below. When it's
 confirmed, remove the debug logging (`watchForDrift`).
 
+**Result of attempt 10 (Dan, 28 Sep):** still jerks on the long day (Wed 30
+Sep), but only on phones without a home button; on the iPhone SE 3 it's fine.
+`42425b4` had noticed the same (iPhone 15 yes, SE no).
+
+### Attempt 11: C, the tab bar shrinking (waiting for Dan's test)
+
+- **C. The bottom moving mid-scroll.** On phones with a home indicator, iOS 26's
+  tab bar shrinks as you scroll down (`.tabBarMinimizeBehavior(.onScrollDown)`)
+  and grows back as you scroll up. `ScheduleTab` measured the top of the bar
+  (`barLine`) and the bottom safe area (`safeBottom`) live, and every page's
+  bottom padding (`barClearance`) follows them. So each page's length changed
+  under the finger right at the end of a long day. `8379930` saw this in the
+  logs and held the measurements at the tallest bar, but that was rolled back
+  with everything else in `0ab14a2`, so attempt 10 had C back.
+- Every earlier row had at least one of A, B or C. Attempt 11 = attempt 10 plus
+  the hold from `8379930` (`barLine` only moves up, by less than a bar, or at a
+  new width; `safeBottom` only grows).
+- Debug builds also print "tab bar line …, held at …" whenever the bar moves
+  away from the held line. Seeing those while scrolling confirms C happens; the
+  pages no longer follow it.
+
+If it still jerks: in Xcode's console, filter by `NativePaging`, reproduce, and
+copy the lines. "pager moved up/down" means B isn't fixed; "tab bar line" lines
+with a jerk would mean something else still follows the bar.
+
 ### Experiments, cheapest first
 
 For each one, test in the Simulator on a long day:
