@@ -75,10 +75,20 @@ struct SearchTab: View {
         }
         .task { await session.loadInbox() }
         .sheet(item: $openWork) { item in
-            WorkDetailSheet(item: item,
-                            done: session.snapshot.isCompleted(item),
-                            toggle: { session.toggleCompleted(item) })
-                .environment(session)
+            // As the Homework tab opens it: an assignment on its hand-in
+            // page. Opened as homework, it read the hand-in page as a
+            // lesson's page, with no status and no way to hand in.
+            if item.isAssignment, let link = item.link {
+                AssignmentHandInSheet(item: item, link: link,
+                                      done: session.snapshot.isCompleted(item),
+                                      toggle: { session.toggleCompleted(item) })
+                    .environment(session)
+            } else {
+                WorkDetailSheet(item: item,
+                                done: session.snapshot.isCompleted(item),
+                                toggle: { session.toggleCompleted(item) })
+                    .environment(session)
+            }
         }
         .sheet(item: $openThread) { thread in
             MessageThreadSheet(summary: thread).environment(session)
