@@ -104,7 +104,7 @@ problem.
 | Schedule logic | `DayPlan.swift` (what an item is, `ClassNames`), `DayAgenda.swift`, `WeekAgenda.swift`, `LectioDates.swift` (always Danish time: `LectioDates.calendar`) |
 | Schedule UI | `ScheduleTab.swift`: day and week pagers, `DayPage`/`WeekPage`, `ScreenZoom` day↔week switch, `PageHeading` |
 | Widgets | `Shared/WidgetFeed.swift` (JSON in the app group), `WidgetFeedBuilder.swift`, `LectioWidgets/` |
-| Background and notifications | `BackgroundCheck.swift`, `ScheduleWatch.swift`, `NotificationService.swift`, `Reminders*.swift` |
+| Background and notifications | `BackgroundCheck.swift`, `ScheduleWatch.swift`, `NotificationService.swift`, `Reminder*.swift` |
 | Design kit | `GlassKit.swift` (Palette, Metrics, ContentCard, GlassCircleButton, PressableCard…), `TypeScale.swift`, `SubjectColor.swift`, `NavigationChrome.swift` |
 
 The code is heavily commented with *why* things are the way they are, often
@@ -125,8 +125,7 @@ Mail (messages) and Reminders.
    - `TabView` with the Liquid Glass tab bar;
    - `NavigationStack` with large titles and standard pushes;
    - system sheets;
-   - `.searchable`, `.refreshable`, swipe actions, context menus,
-     `ShareLink`.
+   - `.searchable`, `.refreshable`, swipe actions, context menus.
    Don't hand-roll a copy of something the system provides. Earlier
    hand-made versions (a custom tab bar, pinch-to-zoom between day and week)
    were removed for that reason.
