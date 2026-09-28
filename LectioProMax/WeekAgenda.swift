@@ -575,7 +575,7 @@ private struct WeekLineMain: View {
             case .cancelled(let lesson):
                 Text(lesson.headline)
                     .scaledFont(size: 15.5, weight: .medium)
-                    .strikethrough()
+                    .strikethrough(color: Palette.negative)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .layoutPriority(1)

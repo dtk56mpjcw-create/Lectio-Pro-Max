@@ -652,7 +652,7 @@ private struct FreeCard: View {
             if let cancelled = slot.cancelled.first {
                 Text("·").foregroundStyle(.tertiary)
                 Text(cancelled.headline)
-                    .strikethrough()
+                    .strikethrough(color: Palette.negative)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Text("cancelled")
@@ -759,7 +759,7 @@ private struct SmallItem: View {
             Text(lesson.headline.replacingOccurrences(of: "\\s*\\bAFLYST\\b", with: "",
                                                       options: [.regularExpression, .caseInsensitive]))
                 .scaledFont(size: 15, weight: .medium)
-                .strikethrough(struckThrough)
+                .strikethrough(struckThrough, color: Palette.negative)
                 .foregroundStyle(lesson.cancelled ? Color(.secondaryLabel) : Color.primary)
                 .lineLimit(1)
                 .layoutPriority(1)

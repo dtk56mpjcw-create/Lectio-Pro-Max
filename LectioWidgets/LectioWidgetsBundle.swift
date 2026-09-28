@@ -243,7 +243,7 @@ struct CompactRow: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text(item.title)
                     .font(.subheadline.weight(.semibold))
-                    .strikethrough(item.cancelled)
+                    .strikethrough(item.cancelled, color: .red)
                     .foregroundStyle(item.cancelled ? .secondary : .primary)
                     .lineLimit(1)
                 Text(detail)

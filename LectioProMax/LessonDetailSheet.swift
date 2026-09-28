@@ -39,7 +39,7 @@ struct LessonDetailContent: View {
                 }
                 Text(bigTitle)
                     .scaledFont(size: 31, weight: .bold)
-                    .strikethrough(lesson.cancelled)
+                    .strikethrough(lesson.cancelled, color: Palette.negative)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(LectioDates.longLabel(iso: dayISO) + " · " + when)
                     .scaledFont(size: 15.5, weight: .medium)

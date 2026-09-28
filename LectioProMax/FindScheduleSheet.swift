@@ -368,7 +368,7 @@ struct TargetScheduleSheet: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(lesson.displayTitle)
                             .scaledFont(size: 15.5, weight: .medium)
-                            .strikethrough(lesson.cancelled)
+                            .strikethrough(lesson.cancelled, color: Palette.negative)
                             .multilineTextAlignment(.leading)
                         let meta = [lesson.code.uppercased(), lesson.room, lesson.teacher]
                             .filter { !$0.isEmpty }.joined(separator: " · ")
