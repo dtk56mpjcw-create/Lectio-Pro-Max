@@ -443,4 +443,22 @@ struct ScheduleRulesTests {
         #expect(registered?.comment == "I was like 5 minutes late")
         #expect(registered?.registered.hasPrefix("16/9-2026") == true)
     }
+
+    /// Changing an absence's reason sends the comment box as it stands, so
+    /// the form has to open with the comment already given.
+    @Test func anAbsenceFormOpensWithWhatWasGiven() {
+        let html = """
+        <form id='aspnetForm'>
+          <select name='s$m$Content$Content$StudentReasonDD$dd'>
+            <option value=''></option><option value='Sygdom'>Sygdom</option>
+            <option selected='selected' value='Andet'>Andet</option>
+          </select>
+          <textarea name='s$m$Content$Content$cancelStudentNote$tb'>\r\nI was like 5 minutes late</textarea>
+        </form>
+        """
+        let form = LectioStudyService.parseReasonForm(HTMLDocument.parse(html))
+        #expect(form.options == ["Sygdom", "Andet"])
+        #expect(form.reason == "Andet")
+        #expect(form.comment == "I was like 5 minutes late")
+    }
 }

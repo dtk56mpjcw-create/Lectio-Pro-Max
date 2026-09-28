@@ -46,18 +46,37 @@ enum LectioStudyService {
         return absence
     }
 
-    /// The reasons Lectio offers a student. Read off the form rather than
-    /// hard-coded, since a school can configure them.
-    @concurrent static func reasonOptions(at pageURL: String, cookies: [HTTPCookie]) async throws -> [String] {
-        let html = try await LectioService.fetchHTML(pageURL, cookies: cookies)
-        let root = HTMLDocument.parse(html)
-        guard let select = root.firstWhere({
-            $0.name == "select" && ($0.attr("name") ?? "").contains("StudentReasonDD")
-        }) else { return [] }
+    /// Lectio's form for one absence: the reasons it offers (read off the
+    /// form rather than hard-coded, since a school can configure them), and
+    /// the reason and comment already given.
+    struct ReasonForm {
+        var options: [String] = []
+        var reason: String = ""
+        var comment: String = ""
+    }
 
-        return select.all("option")
-            .compactMap { $0.attr("value") }
-            .filter { !$0.isEmpty }
+    static let reasonField = "s$m$Content$Content$StudentReasonDD$dd"
+    static let commentField = "s$m$Content$Content$cancelStudentNote$tb"
+
+    @concurrent static func reasonForm(at pageURL: String, cookies: [HTTPCookie]) async throws -> ReasonForm {
+        let html = try await LectioService.fetchHTML(pageURL, cookies: cookies)
+        return parseReasonForm(HTMLDocument.parse(html))
+    }
+
+    static func parseReasonForm(_ root: HTMLNode) -> ReasonForm {
+        var form = ReasonForm()
+        if let select = root.firstWhere({
+            $0.name == "select" && ($0.attr("name") ?? "").contains("StudentReasonDD")
+        }) {
+            let options = select.all("option")
+            form.options = options.compactMap { $0.attr("value") }.filter { !$0.isEmpty }
+            // The one Lectio marks as chosen, if any. An absence without a
+            // reason shows the first on the list, which isn't a choice.
+            form.reason = options.first { $0.attrs["selected"] != nil }?.attr("value") ?? ""
+        }
+        form.comment = (LectioForms.fields(in: root)[commentField] ?? "")
+            .replacingOccurrences(of: "\r\n", with: "\n")
+        return form
     }
 
     /// Explains an absence: Lectio's own dropdown plus a free-text note.
@@ -67,8 +86,8 @@ enum LectioStudyService {
                              cookies: [HTTPCookie]) async throws {
         let html = try await LectioService.fetchHTML(pageURL, cookies: cookies)
         var fields = LectioForms.fields(in: HTMLDocument.parse(html))
-        fields["s$m$Content$Content$StudentReasonDD$dd"] = reason
-        fields["s$m$Content$Content$cancelStudentNote$tb"] = comment
+        fields[reasonField] = reason
+        fields[commentField] = comment
 
         _ = try await LectioForms.postBack(
             pageURL: pageURL,
