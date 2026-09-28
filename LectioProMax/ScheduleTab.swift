@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Routing
 
@@ -82,6 +83,8 @@ struct ScheduleTab: View {
     /// Where the tab bar starts, in points from the top of the screen. Each
     /// page measures itself against it (see `barClearance`).
     @State private var barLine: CGFloat = 0
+    /// The room a page has under the navigation bar (see `pagerPage`).
+    @State private var pageHeight: CGFloat = 0
 
     /// Eight months either side of today. The pages are lazy, so the length
     /// costs nothing.
@@ -296,14 +299,23 @@ struct ScheduleTab: View {
             LazyHStack(spacing: 0) {
                 ForEach(Self.days, id: \.self) { date in
                     DayPage(date: date, bottomInset: bottomInset, barLine: barLine)
-                        .containerRelativeFrame([.horizontal, .vertical])
+                        .pagerPage(height: pageHeight)
                 }
             }
             .scrollTargetLayout()
+            // Pages a day at a time: see NativePaging.
+            .background(alignment: .topLeading) { NativePaging().frame(width: 1, height: 1) }
         }
-        .scrollTargetBehavior(.paging)
         .scrollPosition(id: $dayPage, anchor: .center)
         .scrollIndicators(.hidden)
+        // How tall a page may be without the pager scrolling up and down
+        // (see pagerPage). Only changes when the screen does — a rotation,
+        // the bars — never while scrolling.
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            (geometry.containerSize.height - geometry.contentInsets.top - geometry.contentInsets.bottom).rounded(.down)
+        } action: { _, height in
+            if height > 0, height != pageHeight { pageHeight = height }
+        }
         .onAppear { align(proxy, on: selectedDate) }
         .onScrollPhaseChange { _, phase, _ in
             if phase == .idle { align(proxy, on: dayPage ?? selectedDate, animated: true) }
@@ -318,12 +330,12 @@ struct ScheduleTab: View {
                              focus: weekFocus.flatMap { Self.monday(of: $0.date) == monday ? $0 : nil }) { date in
                         pick(date)
                     }
-                    .containerRelativeFrame([.horizontal, .vertical])
+                    .pagerPage(height: pageHeight)      // see dayPager
                 }
             }
             .scrollTargetLayout()
+            .background(alignment: .topLeading) { NativePaging().frame(width: 1, height: 1) }
         }
-        .scrollTargetBehavior(.paging)
         .scrollPosition(id: $weekPage, anchor: .center)
         .scrollIndicators(.hidden)
         .onAppear { align(proxy, on: Self.monday(of: selectedDate)) }
@@ -429,6 +441,123 @@ struct ScheduleTab: View {
 
     fileprivate static func dropFirstWord(_ text: String) -> String {
         text.split(separator: " ").dropFirst().joined(separator: " ")
+    }
+}
+
+// MARK: - Paging
+
+extension View {
+    /// A page of a pager: the pager's width, and exactly the height it has
+    /// room for under the navigation bar — not a point more.
+    ///
+    /// Sized to the pager on both axes, a page was as tall as the whole
+    /// pager and then set below the navigation bar, so it stuck out at the
+    /// bottom and the pager itself could move up and down by that much. A
+    /// paging scroll view takes over a drag that one inside it can't carry
+    /// any further — that's how Photos moves on to the next picture when you
+    /// pan to the edge of a zoomed one. So a pull past the end of a long day
+    /// went to the pager: the day stopped dead without its bounce, and on
+    /// release the pager snapped back to its page — the jerk. Short days
+    /// don't scroll, so they never got there, and a pager without paging
+    /// doesn't take drags over, which is why switching paging off hid it.
+    /// (Debug builds say in the console if the pager ever moves up or down:
+    /// see NativePaging.)
+    ///
+    /// Until the pager has measured itself (`height` is 0) the page is simply
+    /// as tall as the pager, as before.
+    fileprivate func pagerPage(height: CGFloat) -> some View {
+        containerRelativeFrame([.horizontal, .vertical]) { length, axis in
+            axis == .vertical && height > 0 ? min(length, height) : length
+        }
+    }
+}
+
+/// UIKit's own paging — the system's snap — switched on for the pager alone.
+///
+/// Not `.scrollTargetBehavior(.paging)`: a scroll behaviour is handed down to
+/// every scroll view inside the one it's set on, so each day and week paged
+/// too, up and down a screen at a time, and a long day could only rest at its
+/// top or its bottom. UIKit's paging belongs to the one scroll view it's
+/// switched on for; the days and weeks inside scroll as any list does.
+///
+/// Placed as a background of the pager's stack, so the first scroll view
+/// above it is the pager. SwiftUI switches paging off again whenever it
+/// updates a scroll view it wasn't told to page, so this watches the setting
+/// and puts it straight back.
+struct NativePaging: UIViewRepresentable {
+    func makeUIView(context: Context) -> Probe { Probe() }
+
+    func updateUIView(_ probe: Probe, context: Context) {
+        probe.attach()
+    }
+
+    final class Probe: UIView {
+        private weak var pager: UIScrollView?
+        private var watch: NSKeyValueObservation?
+        #if DEBUG
+        private var drift: NSKeyValueObservation?
+        private var lastDrift: CGFloat = 0
+        #endif
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            isUserInteractionEnabled = false
+            backgroundColor = .clear
+        }
+
+        required init?(coder: NSCoder) {
+            super.init(coder: coder)
+        }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            attach()
+            // Once more after SwiftUI has finished setting the scroll view up.
+            DispatchQueue.main.async { [weak self] in self?.attach() }
+        }
+
+        func attach() {
+            guard window != nil else { return }
+            var view = superview
+            while let current = view, !(current is UIScrollView) { view = current.superview }
+            guard let scroll = view as? UIScrollView else {
+                #if DEBUG
+                print("NativePaging: no scroll view above the probe")
+                #endif
+                return
+            }
+            if scroll !== pager {
+                pager = scroll
+                watch = scroll.observe(\.isPagingEnabled) { scroll, _ in
+                    MainActor.assumeIsolated {
+                        if !scroll.isPagingEnabled { scroll.isPagingEnabled = true }
+                    }
+                }
+                #if DEBUG
+                watchForDrift(scroll)
+                #endif
+            }
+            if !scroll.isPagingEnabled { scroll.isPagingEnabled = true }
+        }
+
+        #if DEBUG
+        /// Debug builds: says in Xcode's console if the pager ever moves up or
+        /// down. It never should — if a long day still jerks and this prints,
+        /// the pages are taller than the pager again (see `pagerPage`).
+        private func watchForDrift(_ scroll: UIScrollView) {
+            print("NativePaging: pager \(Int(scroll.contentSize.width))×\(Int(scroll.contentSize.height)) in \(Int(scroll.bounds.width))×\(Int(scroll.bounds.height)), insets top \(Int(scroll.adjustedContentInset.top)) bottom \(Int(scroll.adjustedContentInset.bottom))")
+            drift = scroll.observe(\.contentOffset) { [weak self] scroll, _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    let moved = (scroll.contentOffset.y + scroll.adjustedContentInset.top).rounded()
+                    if moved != self.lastDrift {
+                        self.lastDrift = moved
+                        print("NativePaging: \(Date().formatted(.dateTime.hour().minute().second().secondFraction(.fractional(3)))) pager moved up/down: \(moved) pt")
+                    }
+                }
+            }
+        }
+        #endif
     }
 }
 
@@ -558,10 +687,10 @@ private struct DayPage: View {
 
 /// How far the end of a page's content has to stay above the page's bottom
 /// edge to scroll clear of the tab bar: however much of the page the bar
-/// covers. Measured rather than assumed, because a page can reach past the
-/// bottom of the screen — the pager makes it as tall as the screen and then
-/// sets it below the navigation bar — and a fixed allowance for the bar
-/// alone left the last lesson or event half under it on long days.
+/// covers. Measured rather than assumed: the pages run on under the bar to
+/// the bottom of the screen, and when they were still taller than the pager
+/// (see `pagerPage`), a fixed allowance for the bar alone left the last
+/// lesson or event half under it on long days.
 fileprivate func barClearance(pageBottom: CGFloat, barLine: CGFloat, atLeast floor: CGFloat) -> CGFloat {
     guard pageBottom > 0, barLine > 0 else { return floor }
     // A frame caught mid-transition can read oddly; never less than the

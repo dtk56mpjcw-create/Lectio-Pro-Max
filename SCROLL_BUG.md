@@ -18,7 +18,23 @@ pager has iOS's built-in paging (the snap) switched on, and disappears when it's
 off.** It doesn't matter how it's switched on. The goal is to get both:
 the native snap sideways *and* smooth scrolling up and down.
 
-**Current state of `main`:** the Schedule code (`ScheduleTab.swift`, `RootView.swift`,
+**Latest attempt (branch `claude/new-session-5ognj6`, waiting for a test):**
+there seem to be **two** causes, and no earlier attempt removed both at once.
+
+1. `.scrollTargetBehavior(.paging)` also reaches the days inside the pager, so
+   the days paged up and down.
+2. Each page was a little taller than the room it has (it stuck out at the
+   bottom by the navigation bar's height), so the pager itself could move up
+   and down a bit. A paging scroll view takes over a drag that the view inside
+   it can't carry further (that's how Photos moves to the next picture when you
+   pan to the edge of a zoomed one). So a pull past the end of a long day went
+   to the pager instead of the day, and on release the pager snapped back.
+
+The fix turns on the native paging for the sideways pager only (so nothing
+reaches the days) and makes each page exactly as tall as the room it has. See
+"Attempt 10" below for how to test it.
+
+**State of `main` before that:** the Schedule code (`ScheduleTab.swift`, `RootView.swift`,
 `GlassKit.swift`) is rolled back to how it was before any scroll fix (`7840174`):
 `.scrollTargetBehavior(.paging)` on the pagers, the native snap, and the original
 long-day jerk. All the attempts below are kept on the branch `scroll-experiments`
@@ -99,6 +115,62 @@ was yanked back within one frame while the finger was still down.
     - the `onGeometryChange` state writes (`pageBottom`, `barLine`,
       `safeBottom`) that change the day's bottom padding, and so its content
       height, right at the end of the content.
+
+### Attempt 10: both causes at once (waiting for Dan's test)
+
+Reading the table again, two mechanisms fit every row, and no attempt ever
+removed both:
+
+- **A. Inherited paging.** `.scrollTargetBehavior(.paging)` on a pager reaches
+  the days and weeks inside it, so they paged vertically (seen in the `8bc7cbf`
+  logs). Present in every row that used `.paging`.
+- **B. Pages taller than the pager.** `.containerRelativeFrame([.horizontal, .vertical])`
+  made each page as tall as the whole pager and then set it below the navigation
+  bar (see the old `barClearance` comment), so the pager's `UIScrollView` had a
+  vertical range the height of the navigation bar. UIKit hands a drag from a
+  nested scroll view that has hit its edge to an enclosing **paging** scroll
+  view (the PhotoScroller behaviour). So at the bottom of a long day, a pull
+  past the end went to the pager: the day stopped at its edge with no bounce
+  (the logged "interacting → idle at the same offset"; the "yanked back within
+  one frame while the finger was still down"), and on release the pager paged
+  back vertically. Short days don't scroll, so they never reach an edge. A
+  non-paging pager doesn't take drags over, which is why `7eb549c` and
+  `1e90d72` were smooth even though B was there.
+
+| Row | A (inherited paging) | B (tall pages + paging pager) | Result |
+|---|---|---|---|
+| before `8379930` … `171c4ec` | yes | yes | jerk |
+| `18e85c7` | yes | no | jerk |
+| `8bc7cbf` | no (FreeScrolling) | yes | jerk |
+| `7eb549c`, `1e90d72` | no | no (pager not paging) | smooth |
+| `9e90dcc` | no | yes | jerk |
+| **attempt 10** | no | no | **to test** |
+
+The change (in `ScheduleTab.swift`):
+
+- The pagers have no scroll behaviour. `NativePaging` (the KVO version from
+  `9e90dcc`) switches UIKit's paging on for the pager's own scroll view, so the
+  snap is the system's.
+- Pages use `pagerPage(height:)`: the pager's width, and the height the pager
+  has room for (measured once with `onScrollGeometryChange`: the container height
+  minus the content insets). The pager can no longer move up and down.
+- Debug builds print, in Xcode's console, the pager's size and insets once, and
+  a line **"pager moved up/down"** if the pager ever moves vertically. It never
+  should.
+
+How to test (Simulator, then the iPhone 15 on iOS 27):
+
+1. ⇧⌘K, then ⌘R.
+2. Go to a long day. Slow drag past the end, hold, release: it should bounce
+   like any list. Then flick to the end.
+3. Swipe sideways between days: it should snap like before.
+4. Today button, a day tapped in week view, and day ↔ week switching.
+5. Look at the console. "pager moved up/down" should never appear.
+
+If it still jerks: copy the `NativePaging:` lines from the console. If they show
+the pager moving, B isn't fully fixed (the page height is off). If they don't,
+B was right but not enough; go on with the experiments below. When it's
+confirmed, remove the debug logging (`watchForDrift`).
 
 ### Experiments, cheapest first
 
