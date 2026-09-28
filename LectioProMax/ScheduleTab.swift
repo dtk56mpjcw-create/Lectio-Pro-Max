@@ -322,8 +322,10 @@ struct ScheduleTab: View {
         .scrollPosition(id: $dayPage, anchor: .center)
         .scrollIndicators(.hidden)
         .onAppear { align(proxy, on: selectedDate) }
-        .onScrollPhaseChange { _, phase, _ in
-            if phase == .idle { align(proxy, on: dayPage ?? selectedDate, animated: true) }
+        .onScrollPhaseChange { _, phase, context in
+            if phase == .idle, Self.isBetweenPages(context.geometry) {
+                align(proxy, on: dayPage ?? selectedDate, animated: true)
+            }
         }
     }
 
@@ -344,8 +346,8 @@ struct ScheduleTab: View {
         .scrollPosition(id: $weekPage, anchor: .center)
         .scrollIndicators(.hidden)
         .onAppear { align(proxy, on: Self.monday(of: selectedDate)) }
-        .onScrollPhaseChange { _, phase, _ in
-            if phase == .idle {
+        .onScrollPhaseChange { _, phase, context in
+            if phase == .idle, Self.isBetweenPages(context.geometry) {
                 align(proxy, on: weekPage ?? Self.monday(of: selectedDate), animated: true)
             }
         }
@@ -354,6 +356,17 @@ struct ScheduleTab: View {
     /// Makes sure a pager rests squarely on a page. Normally a no-op; it's
     /// there for the times something interrupts a swipe halfway — switching
     /// between day and week mid-gesture left two half days on screen.
+    /// Whether a pager came to rest part-way between two pages. Normally it
+    /// doesn't — paging sees to that — and then it's left alone: scrolling
+    /// it to where it already is, after every swipe, could still be under
+    /// way when your finger came down to scroll the day, and caught it.
+    static func isBetweenPages(_ geometry: ScrollGeometry) -> Bool {
+        let width = geometry.containerSize.width
+        guard width > 0 else { return false }
+        let off = geometry.contentOffset.x.truncatingRemainder(dividingBy: width)
+        return abs(off) > 1 && abs(width - off) > 1
+    }
+
     private func align(_ proxy: ScrollViewProxy, on id: String, animated: Bool = false) {
         DispatchQueue.main.async {
             if animated {
