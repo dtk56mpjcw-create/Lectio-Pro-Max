@@ -10,7 +10,7 @@ import Foundation
 /// italic, list items and pictures. File links are collected on their own,
 /// as files, as they were before.
 struct LessonContentReader {
-    private(set) var blocks: [LessonBlock] = []
+    private(set) var blocks: [LessonContentBlock] = []
     private(set) var files: [LessonFile] = []
 
     private var runs: [LessonRun] = []
@@ -20,7 +20,7 @@ struct LessonContentReader {
     private var italic = 0
     private var link: String?
 
-    static func read(_ fragment: HTMLNode) -> (blocks: [LessonBlock], files: [LessonFile]) {
+    static func read(_ fragment: HTMLNode) -> (blocks: [LessonContentBlock], files: [LessonFile]) {
         var reader = LessonContentReader()
         reader.walk(fragment)
         reader.endBlock()
@@ -28,7 +28,7 @@ struct LessonContentReader {
     }
 
     /// The words alone, one paragraph a line.
-    static func plainText(_ blocks: [LessonBlock]) -> String {
+    static func plainText(_ blocks: [LessonContentBlock]) -> String {
         blocks.map(\.plainText).filter { !$0.isEmpty }.joined(separator: "\n")
     }
 

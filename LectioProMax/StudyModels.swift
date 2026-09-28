@@ -217,7 +217,7 @@ struct LessonRun: Hashable {
 /// paragraph (its own line breaks kept, its links tappable), an item of a
 /// list, or a picture. The text alone lost all three: links became plain
 /// words, pictures vanished, and paragraphs ran into each other.
-enum LessonBlock: Hashable {
+enum LessonContentBlock: Hashable {
     case paragraph([LessonRun])
     case listItem(marker: String, runs: [LessonRun])
     case image(String)
@@ -245,7 +245,7 @@ struct LessonEntry: Identifiable, Hashable {
     var id: String
     /// The words alone, one paragraph a line, for previews.
     var text: String = ""
-    var blocks: [LessonBlock] = []
+    var blocks: [LessonContentBlock] = []
     var files: [LessonFile] = []
 
     var isEmpty: Bool { text.isEmpty && blocks.isEmpty && files.isEmpty }

@@ -5,7 +5,7 @@ import UIKit
 /// LessonContentReader): paragraphs with their own line breaks, links you
 /// can tap (they open in Safari), bold and italic, list items, and pictures.
 struct LessonBlocksView: View {
-    let blocks: [LessonBlock]
+    let blocks: [LessonContentBlock]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
