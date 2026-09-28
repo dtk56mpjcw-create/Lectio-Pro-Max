@@ -347,11 +347,11 @@ private struct LessonBlock: View {
 
     private var colour: Color {
         if let mark { return mark.tint }
-        return lesson.isClassLesson ? Color.forSubject(lesson.code) : Color(.systemGray)
+        return lesson.isClassLesson ? Color.forSubject(lesson.subjectCode) : Color(.systemGray)
     }
     private var stripe: Color {
         if let mark { return mark.tint }
-        return lesson.isClassLesson ? Color.subjectStripe(lesson.code, in: scheme) : Color(.systemGray)
+        return lesson.isClassLesson ? Color.subjectStripe(lesson.subjectCode, in: scheme) : Color(.systemGray)
     }
 
     /// Only when it isn't simply the module: "13:45–15:15".
@@ -719,7 +719,7 @@ private struct SmallItem: View {
         HStack(spacing: 10) {
             // The same mark as a lesson's, only shorter.
             Capsule()
-                .fill(lesson.isClassLesson ? Color.subjectStripe(lesson.code, in: scheme) : Color(.systemGray3))
+                .fill(lesson.isClassLesson ? Color.subjectStripe(lesson.subjectCode, in: scheme) : Color(.systemGray3))
                 .frame(width: 4, height: 18)
             // "Frivillig drama AFLYST": the word is Lectio's own "cancelled",
             // which the row already says.

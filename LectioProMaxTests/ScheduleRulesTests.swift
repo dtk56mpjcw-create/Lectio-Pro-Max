@@ -286,6 +286,31 @@ struct ScheduleRulesTests {
         #expect(Lesson(code: "ap la", title: "x", team: "1i ap la, 1j ap la").isClassLesson)
     }
 
+    @Test func subjectsBesideAnyClassName() {
+        // A word with a digit is a class, wherever it is and however it's
+        // written; the subject is the first word without one.
+        #expect(SubjectPalette.subjectKey("HF1b en") == "en")
+        #expect(SubjectPalette.subjectKey("2.a Ma A") == "ma")
+        #expect(SubjectPalette.subjectKey("IB1 Math HL") == "ma")
+        #expect(SubjectPalette.subjectKey("1j SP 2") == "sp")
+        #expect(SubjectPalette.subjectKey("25a fy") == "fy")
+    }
+
+    @Test func yourClassLaterInTheTeam() {
+        defer { ClassNames.use("1j") }
+
+        ClassNames.use("3.b")
+        // Written subject first, or with a year in front: still yours.
+        #expect(Lesson(code: "Ma A", title: "x", team: "Ma A 3.b").isClassLesson)
+        #expect(Lesson(code: "Ma A", title: "x", team: "Ma A 3.b").subjectName == "Maths")
+        ClassNames.use("1a")
+        #expect(Lesson(code: "MA", title: "x", team: "2021-1a MA").isClassLesson)
+        // Only your own class, and only beside a subject: another class's
+        // lesson, and a trip named after yours, stay what they were.
+        #expect(!Lesson(code: "Ma A", title: "x", team: "Ma A 3.b").isClassLesson)
+        #expect(!Lesson(code: "", title: "Studietur", team: "Studietur 1a").isClassLesson)
+    }
+
     @Test func apLatinIsItsOwnSubject() {
         // AP's Latin part, not the whole of AP, wherever the name is shown.
         #expect(Lesson(code: "ap la", title: "x", team: "1i ap la, 1j ap la").subjectName == "AP Latin")

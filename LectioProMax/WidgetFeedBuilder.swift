@@ -183,7 +183,7 @@ enum WidgetFeedBuilder {
         case .readingDay?: return "indigo"
         default: break
         }
-        guard lesson.isClassLesson, let key = SubjectPalette.subjectKey(lesson.code) else { return "gray" }
+        guard lesson.isClassLesson, let key = SubjectPalette.subjectKey(lesson.subjectCode) else { return "gray" }
         return SubjectPalette.choice(forKey: key).rawValue
     }
 

@@ -21,7 +21,7 @@ struct SubjectColorsScreen: View {
         for week in session.snapshot.weeks.values {
             for day in week.days {
                 for lesson in day.lessons where !lesson.isPrivateEvent {
-                    codes.append(lesson.code)
+                    codes.append(lesson.subjectCode)
                 }
             }
         }

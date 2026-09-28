@@ -31,14 +31,14 @@ struct LessonDetailContent: View {
         return lesson.note
     }
 
-    private var tint: Color { Color.forSubject(lesson.code) }
+    private var tint: Color { Color.forSubject(lesson.subjectCode) }
     private var state: LessonState { lesson.state(onDay: dayISO) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 9) {
                 HStack(spacing: 8) {
-                    SubjectDot(code: lesson.isClassLesson ? lesson.code : "", size: 9)
+                    SubjectDot(code: lesson.isClassLesson ? lesson.subjectCode : "", size: 9)
                     Text(kicker.uppercased())
                         .scaledFont(size: 14, weight: .heavy)
                         .tracking(0.6)

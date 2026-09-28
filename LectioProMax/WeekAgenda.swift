@@ -629,7 +629,7 @@ private struct WeekLineTrailing: View {
                     Image(systemName: "book.closed.fill")
                         .scaledFont(size: 12, weight: .semibold)
                         .foregroundStyle(lesson.isClassLesson
-                                         ? Color.subjectStripe(lesson.code, in: scheme)
+                                         ? Color.subjectStripe(lesson.subjectCode, in: scheme)
                                          : Color(.secondaryLabel))
                         .accessibilityLabel("Homework")
                 }

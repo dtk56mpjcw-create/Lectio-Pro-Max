@@ -80,9 +80,12 @@ enum SubjectPalette {
 
     /// Reduces whatever Lectio calls a team to the subject it teaches:
     /// "1j ma" → "ma", "1ij daAB" → "da", "1j fy øv" → "fy", "ENB" → "en".
-    /// Class prefixes start with a digit ("1j", "2i"); the level letters glued
-    /// on the end ("daAB", "enB") are dropped by keeping the first two letters,
-    /// which is how Danish subject abbreviations are written.
+    /// Class names have a digit in them ("1j", "2.a", "HF1b", "IB1"), subject
+    /// names don't, so words with a digit are skipped: "HF1b en" is English,
+    /// where skipping only words that start with one made it "hf". The level
+    /// letters glued on the end ("daAB", "enB") are dropped by keeping the
+    /// first two letters, which is how Danish subject abbreviations are
+    /// written.
     ///
     /// One subject takes two words: AP's Latin part ("1j ap la") is a
     /// subject of its own, "ap la", AP Latin, not the whole of AP. Read by
@@ -91,10 +94,7 @@ enum SubjectPalette {
         let tokens = rawCode
             .split(whereSeparator: { $0 == " " || $0 == "\t" || $0 == "\n" })
             .map(String.init)
-            .filter { token in
-                guard let first = token.first else { return false }
-                return !first.isNumber
-            }
+            .filter { token in !token.isEmpty && !token.contains(where: \.isNumber) }
         func key(_ token: String) -> String? {
             let letters = token.lowercased().filter { $0.isLetter }
             return letters.count >= 2 ? String(letters.prefix(2)) : nil

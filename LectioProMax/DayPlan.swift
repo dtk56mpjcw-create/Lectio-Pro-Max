@@ -23,6 +23,12 @@ extension Lesson {
         return isClassLesson ? code : nil
     }
 
+    /// What a lesson's colour is read from: its team's subject part, as its
+    /// name is ("ma" from "1j ma", "Ma A" from "Ma A 3.b"), or else Lectio's
+    /// code. The code alone drops the team's first word, which at a school
+    /// that writes the subject first is the subject.
+    var subjectCode: String { subjectPart ?? code }
+
     /// "Maths" — only for a class lesson in a subject the app knows. The old
     /// guess from any code's first letters made MUN into "Music".
     var subjectName: String? {
@@ -78,6 +84,8 @@ extension Lesson {
                     return g[1].trimmingCharacters(in: .whitespaces)
                 }
             }
+            // Your class, but not up front: "Ma A 3.b", "2021-1a MA".
+            if let subject = ClassNames.subjectBesideOwnClass(t) { return subject }
             // No class to go by: a team of your own is the subject itself.
             if classless && Lesson.isOwnTeam(t) { return t }
             return nil
@@ -225,11 +233,11 @@ enum ClassNames {
         lock.lock(); defer { lock.unlock() }
         guard name != own else { return }
         own = name
+        // Which teams are yours can change with the class itself, not only
+        // its shape (see subjectBesideOwnClass).
+        LessonMemo.forgetClasses()
         guard name.contains(where: \.isNumber), name.contains(where: \.isLetter) else {
-            if ownPattern != nil {
-                ownPattern = nil
-                LessonMemo.forgetClasses()
-            }
+            ownPattern = nil
             return
         }
         var shape = ""
@@ -247,11 +255,30 @@ enum ClassNames {
             else { shape += NSRegularExpression.escapedPattern(for: String(ch)) }
         }
         let pattern = "^" + shape + "\\s+(.+)$"
-        let newPattern = pattern == usual ? nil : pattern
-        if newPattern != ownPattern {
-            ownPattern = newPattern
-            LessonMemo.forgetClasses()
+        ownPattern = pattern == usual ? nil : pattern
+    }
+
+    /// A team that has your class in it, but not up front ("Ma A 3.b",
+    /// "2021-1a MA"), and a subject the app knows beside it: that subject.
+    /// Only your own class, and only a known subject, so a trip named after
+    /// your class ("Studietur 1j") stays a trip, and nobody else's lessons
+    /// become yours.
+    static func subjectBesideOwnClass(_ team: String) -> String? {
+        let cls = Lesson.compactClass(current)
+        guard !cls.isEmpty, cls.contains(where: \.isNumber) else { return nil }
+        var words = team.split(separator: " ").map(String.init)
+        guard words.count >= 2 else { return nil }
+        let punctuation = CharacterSet(charactersIn: ",:;()")
+        guard let index = words.firstIndex(where: { word in
+            let w = word.lowercased().trimmingCharacters(in: punctuation)
+            return w == cls || w.split(separator: "-").last.map(String.init) == cls
+        }) else { return nil }
+        words.remove(at: index)
+        let rest = words.joined(separator: " ")
+        guard let key = SubjectPalette.subjectKey(rest), SubjectNames.knownName(forKey: key) != nil else {
+            return nil
         }
+        return rest
     }
 
     /// From the profile: the class, and whether you're a student without
