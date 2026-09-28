@@ -43,6 +43,7 @@ struct ScrollLab: View {
     @AppStorage("lab.cancelledGreyLabel") private var cancelledGreyLabel = false
     @AppStorage("lab.cancelledSystemRed") private var cancelledSystemRed = false
     @AppStorage("lab.cancelledLabelFixed") private var cancelledLabelFixed = false
+    @AppStorage("lab.fitsWidth") private var fitsWidth = false
     @AppStorage("lab.rowsAreButtons") private var rowsAreButtons = false
 
     @State private var page: Int? = LabDays.start
@@ -71,6 +72,7 @@ struct ScrollLab: View {
         if cancelledGreyLabel { parts.append("Cancelled in grey") }
         if cancelledSystemRed { parts.append("Cancelled in plain red") }
         if cancelledLabelFixed { parts.append("Cancelled fixed size (old)") }
+        if fitsWidth { parts.append("day no wider than the page") }
         parts.append("+\(rows) made-up rows" + (rowsAreButtons ? " (buttons)" : ""))
         return parts.joined(separator: " · ")
     }
@@ -128,7 +130,8 @@ struct ScrollLab: View {
             LazyHStack(spacing: 0) {
                 ForEach(LabDays.all, id: \.self) { day in
                     LabPage(day: day, realDays: realDays, leaveOut: leaveOut,
-                            rows: rows, rowsAreButtons: rowsAreButtons, summary: summary,
+                            rows: rows, rowsAreButtons: rowsAreButtons, fitsWidth: fitsWidth,
+                            summary: summary,
                             refreshable: refreshable, measuredBottom: measuredBottom,
                             barLine: barLine, floor: max(safeBottom, 84))
                         .environment(\.labCancelledLook, cancelledLook)
@@ -190,6 +193,7 @@ struct ScrollLab: View {
             .pickerStyle(.inline)
             Section("Pieces") {
                 Toggle("Pages as tall as the pager", isOn: $fullHeight)
+                Toggle("Day no wider than the page", isOn: $fitsWidth)
                 Toggle("Pull to refresh", isOn: $refreshable)
                 Toggle("Tracks the page", isOn: $trackPage)
                 Toggle("Bottom room measured", isOn: $measuredBottom)
@@ -289,6 +293,9 @@ private struct LabPage: View {
     let leaveOut: LabLeaveOut
     let rows: Int
     let rowsAreButtons: Bool
+    /// The day's content held to exactly the page's width, however wide a
+    /// row inside it comes out.
+    let fitsWidth: Bool
     let summary: String
     let refreshable: Bool
     let measuredBottom: Bool
@@ -345,8 +352,28 @@ private struct LabPage: View {
             .padding(.horizontal, Metrics.margin)
             .padding(.top, 8)
             .padding(.bottom, bottomRoom)
+            // How wide the day's content comes out, before any hold: wider
+            // than the page means a row sticks out.
+            .onGeometryChange(for: CGFloat.self) { geometry in
+                geometry.size.width
+            } action: { width in
+                print("Lab: \(LabLog.stamp) day \(day - LabDays.start) content \(String(format: "%.2f", width)) wide")
+            }
+            .modifier(LabFitsWidth(on: fitsWidth))
         }
         .scrollIndicators(.hidden)
+        // What the scroll view makes of it: a content wider than the page
+        // can move sideways, and a paging pager takes such a drag over.
+        .onScrollGeometryChange(for: String.self) { geometry in
+            String(format: "%.2f wide in %.2f", geometry.contentSize.width, geometry.containerSize.width)
+        } action: { _, sizes in
+            print("Lab: \(LabLog.stamp) day \(day - LabDays.start) scrolls \(sizes)")
+        }
+        .onScrollGeometryChange(for: Int.self) { geometry in
+            Int((geometry.contentOffset.x * 100).rounded())
+        } action: { _, x in
+            print("Lab: \(LabLog.stamp) day \(day - LabDays.start) moved sideways to \(String(format: "%.2f", Double(x) / 100))")
+        }
         .modifier(LabPageBottom(on: measuredBottom, pageBottom: $pageBottom))
         .modifier(LabRefresh(on: refreshable))
         // A real week is fetched as the Schedule fetches it (a read, and
@@ -527,6 +554,21 @@ private struct LabMeasureBar: ViewModifier {
                 } action: { line in
                     barLine = line
                 }
+        } else {
+            content
+        }
+    }
+}
+
+/// The day's content exactly as wide as its scroll view: a row that comes
+/// out a little too wide can't make the whole day wider than the page.
+private struct LabFitsWidth: ViewModifier {
+    let on: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if on {
+            content.containerRelativeFrame(.horizontal, alignment: .leading)
         } else {
             content
         }

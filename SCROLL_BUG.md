@@ -362,6 +362,29 @@ last: the label is back to its full width, the same geometry as with
 `.fixedSize()` itself was the trigger. If it jerks again, the trigger is the
 row's geometry (the label at full width), not the modifier.
 
+**Second test (Dan, 28 Sep): with "Cancelled" in full, the jerk is back.**
+So it isn't `.fixedSize()`: it's the row with the whole label in it. Dan's
+read: the full "Cancelled" pushes past the room the row leaves for the room
+number.
+
+Hypothesis (one): with the label at full width, `SmallItem`'s row comes out
+wider than its card (the name and the label take their room, the room
+number can't shrink below "0…"), so the day's content is a little wider
+than the page. A scroll view whose content is wider than it can move
+sideways, and a paging scroll view takes over a drag that the scroll view
+inside it can't carry further (the handoff from attempt 10's B, only
+sideways). That fits: the catch and no bounce (the day's drag ends when
+the pager takes it), the sideways movement Dan saw on that day, paging
+needed, and the label only at full width.
+
+Test in the lab (Real days, 30 Sep): the console ("Lab:") prints the day's
+content width, what the scroll view makes of it ("scrolls 366.40 wide in
+366.00") and any sideways movement. Then "Day no wider than the page" (in
+Pieces) holds the content to the page's width
+(`.containerRelativeFrame(.horizontal)`): if that stops the jerk, the
+hypothesis holds. The real fix would then be the row itself never coming
+out wider than its card, plus the hold as a guard for every day.
+
 Remove the lab (and its lines in RootView, SettingsScreen, DayList and
 SmallItem) once the fix is confirmed.
 
