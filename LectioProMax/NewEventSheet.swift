@@ -119,7 +119,7 @@ struct NewEventSheet: View {
 
     private var timesCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            DatePicker("Starts", selection: $start)
+            DatePicker("Starts", selection: startKeepingLength)
                 .scaledFont(size: 16, weight: .medium)
                 .disabled(saving)
             Divider().opacity(0.4)
@@ -132,6 +132,19 @@ struct NewEventSheet: View {
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentCard(radius: Metrics.inner + 2)
+    }
+
+    /// Moving the start moves the end with it, keeping the event's length,
+    /// as Calendar does. Before, a start moved past the end left Save
+    /// greyed out with nothing to say why.
+    private var startKeepingLength: Binding<Date> {
+        Binding(
+            get: { start },
+            set: { newStart in
+                let length = max(end.timeIntervalSince(start), 0)
+                start = newStart
+                end = newStart.addingTimeInterval(length > 0 ? length : 3600)
+            })
     }
 
     private func label(_ text: String) -> some View {
