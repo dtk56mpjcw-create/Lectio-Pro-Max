@@ -543,6 +543,7 @@ private struct DayPage: View {
                 .padding(.bottom, barClearance(pageBottom: pageBottom, barLine: barLine,
                                                atLeast: bottomInset) + 24)
             }
+            .pageWide()
         }
         .onGeometryChange(for: CGFloat.self) { geometry in
             geometry.frame(in: .global).maxY.rounded()
@@ -553,6 +554,19 @@ private struct DayPage: View {
         // The system's own pull to refresh, the work in a task of its own so
         // an update mid-refresh can't cancel it.
         .refreshable { await Task { await session.refresh() }.value }
+    }
+}
+
+extension View {
+    /// A page's content exactly as wide as the page, however wide a row in
+    /// it comes out. Content wider than its scroll view lets the page move
+    /// sideways, and the paging pager around it takes over any drag the
+    /// page can't carry further that way: on a long day, a pull at the end
+    /// caught, jumped back and never bounced. One row a little too wide was
+    /// enough: a cancelled item in Also on, with "Cancelled" in full next to
+    /// a long name and a room. Found with the scroll lab (SCROLL_BUG.md).
+    fileprivate func pageWide() -> some View {
+        containerRelativeFrame(.horizontal, alignment: .leading)
     }
 }
 
@@ -679,6 +693,7 @@ private struct WeekPage: View {
             .padding(.top, 8)
             .padding(.bottom, barClearance(pageBottom: pageBottom, barLine: barLine,
                                            atLeast: bottomInset) + 24)
+            .pageWide()
         }
         .onGeometryChange(for: CGFloat.self) { geometry in
             geometry.frame(in: .global).maxY.rounded()
