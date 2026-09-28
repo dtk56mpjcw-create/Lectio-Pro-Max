@@ -18,7 +18,12 @@ pager has iOS's built-in paging (the snap) switched on, and disappears when it's
 off.** It doesn't matter how it's switched on. The goal is to get both:
 the native snap sideways *and* smooth scrolling up and down.
 
-**Latest attempt (branch `claude/new-session-5ognj6`, waiting for a test):**
+**Attempts 10 and 11, really built (Dan, 28 Sep evening): still jerk, and the
+long day now scrolled on too far at the bottom (too much empty space under
+the last item).** Rolled back: `ScheduleTab.swift` is `main`'s again. The notes
+below explain what they tried; keep them so they aren't repeated.
+
+**What attempt 10 tried (rolled back):**
 there seem to be **two** causes, and no earlier attempt removed both at once.
 
 1. `.scrollTargetBehavior(.paging)` also reaches the days inside the pager, so
