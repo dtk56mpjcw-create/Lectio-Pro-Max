@@ -51,7 +51,11 @@ struct FeedbackSheet: View {
                 header
 
                 if loadError != nil {
-                    EmptyNotice(icon: "arrow.clockwise", text: "Couldn't reach Lectio")
+                    RetryNotice(text: "Couldn't reach Lectio") {
+                        loadError = nil
+                        ready = false
+                        Task { await load() }
+                    }
                 } else if !ready {
                     ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
                 } else if editing {

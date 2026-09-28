@@ -8,6 +8,9 @@ struct FindScheduleSheet: View {
     @State private var query = ""
     @State private var kind: ScheduleTarget.Kind = .student
     @State private var chosen: ScheduleTarget?
+    /// The list came back empty: Lectio didn't answer. Without this the
+    /// spinner went on for good.
+    @State private var loadFailed = false
 
     private var pool: [ScheduleTarget] {
         session.scheduleTargets
@@ -37,7 +40,7 @@ struct FindScheduleSheet: View {
                 }
                 .pickerStyle(.segmented)
 
-                TextField(session.scheduleTargets.isEmpty ? "Loading…" : "Search", text: $query)
+                TextField(session.scheduleTargets.isEmpty && !loadFailed ? "Loading…" : "Search", text: $query)
                     .scaledFont(size: 16)
                     .autocorrectionDisabled()
                     .padding(13)
@@ -53,7 +56,7 @@ struct FindScheduleSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(.clear)
-        .task { await session.loadScheduleTargets() }
+        .task { await loadTargets() }
         // Pushed from More, so a schedule pushes too — back goes back.
         .navigationDestination(item: $chosen) { target in
             TargetScheduleSheet(target: target).asPushedScreen()
@@ -62,7 +65,10 @@ struct FindScheduleSheet: View {
 
     private var list: some View {
         Group {
-            if session.scheduleTargets.isEmpty {
+            if session.scheduleTargets.isEmpty && loadFailed {
+                RetryNotice(text: "Couldn't load the list from Lectio") { Task { await loadTargets() } }
+                Spacer()
+            } else if session.scheduleTargets.isEmpty {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 50)
                 Spacer()
             } else if filtered.isEmpty {
@@ -79,6 +85,12 @@ struct FindScheduleSheet: View {
                 ) { chosen = $0 }
             }
         }
+    }
+
+    private func loadTargets() async {
+        loadFailed = false
+        await session.loadScheduleTargets()
+        loadFailed = session.scheduleTargets.isEmpty
     }
 }
 
@@ -294,12 +306,7 @@ struct TargetScheduleSheet: View {
                             } else if errorMessage != nil {
                                 // Not "Nothing scheduled": that's what a week
                                 // that didn't load used to say.
-                                VStack(spacing: 4) {
-                                    EmptyNotice(icon: "wifi.exclamationmark", text: "Couldn't load this week")
-                                    Button("Try again") { Task { await load() } }
-                                        .scaledFont(size: 16, weight: .semibold)
-                                        .frame(minHeight: 44)
-                                }
+                                RetryNotice(text: "Couldn't load this week") { Task { await load() } }
                             } else if let week = week, !week.days.isEmpty {
                                 ForEach(week.days) { day in
                                     dayBlock(day)

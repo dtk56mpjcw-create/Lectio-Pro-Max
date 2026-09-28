@@ -40,7 +40,7 @@ struct AssignmentHandInSheet: View {
                 headline
 
                 if loadError != nil {
-                    EmptyNotice(icon: "arrow.clockwise", text: "Couldn't reach Lectio")
+                    RetryNotice(text: "Couldn't reach Lectio") { Task { await load() } }
                 } else if handIn == nil {
                     ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
                 }
