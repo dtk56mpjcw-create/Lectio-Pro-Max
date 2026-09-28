@@ -11,12 +11,17 @@ struct RootView: View {
     @Environment(LectioSession.self) private var session
     @State private var tab: AppTab = .schedule
     @State private var query = ""
+    #if DEBUG
+    /// The scroll lab in the Schedule tab's place (see ScrollLab).
+    @AppStorage(ScrollLab.enabledKey) private var labOn = false
+    @AppStorage(ScrollLab.shrinkKey) private var labShrinksBar = true
+    #endif
 
     var body: some View {
         TabView(selection: $tab) {
             Tab("Schedule", systemImage: "calendar", value: AppTab.schedule) {
                 // Its own navigation stack draws the background.
-                ScheduleTab()
+                scheduleTab
             }
             // Each tab is its own navigation stack and draws its own background.
             Tab("Homework", systemImage: "checklist", value: AppTab.homework) {
@@ -42,7 +47,7 @@ struct RootView: View {
                     .searchable(text: $query, prompt: "Homework, messages, lessons")
             }
         }
-        .tabBarMinimizeBehavior(.onScrollDown)
+        .tabBarMinimizeBehavior(tabBarMinimize)
         // A widget or a notification: go to what it showed (see AppLink).
         .onOpenURL { AppRouter.shared.open($0) }
         // `initial`: a tap that launched the app can arrive before this
@@ -60,5 +65,24 @@ struct RootView: View {
                 AppRouter.shared.request = nil
             }
         }
+    }
+
+    @ViewBuilder
+    private var scheduleTab: some View {
+        #if DEBUG
+        if labOn { ScrollLab() } else { ScheduleTab() }
+        #else
+        ScheduleTab()
+        #endif
+    }
+
+    /// The bar shrinks as you scroll down. Only the scroll lab can switch
+    /// that off, to test it: `.automatic` is what an app gets without the
+    /// modifier, a bar that keeps its size.
+    private var tabBarMinimize: TabBarMinimizeBehavior {
+        #if DEBUG
+        if labOn && !labShrinksBar { return .automatic }
+        #endif
+        return .onScrollDown
     }
 }

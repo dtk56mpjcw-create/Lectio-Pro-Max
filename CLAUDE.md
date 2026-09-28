@@ -275,8 +275,9 @@ SwiftUI scroll facts learned the hard way:
 ## Open items
 
 - [ ] Day view scroll jerk (`SCROLL_BUG.md`): attempts 10 and 11 failed and
-      were rolled back. Next: Experiment 0, a minimal repro with no Lectio
-      data, before any more changes to the real schedule.
+      were rolled back. Next: the scroll lab (`ScrollLab.swift`, debug builds
+      only, Me → Settings → Testing), a repro with made-up days whose pieces
+      switch on and off. Find the piece first; remove the lab once fixed.
 - [ ] Confirm on the classmate's iPhone 15 (iOS 27): elevfeedback wrapping,
       the search field only on Search, pull-to-refresh in week view.
 - [ ] Contact address for `docs/privacy.html` and `docs/terms.html` (Dan

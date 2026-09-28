@@ -245,6 +245,44 @@ and the bar grows back when the page bounces at the end. The SE never jerked.
   If it isn't gone: D is wrong; the console lines (`NativePaging` filter) are
   needed before anything else.
 
+### Experiment 0, built: the scroll lab (`ScrollLab.swift`, debug builds only)
+
+Me → Settings → Testing → **Scroll lab in Schedule** puts a test pager with
+made-up days in the Schedule tab's place, inside the real tab bar. No Lectio
+data. The slider button (top right) switches each piece of `main`'s
+ScheduleTab on or off:
+
+| Switch | What it is in ScheduleTab |
+|---|---|
+| Paging: none / SwiftUI / UIKit | `.scrollTargetBehavior(.paging)`; UIKit = `isPagingEnabled` kept on by a probe |
+| Pages as tall as the pager | `.containerRelativeFrame([.horizontal, .vertical])` (off: `.horizontal` only) |
+| Pull to refresh | `.refreshable` on each day |
+| Tracks the page | `.scrollPosition(id:anchor: .center)` and `align` on idle |
+| Bottom room measured | `safeBottom`/`barLine`/`pageBottom` measured live, `barClearance` padding (off: fixed 130 pt) |
+| Pager under the tab bar | `.ignoresSafeArea(.container, edges: .bottom)` |
+| Second pager behind | the hidden week pager in the `ZStack` |
+| Tab bar shrinks | `.tabBarMinimizeBehavior(.onScrollDown)` (off: the default) |
+| Day length | 4, 8 (like 30 Sep) or 16 rows of module height |
+
+"Like the Schedule" switches all of them on; "Bare minimum" leaves SwiftUI
+paging and the shrinking bar. Every page prints its setup under its title,
+so a screen recording says which setup it is. The console (filter `Lab:`)
+logs each day's scroll phases ("interacting → idle at 166 of 166" with no
+"decelerating" in between is the jerk), the pager's size once ("room to move
+up/down"), and any vertical movement of the pager.
+
+Test plan, on a phone with a home indicator (the jerk never shows on the SE):
+1. "Like the Schedule", 8 rows: does it jerk like the real 30 Sep? If not,
+   the jerk needs something in the real day's content, not the pager setup.
+2. "Bare minimum": does it jerk? If yes, it's iOS: SwiftUI paging over
+   scrolling pages in a shrinking tab bar. Then try UIKit paging, and the
+   bar fixed, one at a time.
+3. If only (1) jerks: from "Like the Schedule", switch pieces off one at a
+   time until it stops. That piece is the cause.
+
+Remove the lab (and its lines in RootView and SettingsScreen) once the jerk
+is fixed.
+
 ### Experiments, cheapest first
 
 For each one, test in the Simulator on a long day:
