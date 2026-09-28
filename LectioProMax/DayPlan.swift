@@ -259,10 +259,10 @@ enum ClassNames {
     }
 
     /// A team that has your class in it, but not up front ("Ma A 3.b",
-    /// "2021-1a MA"), and a subject the app knows beside it: that subject.
-    /// Only your own class, and only a known subject, so a trip named after
-    /// your class ("Studietur 1j") stays a trip, and nobody else's lessons
-    /// become yours.
+    /// "2021-1a MA"), and a subject's code beside it: that subject. Only
+    /// your own class, and only a word that is a subject code itself, so a
+    /// trip named after your class ("Studietur 1j") stays a trip, "MUN 1j"
+    /// isn't Music, and nobody else's lessons become yours.
     static func subjectBesideOwnClass(_ team: String) -> String? {
         let cls = Lesson.compactClass(current)
         guard !cls.isEmpty, cls.contains(where: \.isNumber) else { return nil }
@@ -274,11 +274,9 @@ enum ClassNames {
             return w == cls || w.split(separator: "-").last.map(String.init) == cls
         }) else { return nil }
         words.remove(at: index)
-        let rest = words.joined(separator: " ")
-        guard let key = SubjectPalette.subjectKey(rest), SubjectNames.knownName(forKey: key) != nil else {
-            return nil
-        }
-        return rest
+        guard let first = words.first(where: { !$0.contains(where: \.isNumber) }),
+              SubjectNames.isSubjectCode(first) else { return nil }
+        return words.joined(separator: " ")
     }
 
     /// From the profile: the class, and whether you're a student without

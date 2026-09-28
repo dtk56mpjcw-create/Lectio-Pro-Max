@@ -202,4 +202,23 @@ enum SubjectNames {
     static func knownName(forKey key: String) -> String? {
         names[key]
     }
+
+    /// Three-letter short forms some schools write instead of two letters.
+    private static let shortForms: Set<String> = [
+        "mat", "dan", "eng", "fys", "kem", "bio", "his", "sam", "tys", "fra",
+        "spa", "lat", "rel", "fil", "idr", "mus", "psy", "geo", "old", "inf",
+        "med", "dra",
+    ]
+
+    /// A word that is a known subject's code by itself: two letters ("ma",
+    /// "SP"), two and a level ("daAB", "enB", "MaA"), or a three-letter
+    /// short form ("Mat", "Dan"). Not a word that merely starts like one:
+    /// "MUN" isn't Music, and "Pre-IB" isn't Programming.
+    static func isSubjectCode(_ word: String) -> Bool {
+        let letters = word.filter(\.isLetter).lowercased()
+        guard letters.count >= 2, names[String(letters.prefix(2))] != nil else { return false }
+        let level = letters.dropFirst(2)
+        return level.isEmpty || ["a", "b", "c", "ab", "bc", "abc"].contains(String(level))
+            || shortForms.contains(letters)
+    }
 }

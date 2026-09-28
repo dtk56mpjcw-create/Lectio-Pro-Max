@@ -309,6 +309,12 @@ struct ScheduleRulesTests {
         // lesson, and a trip named after yours, stay what they were.
         #expect(!Lesson(code: "Ma A", title: "x", team: "Ma A 3.b").isClassLesson)
         #expect(!Lesson(code: "", title: "Studietur", team: "Studietur 1a").isClassLesson)
+        // A word that only starts like a subject isn't one.
+        #expect(!Lesson(code: "", title: "MUN", team: "MUN 1a").isClassLesson)
+        #expect(!Lesson(code: "", title: "Pre-IB", team: "Pre-IB 1a").isClassLesson)
+        // Short forms and levels are.
+        #expect(Lesson(code: "", title: "x", team: "Mat A 1a").isClassLesson)
+        #expect(Lesson(code: "", title: "x", team: "daAB 1a").isClassLesson)
     }
 
     @Test func apLatinIsItsOwnSubject() {
