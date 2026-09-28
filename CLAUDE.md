@@ -295,6 +295,11 @@ SwiftUI scroll facts learned the hard way:
   them back unless he asks.
 - **Text boxes are read with `textareaValue`**, not `text`: `text` turns line
   breaks into spaces, which flattened notes that were posted back.
+- **Lesson content is read with `LessonContentReader`**, not `text`: `text`
+  drops links, pictures and the breaks at headings.
+- **Search the project for a new type's name first.** A `private struct` in
+  one file still clashes with a type of the same name elsewhere ("Invalid
+  redeclaration"); `LessonBlock` is DayAgenda's lesson card.
 - **Debugging that worked:**
   - timestamped `#if DEBUG` console logs around the problem;
   - Dan's screen recordings, looked at frame by frame;
