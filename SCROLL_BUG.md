@@ -1,5 +1,33 @@
 # Day view scroll bug — handoff notes
 
+## Found (28 Sep): a row wider than the page
+
+**The cause:** on 30 Sep, one row in "Also on" (a cancelled item with a long
+name, "Cancelled" in full and a room) came out a little wider than the page.
+That made the whole day wider than its scroll view, so the day could move
+sideways, and the paging pager around it takes over any drag the day can't
+carry further. At the end of the day that took the finger from the day: the
+catch, the jump back, no bounce.
+
+It explains every row of the evidence below: paging on (only a paging
+scroll view takes a drag over), the pager setup alone never jerking (made-up
+days had no such row), only 30 Sep, and the sideways wobble Dan saw. Phones
+without a home indicator are narrower, so the row presumably fit there.
+
+**The fix, waiting for Dan to confirm on the real Schedule:**
+- `55fb332`: every day and week page holds its content to the page's width
+  (`pageWide()`, `containerRelativeFrame(.horizontal)` in `ScheduleTab`),
+  so no row can make a page wider than the screen. The lab's "Day no wider
+  than the page" switch is the same thing, and it ended the jerk.
+- `ae1c45b`: the row itself fits: the room number shares the space with the
+  name instead of getting nothing (it drew "0…" and stuck out).
+- Native paging and the shrinking tab bar both stay as they are.
+
+Found with the scroll lab: pieces switched off one at a time, then the real
+day's parts, then the cancelled row's look. The history below is kept so
+none of it is repeated. Once confirmed, remove the lab and its debug hooks
+(RootView, SettingsScreen, DayList, SmallItem).
+
 ## In plain words (for Dan)
 
 The Schedule tab has two kinds of scrolling, one inside the other:
@@ -384,6 +412,9 @@ Pieces) holds the content to the page's width
 (`.containerRelativeFrame(.horizontal)`): if that stops the jerk, the
 hypothesis holds. The real fix would then be the row itself never coming
 out wider than its card, plus the hold as a guard for every day.
+
+**Third test (Dan, 28 Sep): "Day no wider than the page" stops the jerk.**
+Hypothesis confirmed; see the top of this file for the fix.
 
 Remove the lab (and its lines in RootView, SettingsScreen, DayList and
 SmallItem) once the fix is confirmed.

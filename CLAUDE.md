@@ -183,7 +183,15 @@ Mail (messages) and Reminders.
 
 ## Struggles so far (learn from them)
 
-### 1. Day view scroll jerk — OPEN, read `SCROLL_BUG.md`
+### 1. Day view scroll jerk — FOUND, fix waiting for Dan's confirmation
+
+- **Cause:** a row a little wider than the page (on 30 Sep, a cancelled
+  "Also on" item with "Cancelled" in full) made the day wider than its
+  scroll view. The day could move sideways, and the paging pager took the
+  drag over. Fixed by holding every day and week page to the page's width
+  (`pageWide()` in `ScheduleTab`) and by letting that row fit. See the top
+  of `SCROLL_BUG.md`.
+- The history below is what didn't work.
 
 - On a long day (one with an "Also on" section, taller than the screen), the
   vertical scroll catches near the end, jumps back and doesn't bounce.
@@ -211,8 +219,8 @@ Mail (messages) and Reminders.
   again. See `SCROLL_BUG.md` for what they tried.
 - **Attempt 12** (no shrinking tab bar) was reverted at Dan's request, before
   it was really built: he wants the shrinking bar.
-- **Don't repeat those attempts.** Start by confirming the coupling with
-  logging or a minimal repro.
+- **Don't repeat those attempts.** They all changed the pager; the cause
+  was in the content.
 
 SwiftUI scroll facts learned the hard way:
 
@@ -224,6 +232,14 @@ SwiftUI scroll facts learned the hard way:
   scroll view that it wasn't told to page.
 - `@State` written from `onGeometryChange` during a scroll re-lays out the
   page mid-gesture. Keep such writes rare and only on real changes.
+- Content wider than a vertical scroll view, even by a little, lets it move
+  sideways, and a paging scroll view around it then takes the drag over.
+  Pages inside a pager hold their content to the page's width (`pageWide()`).
+- A `Text` can't be drawn narrower than a letter and "…". Squeezed past
+  that (in an `HStack` where other items have higher `layoutPriority`), it
+  sticks out and makes its row wider than offered.
+- `.layoutPriority` only counts as the outermost modifier; under another
+  one it's lost.
 - Scroll ids must be unique across nested scroll views. Week cards use
   `WeekAgenda.cardID(date)`, because a bare date clashed with the pager's
   page id and the week jumped.
@@ -275,13 +291,11 @@ SwiftUI scroll facts learned the hard way:
 
 ## Open items
 
-- [ ] Day view scroll jerk (`SCROLL_BUG.md`): attempts 10 and 11 failed and
-      were rolled back. Next: the scroll lab (`ScrollLab.swift`, debug builds
-      only, Me → Settings → Testing), a repro with made-up days whose pieces
-      switch on and off. Found with it: the red "Cancelled" label in an
-      "Also on" row (`SmallItem`) had `.fixedSize()`; without it, no jerk.
-      Fixed with `.layoutPriority(2)`: confirm on the real Schedule, then
-      remove the lab (and its debug hooks).
+- [ ] Day view scroll jerk (`SCROLL_BUG.md`): found with the scroll lab
+      (`ScrollLab.swift`, debug builds only, Me → Settings → Testing) and
+      fixed (`55fb332`, `ae1c45b`). Confirm on the real Schedule on a phone
+      with a home indicator, then remove the lab and its debug hooks
+      (RootView, SettingsScreen, DayList, SmallItem).
 - [ ] Confirm on the classmate's iPhone 15 (iOS 27): elevfeedback wrapping,
       the search field only on Search, pull-to-refresh in week view.
 - [ ] Contact address for `docs/privacy.html` and `docs/terms.html` (Dan
