@@ -247,10 +247,11 @@ SwiftUI scroll facts learned the hard way:
   through `@concurrent` entry points.
 - **Other schools** have classes named by their start year, kursister, and
   students with no class. See `ClassNames` in `DayPlan.swift` and the tests.
-- **Show every error you store.** Eight screens kept a failed send, save or
-  upload in an `@State` error and never displayed it, so a hand-in that never
-  reached Lectio looked like nothing happened. Put a `Banner(text:)` next to
-  the button, and a `RetryNotice` where a page didn't load.
+- **No error messages or Try again buttons, by Dan's choice.** Several
+  screens keep a failed send, save or upload in an `@State` error that isn't
+  shown. Showing them was tried and taken out again (Sep 2026): in Dan's use
+  these requests don't fail, so he'd rather not have the extra UI. Don't add
+  them back unless he asks.
 - **Text boxes are read with `textareaValue`**, not `text`: `text` turns line
   breaks into spaces, which flattened notes that were posted back.
 - **Debugging that worked:**

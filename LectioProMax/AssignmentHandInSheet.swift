@@ -40,7 +40,7 @@ struct AssignmentHandInSheet: View {
                 headline
 
                 if loadError != nil {
-                    RetryNotice(text: "Couldn't reach Lectio") { Task { await load() } }
+                    EmptyNotice(icon: "arrow.clockwise", text: "Couldn't reach Lectio")
                 } else if handIn == nil {
                     ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
                 }
@@ -56,14 +56,6 @@ struct AssignmentHandInSheet: View {
                     } else {
                         EmptyNotice(icon: "lock", text: "Lectio has closed this assignment")
                     }
-                }
-
-                // An upload, a comment or a download that failed. It used to
-                // be noted and never shown: the spinner just went away, and
-                // a hand-in that hadn't reached Lectio looked like one that
-                // had simply not said "Sent".
-                if let actionError {
-                    Banner(text: actionError)
                 }
 
                 openInLectio

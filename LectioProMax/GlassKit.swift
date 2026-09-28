@@ -146,33 +146,6 @@ struct EmptyNotice: View {
     }
 }
 
-/// A page that didn't load, and a way to load it again. Several pages used
-/// to show a retry arrow that was only a picture: the one way out was to
-/// close the page and open it again.
-struct RetryNotice: View {
-    let text: String
-    let retry: () -> Void
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "wifi.exclamationmark")
-                .scaledFont(size: 30, weight: .light)
-                .foregroundStyle(.tertiary)
-            Text(text)
-                .scaledFont(size: 15, weight: .medium)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Button("Try again", action: retry)
-                .scaledFont(size: 16, weight: .semibold)
-                .frame(minHeight: 44)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
-    }
-}
-
-/// A warning line on a card. Also where a send, save or upload that failed
-/// says why, next to the button that started it.
 struct Banner: View {
     let text: String
     var body: some View {

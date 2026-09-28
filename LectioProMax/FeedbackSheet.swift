@@ -51,11 +51,7 @@ struct FeedbackSheet: View {
                 header
 
                 if loadError != nil {
-                    RetryNotice(text: "Couldn't reach Lectio") {
-                        loadError = nil
-                        ready = false
-                        Task { await load() }
-                    }
+                    EmptyNotice(icon: "arrow.clockwise", text: "Couldn't reach Lectio")
                 } else if !ready {
                     ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
                 } else if editing {
@@ -65,13 +61,6 @@ struct FeedbackSheet: View {
                 } else {
                     EmptyNotice(icon: "square.and.pencil",
                                 text: "This lesson has no Elevfeedback")
-                }
-
-                // A save, delete, upload or export that failed, under the
-                // button that started it. Noted and never shown before, so a
-                // save that didn't reach Lectio just looked unconfirmed.
-                if let actionError {
-                    Banner(text: actionError)
                 }
 
                 if let feedback = feedback, feedback.canDelete {

@@ -53,12 +53,6 @@ struct NewMessageSheet: View {
                         .padding(.top, -6)
 
                     sendButton
-
-                    // Why it didn't go, or that Lectio didn't confirm it did.
-                    // Noted and never shown before: the button just came back.
-                    if let sendError {
-                        Banner(text: sendError)
-                    }
                 }
                 .padding(.horizontal, Metrics.margin)
                 .padding(.top, 24)

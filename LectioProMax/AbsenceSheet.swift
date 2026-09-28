@@ -169,8 +169,6 @@ struct ExplainAbsenceSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var options: [String] = []
-    /// Lectio's form didn't load: no reasons to choose from.
-    @State private var optionsFailed = false
     @State private var reason = ""
     @State private var comment = ""
     @State private var saving = false
@@ -192,11 +190,7 @@ struct ExplainAbsenceSheet: View {
 
                     VStack(alignment: .leading, spacing: 9) {
                         label("Reason")
-                        if optionsFailed {
-                            RetryNotice(text: "Couldn't load Lectio's reasons") {
-                                Task { await loadOptions() }
-                            }
-                        } else if options.isEmpty {
+                        if options.isEmpty {
                             ProgressView().padding(.vertical, 8)
                         } else {
                             VStack(spacing: 0) {
@@ -229,12 +223,6 @@ struct ExplainAbsenceSheet: View {
                             .padding(13)
                             .contentCard(radius: Metrics.inner)
                             .disabled(saving)
-                    }
-
-                    // Noted and never shown before: a reason Lectio didn't
-                    // take looked like the button doing nothing.
-                    if let errorMessage {
-                        Banner(text: errorMessage)
                     }
 
                     Button {
@@ -288,17 +276,9 @@ struct ExplainAbsenceSheet: View {
     /// there: saving sends the box as it stands, so changing only the reason
     /// used to wipe the comment written with it.
     private func loadOptions() async {
-        optionsFailed = false
-        guard let link = record.reasonLink else {
-            optionsFailed = true
-            return
-        }
+        guard let link = record.reasonLink else { return }
         let cookies = await session.requestCookies()
-        guard let form = try? await LectioStudyService.reasonForm(at: link, cookies: cookies),
-              !form.options.isEmpty else {
-            optionsFailed = true
-            return
-        }
+        guard let form = try? await LectioStudyService.reasonForm(at: link, cookies: cookies) else { return }
         options = form.options
         if reason.isEmpty { reason = form.reason.isEmpty ? record.reason : form.reason }
         if comment.isEmpty { comment = form.comment }
