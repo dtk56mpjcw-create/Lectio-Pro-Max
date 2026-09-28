@@ -72,6 +72,9 @@ struct ScheduleTab: View {
     @State private var switcher = ScreenZoom()
     /// A day the week view should scroll to (Today, in week view).
     @State private var weekFocus: WeekFocus?
+    /// Where each pager's current swipe began (see `settle`).
+    @State private var daySwipe = SwipeStart()
+    @State private var weekSwipe = SwipeStart()
 
     /// The pages run under the tab bar, so the last lesson needs room to
     /// scroll clear of it. The floor is the floating tab bar's own height, in
@@ -111,10 +114,6 @@ struct ScheduleTab: View {
     }
 
     var body: some View {
-        #if DEBUG
-        let _ = ScrollDebug.log("ScheduleTab redrawn")
-        let _ = Self._printChanges()
-        #endif
         NavigationStack(path: $opener.path) {
             pagers
                 .background { AppBackground() }
@@ -290,9 +289,6 @@ struct ScheduleTab: View {
             geometry.safeAreaInsets.bottom
         } action: { inset in
             // Only a real change is written: each write redraws the pages.
-            #if DEBUG
-            ScrollDebug.log("safe area bottom \(inset) (kept \(max(inset, safeBottom)))")
-            #endif
             if inset > safeBottom { safeBottom = inset }
         }
         // The bottom of the area the tab bar leaves free: this frame is the
@@ -303,9 +299,6 @@ struct ScheduleTab: View {
         .onGeometryChange(for: CGPoint.self) { geometry in
             CGPoint(x: geometry.size.width.rounded(), y: geometry.frame(in: .global).maxY.rounded())
         } action: { measured in
-            #if DEBUG
-            ScrollDebug.log("bar line \(measured.y) width \(measured.x) (was \(barLine))")
-            #endif
             if measured.x != measuredWidth || barLine <= 0 {
                 measuredWidth = measured.x
                 barLine = measured.y
@@ -327,28 +320,13 @@ struct ScheduleTab: View {
                 }
             }
             .scrollTargetLayout()
-            // Pages a day at a time: see NativePaging.
-            .background(alignment: .topLeading) { NativePaging().frame(width: 1, height: 1) }
         }
         .scrollPosition(id: $dayPage, anchor: .center)
         .scrollIndicators(.hidden)
-        #if DEBUG
-        .onScrollGeometryChange(for: CGPoint.self) { geometry in
-            CGPoint(x: geometry.contentOffset.x.rounded(), y: geometry.contentOffset.y.rounded())
-        } action: { _, offset in
-            ScrollDebug.log("day pager at x \(Int(offset.x)) y \(Int(offset.y))")
-        }
-        .onScrollGeometryChange(for: CGSize.self) { geometry in
-            CGSize(width: geometry.contentSize.height.rounded(), height: geometry.containerSize.height.rounded())
-        } action: { _, size in
-            ScrollDebug.log("day pager content height \(Int(size.width)), visible height \(Int(size.height))")
-        }
-        #endif
         .onAppear { align(proxy, on: selectedDate) }
-        .onScrollPhaseChange { _, phase, context in
-            if phase == .idle, Self.isBetweenPages(context.geometry) {
-                align(proxy, on: dayPage ?? selectedDate, animated: true)
-            }
+        .onScrollPhaseChange { old, new, context in
+            settle(proxy, pages: Self.days, swipe: daySwipe, nearest: dayPage ?? selectedDate,
+                   from: old, to: new, context: context)
         }
     }
 
@@ -364,15 +342,49 @@ struct ScheduleTab: View {
                 }
             }
             .scrollTargetLayout()
-            .background(alignment: .topLeading) { NativePaging().frame(width: 1, height: 1) }
         }
         .scrollPosition(id: $weekPage, anchor: .center)
         .scrollIndicators(.hidden)
         .onAppear { align(proxy, on: Self.monday(of: selectedDate)) }
-        .onScrollPhaseChange { _, phase, context in
-            if phase == .idle, Self.isBetweenPages(context.geometry) {
-                align(proxy, on: weekPage ?? Self.monday(of: selectedDate), animated: true)
+        .onScrollPhaseChange { old, new, context in
+            settle(proxy, pages: Self.weeks, swipe: weekSwipe, nearest: weekPage ?? Self.monday(of: selectedDate),
+                   from: old, to: new, context: context)
+        }
+    }
+
+    /// Paging — a day or a week at a time — done here, when a swipe ends.
+    ///
+    /// Not with `.scrollTargetBehavior(.paging)`: a scroll behaviour is
+    /// handed down to every scroll view inside the one it's set on, so each
+    /// day and week paged too, up and down. A long day could then only rest
+    /// at its top or its bottom, and a pull past its end snapped back
+    /// without the bounce — the jerk that only long days had. Nothing is set
+    /// on the pagers now, so nothing reaches the days, and they scroll as
+    /// any list does.
+    ///
+    /// - Let go with a flick: on to the next page that way (back to the one
+    ///   it started on if it hardly moved).
+    /// - Let go without one, part-way: the nearest page.
+    private func settle(_ proxy: ScrollViewProxy, pages: [String], swipe: SwipeStart, nearest: String,
+                        from old: ScrollPhase, to new: ScrollPhase, context: ScrollPhaseChangeContext) {
+        let geometry = context.geometry
+        let width = geometry.containerSize.width
+        guard width > 0, !pages.isEmpty else { return }
+        switch new {
+        case .interacting where old != .interacting:
+            swipe.offset = geometry.contentOffset.x
+        case .decelerating where old == .interacting:
+            let start = Int((swipe.offset / width).rounded())
+            let moved = geometry.contentOffset.x - swipe.offset
+            let step = abs(moved) > 12 ? (moved > 0 ? 1 : -1) : 0
+            let target = pages[min(max(start + step, 0), pages.count - 1)]
+            DispatchQueue.main.async {
+                withAnimation(.snappy(duration: 0.3)) { proxy.scrollTo(target, anchor: .center) }
             }
+        case .idle where Self.isBetweenPages(geometry):
+            align(proxy, on: nearest, animated: true)
+        default:
+            break
         }
     }
 
@@ -577,10 +589,6 @@ private struct DayPage: View {
 
     var body: some View {
         let code = LectioDates.weekCode(iso: date)
-        #if DEBUG
-        let _ = ScrollDebug.log("DayPage \(date) redrawn")
-        let _ = Self._printChanges()
-        #endif
         ScrollView {
             VStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 10) {
@@ -604,30 +612,8 @@ private struct DayPage: View {
         .onGeometryChange(for: CGFloat.self) { geometry in
             geometry.frame(in: .global).maxY.rounded()
         } action: { bottom in
-            #if DEBUG
-            ScrollDebug.log("DayPage \(date) bottom \(bottom) (was \(pageBottom))")
-            #endif
             pageBottom = bottom
         }
-        #if DEBUG
-        // In Xcode's console: the day's visible height and content height
-        // whenever either changes (neither should while you drag), and each
-        // change of what the scroll view is doing, with where it is.
-        .onScrollGeometryChange(for: CGSize.self) { geometry in
-            CGSize(width: geometry.containerSize.height.rounded(), height: geometry.contentSize.height.rounded())
-        } action: { old, new in
-            ScrollDebug.log("DayPage \(date) visible \(old.width)→\(new.width), content \(old.height)→\(new.height)")
-        }
-        .onScrollPhaseChange { old, new, context in
-            let g = context.geometry
-            ScrollDebug.log("DayPage \(date) \(old) → \(new)  offset \(Int(g.contentOffset.y)), insets top \(Int(g.contentInsets.top)) bottom \(Int(g.contentInsets.bottom)), visible \(Int(g.containerSize.height)), content \(Int(g.contentSize.height))")
-        }
-        .onScrollGeometryChange(for: Int.self) { geometry in
-            Int(geometry.contentOffset.y.rounded())
-        } action: { _, offset in
-            ScrollDebug.log("DayPage \(date) offset \(offset)")
-        }
-        #endif
         .scrollIndicators(.hidden)
         // The system's own pull to refresh, the work in a task of its own so
         // an update mid-refresh can't cancel it.
@@ -635,67 +621,11 @@ private struct DayPage: View {
     }
 }
 
-/// UIKit's own paging, switched on for the scroll view it's placed in (as a
-/// background of the pager's stack, so the first scroll view above it is the
-/// pager itself).
-///
-/// Not SwiftUI's `.scrollTargetBehavior(.paging)`: a scroll behaviour is
-/// handed down to every scroll view inside the one it's set on, so each day
-/// and week paged too — up and down, a screen at a time — and any behaviour
-/// at all on them (even one that changed nothing) had SwiftUI set where
-/// each scroll ends. Let go of a long day past its end, slowly, and UIKit,
-/// told where to stop while in the bounce, jumped there instead of
-/// bouncing: the jerk at the end of a long day. Short days, with nothing to
-/// scroll, never showed it. UIKit's paging stays on the pager alone, and
-/// the days scroll exactly as any list does.
-///
-/// Should it ever not find its scroll view, the pager still settles on a
-/// page: `align` straightens up a pager that stops between two.
-struct NativePaging: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView {
-        let probe = Probe()
-        probe.isUserInteractionEnabled = false
-        probe.backgroundColor = .clear
-        return probe
-    }
 
-    func updateUIView(_ uiView: UIView, context: Context) {}
-
-    final class Probe: UIView {
-        #if DEBUG
-        private var lastReport = ""
-        #endif
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            enable()
-        }
-
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            enable()
-        }
-
-        private func enable() {
-            var view = superview
-            while let current = view {
-                if let scroll = current as? UIScrollView {
-                    if !scroll.isPagingEnabled { scroll.isPagingEnabled = true }
-                    #if DEBUG
-                    let report = "pager scroll view: bounds \(scroll.bounds.size), content \(scroll.contentSize), "
-                        + "insets \(scroll.adjustedContentInset), paging \(scroll.isPagingEnabled), "
-                        + "bounces vertically \(scroll.alwaysBounceVertical)"
-                    if report != lastReport {
-                        lastReport = report
-                        ScrollDebug.log(report)
-                    }
-                    #endif
-                    return
-                }
-                view = current.superview
-            }
-        }
-    }
+/// Where a pager's swipe began (see ScheduleTab.settle). A plain object:
+/// noting it mustn't redraw anything mid-swipe.
+final class SwipeStart {
+    var offset: CGFloat = 0
 }
 
 /// How far the end of a page's content has to stay above the page's bottom
