@@ -332,6 +332,18 @@ struct ScheduleTab: View {
         }
         .scrollPosition(id: $dayPage, anchor: .center)
         .scrollIndicators(.hidden)
+        #if DEBUG
+        .onScrollGeometryChange(for: CGPoint.self) { geometry in
+            CGPoint(x: geometry.contentOffset.x.rounded(), y: geometry.contentOffset.y.rounded())
+        } action: { _, offset in
+            ScrollDebug.log("day pager at x \(Int(offset.x)) y \(Int(offset.y))")
+        }
+        .onScrollGeometryChange(for: CGSize.self) { geometry in
+            CGSize(width: geometry.contentSize.height.rounded(), height: geometry.containerSize.height.rounded())
+        } action: { _, size in
+            ScrollDebug.log("day pager content height \(Int(size.width)), visible height \(Int(size.height))")
+        }
+        #endif
         .onAppear { align(proxy, on: selectedDate) }
         .onScrollPhaseChange { _, phase, context in
             if phase == .idle, Self.isBetweenPages(context.geometry) {
@@ -608,8 +620,12 @@ private struct DayPage: View {
         }
         .onScrollPhaseChange { old, new, context in
             let g = context.geometry
-            let end = g.contentSize.height + g.contentInsets.top + g.contentInsets.bottom - g.containerSize.height
-            ScrollDebug.log("DayPage \(date) \(old) → \(new)  y \(Int(g.contentOffset.y + g.contentInsets.top)) of \(Int(end))")
+            ScrollDebug.log("DayPage \(date) \(old) → \(new)  offset \(Int(g.contentOffset.y)), insets top \(Int(g.contentInsets.top)) bottom \(Int(g.contentInsets.bottom)), visible \(Int(g.containerSize.height)), content \(Int(g.contentSize.height))")
+        }
+        .onScrollGeometryChange(for: Int.self) { geometry in
+            Int(geometry.contentOffset.y.rounded())
+        } action: { _, offset in
+            ScrollDebug.log("DayPage \(date) offset \(offset)")
         }
         #endif
         .scrollIndicators(.hidden)
@@ -646,6 +662,10 @@ struct NativePaging: UIViewRepresentable {
     func updateUIView(_ uiView: UIView, context: Context) {}
 
     final class Probe: UIView {
+        #if DEBUG
+        private var lastReport = ""
+        #endif
+
         override func didMoveToWindow() {
             super.didMoveToWindow()
             enable()
@@ -661,6 +681,15 @@ struct NativePaging: UIViewRepresentable {
             while let current = view {
                 if let scroll = current as? UIScrollView {
                     if !scroll.isPagingEnabled { scroll.isPagingEnabled = true }
+                    #if DEBUG
+                    let report = "pager scroll view: bounds \(scroll.bounds.size), content \(scroll.contentSize), "
+                        + "insets \(scroll.adjustedContentInset), paging \(scroll.isPagingEnabled), "
+                        + "bounces vertically \(scroll.alwaysBounceVertical)"
+                    if report != lastReport {
+                        lastReport = report
+                        ScrollDebug.log(report)
+                    }
+                    #endif
                     return
                 }
                 view = current.superview
