@@ -272,8 +272,4 @@ struct LectioSnapshot: Codable {
     var outstandingCount: Int {
         return workItems.filter { !isCompleted($0) }.count
     }
-
-    var pendingAssignments: [AssignmentItem] {
-        return assignments.filter { !$0.status.lowercased().contains("afleveret") && !$0.status.lowercased().contains("done") }
-    }
 }
