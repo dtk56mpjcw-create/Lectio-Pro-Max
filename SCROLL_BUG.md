@@ -321,6 +321,20 @@ it like any other row, only struck through, grey, with a red "Cancelled"
 Test each switch on its own, on the real 30 Sep, from "Like the Schedule",
 made-up rows None.
 
+**Result (Dan, 28 Sep): "No red Cancelled" stops the jerk.** The switch took
+the whole label away, so it's the label: its colour or its layout. The label
+is `Text("Cancelled")`, 12.5 semibold, `.foregroundStyle(Palette.negative)`,
+`.lineLimit(1)`, `.fixedSize()`. `Palette.negative` is a `Color(UIColor { traits in … })`,
+a hand-made light/dark provider (so are `warning` and `positive`).
+
+Next switches, under "The red Cancelled" (the label stays, the same size):
+
+| Switch | If it stops the jerk |
+|---|---|
+| In grey | it's the colour, not the label's layout |
+| In plain system red (SwiftUI's `.red`) | it's `Palette.negative`'s UIColor provider, not red as such; then the fix is Apple's usual way for light/dark colours (asset catalog colours), for all three status colours |
+| Not fixed size | it's the `.fixedSize()` layout |
+
 Remove the lab (and its lines in RootView, SettingsScreen, DayList and
 SmallItem) once the jerk is fixed.
 

@@ -40,6 +40,9 @@ struct ScrollLab: View {
     @AppStorage("lab.cancelledAsNormal") private var cancelledAsNormal = false
     @AppStorage("lab.cancelledNoStrike") private var cancelledNoStrike = false
     @AppStorage("lab.cancelledNoLabel") private var cancelledNoLabel = false
+    @AppStorage("lab.cancelledGreyLabel") private var cancelledGreyLabel = false
+    @AppStorage("lab.cancelledSystemRed") private var cancelledSystemRed = false
+    @AppStorage("lab.cancelledLabelNotFixed") private var cancelledLabelNotFixed = false
     @AppStorage("lab.rowsAreButtons") private var rowsAreButtons = false
 
     @State private var page: Int? = LabDays.start
@@ -65,6 +68,9 @@ struct ScrollLab: View {
         if cancelledAsNormal { parts.append("cancelled in Also on drawn as normal") }
         if cancelledNoStrike { parts.append("cancelled not struck through") }
         if cancelledNoLabel { parts.append("no red Cancelled") }
+        if cancelledGreyLabel { parts.append("Cancelled in grey") }
+        if cancelledSystemRed { parts.append("Cancelled in plain red") }
+        if cancelledLabelNotFixed { parts.append("Cancelled not fixed size") }
         parts.append("+\(rows) made-up rows" + (rowsAreButtons ? " (buttons)" : ""))
         return parts.joined(separator: " · ")
     }
@@ -83,6 +89,9 @@ struct ScrollLab: View {
         var set: LabCancelledLook = []
         if cancelledNoStrike { set.insert(.noStrikethrough) }
         if cancelledNoLabel { set.insert(.noLabel) }
+        if cancelledGreyLabel { set.insert(.greyLabel) }
+        if cancelledSystemRed { set.insert(.systemRedLabel) }
+        if cancelledLabelNotFixed { set.insert(.labelNotFixed) }
         return set
     }
 
@@ -202,6 +211,12 @@ struct ScrollLab: View {
                 Toggle("Cancelled in Also on drawn as normal", isOn: $cancelledAsNormal)
                 Toggle("Cancelled not struck through", isOn: $cancelledNoStrike)
                 Toggle("No red \u{201C}Cancelled\u{201D}", isOn: $cancelledNoLabel)
+            }
+            // The label stays, the same size; one thing about it changes.
+            Section("The red \u{201C}Cancelled\u{201D}") {
+                Toggle("In grey", isOn: $cancelledGreyLabel)
+                Toggle("In plain system red", isOn: $cancelledSystemRed)
+                Toggle("Not fixed size", isOn: $cancelledLabelNotFixed)
             }
             Picker("Made-up rows at the end", selection: $rows) {
                 Text("None").tag(0)
@@ -429,6 +444,13 @@ struct LabCancelledLook: OptionSet, Hashable {
     let rawValue: Int
     static let noStrikethrough = LabCancelledLook(rawValue: 1 << 0)
     static let noLabel = LabCancelledLook(rawValue: 1 << 1)
+    /// The label in the secondary grey instead of `Palette.negative`.
+    static let greyLabel = LabCancelledLook(rawValue: 1 << 2)
+    /// The label in SwiftUI's own `.red` instead of `Palette.negative`,
+    /// which is a UIColor with a light/dark provider.
+    static let systemRedLabel = LabCancelledLook(rawValue: 1 << 3)
+    /// The label without `.fixedSize()`.
+    static let labelNotFixed = LabCancelledLook(rawValue: 1 << 4)
 }
 
 extension EnvironmentValues {

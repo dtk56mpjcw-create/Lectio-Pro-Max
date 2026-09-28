@@ -735,9 +735,17 @@ private struct SmallItem: View {
     @Environment(\.labCancelledLook) private var labLook
     private var struckThrough: Bool { lesson.cancelled && !labLook.contains(.noStrikethrough) }
     private var saysCancelled: Bool { !labLook.contains(.noLabel) }
+    private var cancelledColor: Color {
+        if labLook.contains(.greyLabel) { return .secondary }
+        if labLook.contains(.systemRedLabel) { return .red }
+        return Palette.negative
+    }
+    private var labelFixed: Bool { !labLook.contains(.labelNotFixed) }
     #else
     private var struckThrough: Bool { lesson.cancelled }
     private var saysCancelled: Bool { true }
+    private var cancelledColor: Color { Palette.negative }
+    private var labelFixed: Bool { true }
     #endif
 
     var body: some View {
@@ -766,9 +774,9 @@ private struct SmallItem: View {
                 if saysCancelled {
                     Text("Cancelled")
                         .scaledFont(size: 12.5, weight: .semibold)
-                        .foregroundStyle(Palette.negative)
+                        .foregroundStyle(cancelledColor)
                         .lineLimit(1)
-                        .fixedSize()
+                        .fixedSize(horizontal: labelFixed, vertical: labelFixed)
                 }
             } else if lesson.isExam {
                 // "1g: Matematikscreening" during your English lesson.
