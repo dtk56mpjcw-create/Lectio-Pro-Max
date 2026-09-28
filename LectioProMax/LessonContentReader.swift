@@ -187,6 +187,8 @@ struct LessonContentReader {
     /// page), not another site's address that happens to have "/lc/" in it.
     static func isLectioFile(_ href: String) -> Bool {
         let lower = href.lowercased()
+        // A document in Lectio's archive, as messages attach them.
+        if lower.contains("dokumenthent.aspx") { return true }
         guard lower.contains("/lc/") else { return false }
         let onAnotherSite = lower.contains("://") || lower.hasPrefix("//")
         return !onAnotherSite || lower.contains("lectio.dk/")

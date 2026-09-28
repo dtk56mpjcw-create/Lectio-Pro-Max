@@ -83,7 +83,10 @@ struct MessageThreadSheet: View {
                     .scaledFont(size: 13)
                     .foregroundStyle(.secondary)
             }
-            if !message.body.isEmpty {
+            if let blocks = message.blocks, !blocks.isEmpty {
+                // Links tappable, pictures shown, as the sender wrote it.
+                LessonBlocksView(blocks: blocks)
+            } else if !message.body.isEmpty {
                 Text(message.body)
                     .scaledFont(size: 16)
                     .lineSpacing(3.5)

@@ -207,7 +207,7 @@ struct LessonFile: Identifiable, Hashable {
 /// A stretch of text in a lesson's content as the teacher styled it in
 /// Lectio's editor: plain, bold, italic, crossed out (a changed homework
 /// often keeps the old one struck through), underlined, or a link.
-struct LessonRun: Hashable {
+struct LessonRun: Hashable, Codable {
     var text: String
     var link: String? = nil
     var bold = false
@@ -229,7 +229,7 @@ struct LessonRun: Hashable {
 /// Slides or GeoGebra, which opens where it lives. The text alone lost all
 /// of these: links became plain words, pictures and videos vanished, and
 /// paragraphs ran into each other.
-enum LessonContentBlock: Hashable {
+enum LessonContentBlock: Hashable, Codable {
     case paragraph([LessonRun])
     case listItem(marker: String, runs: [LessonRun])
     case image(String, link: String? = nil)

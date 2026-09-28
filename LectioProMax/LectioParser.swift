@@ -876,6 +876,9 @@ extension LectioParser {
         }
         if let content = block.firstWhere({ $0.hasClass("message-thread-message-content") }) {
             message.body = content.text
+            // With its links and pictures: `text` kept only the words, so a
+            // link written as words ("see here") lost where it went.
+            message.blocks = LessonContentReader.read(content).blocks
         }
 
         for anchor in block.all("a") {

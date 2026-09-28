@@ -73,6 +73,11 @@ struct ThreadMessage: Identifiable, Hashable, Codable {
     var date: String = ""
     var title: String = ""
     var body: String = ""
+    /// The body as the sender laid it out: paragraphs, links that still go
+    /// somewhere, pictures (see LessonContentReader). `body` is the words
+    /// alone. Optional, so a message saved before this existed still loads;
+    /// it shows `body` until it's fetched again.
+    var blocks: [LessonContentBlock]? = nil
     var attachments: [MessageAttachment] = []
 }
 

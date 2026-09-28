@@ -143,6 +143,25 @@ struct LessonContentTests {
         #expect(blocks[2] == .image("https://www.lectio.dk/lectio/59/formula.png"))
     }
 
+    @Test func aMessageKeepsItsLinks() {
+        let html = """
+        <html><body>
+        <div class='message-thread-message-sender'>Karen Madsen (KM), 25-09-2026 20:54:13</div>
+        <div class='message-thread-message'>
+          <div class='message-thread-message-header'>Reading</div>
+          <div class='message-thread-message-content'>Read <a href="https://example.com/text">this text</a> before Monday.<br>Karen</div>
+        </div>
+        </body></html>
+        """
+        let message = LectioParser.parseThread(html, id: "1", pageURL: "").messages.first
+        // The words, as before, for previews and search.
+        #expect(message?.body.hasPrefix("Read this text before Monday.") == true)
+        // And where the link goes.
+        let runs = message?.blocks?.first?.runs ?? []
+        #expect(runs.contains(LessonRun(text: "this text", link: "https://example.com/text")))
+        #expect(message?.blocks?.first?.plainText == "Read this text before Monday.\nKaren")
+    }
+
     @Test func listsKeepTheirMarkers() {
         let html = """
         <div class="ls-paper"><div class="lc-display-fragment">
