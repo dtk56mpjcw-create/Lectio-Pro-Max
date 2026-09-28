@@ -30,7 +30,11 @@ enum LectioForms {
         for area in form.all("textarea") {
             guard let name = area.attr("name"), !name.isEmpty else { continue }
             if area.attrs["disabled"] != nil { continue }
-            fields[name] = area.text
+            // As written, as a browser sends it back. `text` is for reading:
+            // it turns line breaks into spaces, so a note posted back with
+            // the rest of its page — an event's, when only its title was
+            // changed — came back as one long line.
+            fields[name] = area.textareaValue
         }
 
         for select in form.all("select") {

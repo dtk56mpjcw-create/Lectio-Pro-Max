@@ -58,7 +58,8 @@ enum LectioEventService {
         draft.startTime = fields["m$Content$startdateCtrl$startdateCtrl_time$tb"] ?? ""
         draft.endISO = iso(fields["m$Content$enddateCtrl$_date$tb"])
         draft.endTime = fields["m$Content$enddateCtrl$enddateCtrl_time$tb"] ?? ""
-        draft.note = fields["m$Content$commentTextBox$tb"] ?? ""
+        draft.note = (fields["m$Content$commentTextBox$tb"] ?? "")
+            .replacingOccurrences(of: "\r\n", with: "\n")
         return draft
     }
 

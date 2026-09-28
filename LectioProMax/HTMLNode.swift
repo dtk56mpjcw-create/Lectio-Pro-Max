@@ -72,6 +72,16 @@ final class HTMLNode {
         return out
     }
 
+    /// A `<textarea>`'s value as a browser has it: the text exactly as
+    /// written, less the one line break straight after the opening tag,
+    /// which HTML ignores (ASP.NET writes one there for that reason).
+    var textareaValue: String {
+        var value = rawText
+        // "\r\n" is a single Character in Swift.
+        if value.first == "\r\n" || value.first == "\n" { value.removeFirst() }
+        return value
+    }
+
     private func collectRawText(into out: inout String) {
         for item in content {
             switch item {

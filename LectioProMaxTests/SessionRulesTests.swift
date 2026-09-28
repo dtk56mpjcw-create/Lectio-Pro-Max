@@ -63,4 +63,15 @@ struct SessionRulesTests {
         #expect(LectioForms.encoded(["m$Content$tb": "Hej, kan vi mødes? 5 & 6 = 11"])
                 == "m%24Content%24tb=Hej%2C%20kan%20vi%20m%C3%B8des%3F%205%20%26%206%20%3D%2011")
     }
+
+    /// A page posted back sends its text boxes as they were written — an
+    /// event's note keeps its lines when only its title is changed — less
+    /// the one line break HTML ignores after the opening tag.
+    @Test func textAreasGoBackAsWritten() {
+        let html = "<form id='aspnetForm'><textarea name='note'>\r\nFirst line\r\nSecond  line</textarea>"
+            + "<input name='title' value='Football'></form>"
+        let fields = LectioForms.fields(in: HTMLDocument.parse(html))
+        #expect(fields["note"] == "First line\r\nSecond  line")
+        #expect(fields["title"] == "Football")
+    }
 }

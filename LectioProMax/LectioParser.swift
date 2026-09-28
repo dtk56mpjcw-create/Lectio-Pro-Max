@@ -1127,7 +1127,8 @@ extension LectioParser {
         if let note = root.firstWhere({
             $0.name == "textarea" && ($0.attr("name") ?? "").contains("ActNoteTB")
         }) {
-            detail.note = note.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            // Its lines as the teacher wrote them: `text` ran them together.
+            detail.note = note.textareaValue.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
         guard let paper = root.firstWhere({ $0.attrs["id"] == "homeworkContentContainer" })

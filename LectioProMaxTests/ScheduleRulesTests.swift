@@ -388,6 +388,11 @@ struct ScheduleRulesTests {
         #expect(thread.canReply)
     }
 
+    @Test func aLessonNoteKeepsItsLines() {
+        let html = "<textarea name='s$m$Content$Content$ActNoteTB$tb' disabled>\r\nRead p. 12\r\nBring a calculator</textarea>"
+        #expect(LectioParser.parseLessonDetail(html).note == "Read p. 12\r\nBring a calculator")
+    }
+
     @Test func tooltip() {
         let t = LectioParser.parseTooltip(
             "Ændret!\nAp Eksamen\n6/10-2026 08:00 til 09:35\nHold: 1i ap la, 1j ap la\nLærere: AM, KF, LS\nLokaler: 062, 064")
