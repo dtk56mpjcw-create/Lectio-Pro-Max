@@ -280,8 +280,29 @@ Test plan, on a phone with a home indicator (the jerk never shows on the SE):
 3. If only (1) jerks: from "Like the Schedule", switch pieces off one at a
    time until it stops. That piece is the cause.
 
-Remove the lab (and its lines in RootView and SettingsScreen) once the jerk
-is fixed.
+**Result (Dan, 28 Sep): with made-up days, both "Like the Schedule" and "Bare
+minimum" scroll fine** on a phone with a home indicator. So the pager setup
+alone doesn't jerk: the cause needs something in the real days' content.
+Dan's suspects, from what 30 Sep has: the "Also on" section, a cancelled
+lesson in it, and the "All day" row (Musikteater, audition 08:15–15:30).
+
+So the lab can now show **real days** (drawn by the Schedule's own `DayList`,
+today on the middle page) and leave parts of them out: cancelled lessons,
+Also on, All day (`LabLeaveOut`, applied to the day's plan through a
+debug-only `DayList.labLeavesOut`). Leaving a part out shortens the day, so
+"Made-up rows at the end" keeps it long enough to scroll. "Made-up rows are
+buttons" tests whether pressable cards matter. The presets now only set the
+pager pieces, not what the days show.
+
+Next test plan:
+1. "Like the Schedule", Real days on, made-up rows None, swipe to 30 Sep:
+   does it jerk in the lab? (It should, if the content is the cause.)
+2. Leave out one suspect at a time, with 8 made-up rows so the day stays
+   long: cancelled; Also on; All day. The one that stops the jerk is it.
+3. If none does: made-up days again, rows as buttons.
+
+Remove the lab (and its lines in RootView, SettingsScreen and DayList) once
+the jerk is fixed.
 
 ### Experiments, cheapest first
 

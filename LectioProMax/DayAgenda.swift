@@ -15,15 +15,30 @@ struct DayList: View, Equatable {
     let className: String
     /// See ScheduleWeek.rollingNotes.
     var rolling: Set<String> = []
+    #if DEBUG
+    /// Parts of the day the scroll lab leaves out (see ScrollLab).
+    var labLeavesOut: LabLeaveOut = []
+    #endif
 
     static func == (lhs: DayList, rhs: DayList) -> Bool {
-        lhs.day == rhs.day && lhs.modules == rhs.modules && lhs.className == rhs.className
+        #if DEBUG
+        guard lhs.labLeavesOut == rhs.labLeavesOut else { return false }
+        #endif
+        return lhs.day == rhs.day && lhs.modules == rhs.modules && lhs.className == rhs.className
             && lhs.rolling == rhs.rolling
+    }
+
+    private func makePlan(_ day: ScheduleDay) -> DayPlan {
+        var plan = DayPlan.build(day, modules: modules, className: className, rolling: rolling)
+        #if DEBUG
+        labLeavesOut.apply(to: &plan)
+        #endif
+        return plan
     }
 
     var body: some View {
         if let day, !day.lessons.isEmpty {
-            let plan = DayPlan.build(day, modules: modules, className: className, rolling: rolling)
+            let plan = makePlan(day)
             if day.date == LectioDates.isoString(from: Date()) {
                 TimelineView(.everyMinute) { context in
                     DayContent(plan: plan, dayISO: day.date, now: context.date)

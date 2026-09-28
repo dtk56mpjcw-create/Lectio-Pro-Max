@@ -29,6 +29,12 @@ struct ScrollLab: View {
     @AppStorage("lab.underTabBar") private var underTabBar = true
     @AppStorage("lab.secondPager") private var secondPager = true
     @AppStorage("lab.rows") private var rows = 8
+    // What the pages show.
+    @AppStorage("lab.realDays") private var realDays = false
+    @AppStorage("lab.leaveOutCancelled") private var leaveOutCancelled = false
+    @AppStorage("lab.leaveOutAlsoOn") private var leaveOutAlsoOn = false
+    @AppStorage("lab.leaveOutAllDay") private var leaveOutAllDay = false
+    @AppStorage("lab.rowsAreButtons") private var rowsAreButtons = false
 
     @State private var page: Int? = LabDays.start
     @State private var safeBottom: CGFloat = 0
@@ -45,8 +51,20 @@ struct ScrollLab: View {
         if underTabBar { parts.append("under tab bar") }
         if secondPager { parts.append("2nd pager") }
         parts.append(shrinkTabBar ? "bar shrinks" : "bar fixed")
-        parts.append("\(rows) rows")
+        if realDays { parts.append("REAL DAYS") }
+        if leaveOutCancelled { parts.append("no cancelled") }
+        if leaveOutAlsoOn { parts.append("no Also on") }
+        if leaveOutAllDay { parts.append("no All day") }
+        parts.append("+\(rows) made-up rows" + (rowsAreButtons ? " (buttons)" : ""))
         return parts.joined(separator: " · ")
+    }
+
+    private var leaveOut: LabLeaveOut {
+        var set: LabLeaveOut = []
+        if leaveOutCancelled { set.insert(.cancelled) }
+        if leaveOutAlsoOn { set.insert(.alsoOn) }
+        if leaveOutAllDay { set.insert(.allDay) }
+        return set
     }
 
     var body: some View {
@@ -81,7 +99,8 @@ struct ScrollLab: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
                 ForEach(LabDays.all, id: \.self) { day in
-                    LabPage(day: day, rows: rows, summary: summary,
+                    LabPage(day: day, realDays: realDays, leaveOut: leaveOut,
+                            rows: rows, rowsAreButtons: rowsAreButtons, summary: summary,
                             refreshable: refreshable, measuredBottom: measuredBottom,
                             barLine: barLine, floor: max(safeBottom, 84))
                         .containerRelativeFrame(pageAxes)
@@ -149,10 +168,18 @@ struct ScrollLab: View {
                 Toggle("Second pager behind", isOn: $secondPager)
                 Toggle("Tab bar shrinks", isOn: $shrinkTabBar)
             }
-            Picker("Day length", selection: $rows) {
-                Text("Short: fits the screen").tag(4)
-                Text("Like 30 Sep: a bit longer").tag(8)
-                Text("Long: two screens").tag(16)
+            Section("What the days show") {
+                Toggle("Real days (from Lectio)", isOn: $realDays)
+                Toggle("Leave out cancelled", isOn: $leaveOutCancelled)
+                Toggle("Leave out Also on", isOn: $leaveOutAlsoOn)
+                Toggle("Leave out All day", isOn: $leaveOutAllDay)
+                Toggle("Made-up rows are buttons", isOn: $rowsAreButtons)
+            }
+            Picker("Made-up rows at the end", selection: $rows) {
+                Text("None").tag(0)
+                Text("4: fits the screen").tag(4)
+                Text("8: a bit longer, like 30 Sep").tag(8)
+                Text("16: two screens").tag(16)
             }
             .pickerStyle(.inline)
             Section {
@@ -163,7 +190,8 @@ struct ScrollLab: View {
         }
     }
 
-    /// Every piece on, as `main`'s ScheduleTab has them.
+    /// Every piece of the pager on, as `main`'s ScheduleTab has them. (The
+    /// presets leave what the days show alone.)
     private func likeTheSchedule() {
         paging = LabPaging.swiftUI.rawValue
         fullHeight = true
@@ -173,7 +201,6 @@ struct ScrollLab: View {
         underTabBar = true
         secondPager = true
         shrinkTabBar = true
-        rows = 8
     }
 
     /// Only a paging pager of scrolling pages, in the real tab bar.
@@ -186,7 +213,6 @@ struct ScrollLab: View {
         underTabBar = false
         secondPager = false
         shrinkTabBar = true
-        rows = 8
     }
 }
 
@@ -210,11 +236,16 @@ enum LabPaging: Int, CaseIterable {
     }
 }
 
-/// One fake day: a big title, then rows the size of the Schedule's
-/// modules.
+/// One day of the lab: a made-up one (a big title, then rows the size of
+/// the Schedule's modules), or the real one for that date, drawn by the
+/// Schedule's own DayList, with made-up rows after it if asked for.
 private struct LabPage: View {
+    @Environment(LectioSession.self) private var session
     let day: Int
+    let realDays: Bool
+    let leaveOut: LabLeaveOut
     let rows: Int
+    let rowsAreButtons: Bool
     let summary: String
     let refreshable: Bool
     let measuredBottom: Bool
@@ -231,12 +262,20 @@ private struct LabPage: View {
         return min(max(pageBottom - barLine, floor), 400) + 24
     }
 
+    /// The real date this page stands for: today on the middle page.
+    private var date: String {
+        LectioDates.shift(iso: LectioDates.isoString(from: Date()), byDays: day - LabDays.start)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Day \(day - LabDays.start)")
-                        .scaledFont(size: 34, weight: .bold)
+                    Text(realDays ? ScheduleTab.dayTitle(date) + ", " + ScheduleTab.daySubtitle(date)
+                                  : "Day \(day - LabDays.start)")
+                        .scaledFont(size: realDays ? 24 : 34, weight: .bold)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                     Text(summary)
                         .scaledFont(size: 11.5)
                         .foregroundStyle(.secondary)
@@ -245,15 +284,15 @@ private struct LabPage: View {
                 .padding(.top, 35.5)
                 .padding(.bottom, 4)
 
+                if realDays {
+                    realDay
+                }
+
                 // Ids of their own: a bare number would clash with the
                 // pager's page ids, and scrolling to a page would scroll a
                 // day instead.
-                ForEach((1...rows).map { "row\($0)" }, id: \.self) { row in
-                    Text("Module \(String(row.dropFirst(3)))")
-                        .scaledFont(size: 17, weight: .semibold)
-                        .padding(.horizontal, 16)
-                        .frame(maxWidth: .infinity, minHeight: 100, alignment: .leading)
-                        .contentCard(radius: Metrics.inner + 4)
+                ForEach((0..<rows).map { "row\($0 + 1)" }, id: \.self) { row in
+                    madeUpRow(row)
                 }
                 Text("End of day \(day - LabDays.start)")
                     .scaledFont(size: 13.5)
@@ -267,6 +306,11 @@ private struct LabPage: View {
         .scrollIndicators(.hidden)
         .modifier(LabPageBottom(on: measuredBottom, pageBottom: $pageBottom))
         .modifier(LabRefresh(on: refreshable))
+        // A real week is fetched as the Schedule fetches it (a read, and
+        // nothing if it's already here).
+        .task(id: realDays) {
+            if realDays { session.requestWeek(LectioDates.weekCode(iso: date)) }
+        }
         // In Xcode's console (filter "Lab:"). A jerk at the end shows as
         // "interacting → idle" at the end with no "decelerating" between.
         .onScrollPhaseChange { old, new, context in
@@ -274,6 +318,66 @@ private struct LabPage: View {
             let y = Int(g.contentOffset.y + g.contentInsets.top)
             let end = Int(g.contentSize.height + g.contentInsets.top + g.contentInsets.bottom - g.containerSize.height)
             print("Lab: \(LabLog.stamp) day \(day - LabDays.start) \(old) → \(new) at \(y) of \(end)")
+        }
+    }
+}
+
+extension LabPage {
+    /// The real day, drawn by the Schedule's own DayList.
+    @ViewBuilder
+    fileprivate var realDay: some View {
+        let className = session.snapshot.profile.className
+        if let week = session.snapshot.weeks[LectioDates.weekCode(iso: date)] {
+            DayList(day: week.days.first { $0.date == date },
+                    modules: week.dayModules,
+                    className: className,
+                    rolling: week.rollingNotes(className: className),
+                    labLeavesOut: leaveOut)
+                .equatable()
+        } else {
+            ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
+        }
+    }
+
+    @ViewBuilder
+    fileprivate func madeUpRow(_ row: String) -> some View {
+        let card = Text("Module \(String(row.dropFirst(3)))")
+            .scaledFont(size: 17, weight: .semibold)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: 100, alignment: .leading)
+            .contentCard(radius: Metrics.inner + 4)
+        if rowsAreButtons {
+            // Pressable like a lesson card, and does nothing.
+            Button {} label: { card }
+                .buttonStyle(PressableCard())
+        } else {
+            card
+        }
+    }
+}
+
+/// Parts of a real day the lab can leave out, to see which one brings the
+/// jerk (see DayList.labLeavesOut). Leaving one out shortens the day: add
+/// made-up rows to keep it long enough to scroll.
+struct LabLeaveOut: OptionSet, Hashable {
+    let rawValue: Int
+    static let cancelled = LabLeaveOut(rawValue: 1 << 0)
+    static let alsoOn = LabLeaveOut(rawValue: 1 << 1)
+    static let allDay = LabLeaveOut(rawValue: 1 << 2)
+
+    func apply(to plan: inout DayPlan) {
+        if contains(.alsoOn) { plan.also = [] }
+        if contains(.allDay) {
+            plan.allDay = []
+            plan.observances = []
+        }
+        if contains(.cancelled) {
+            plan.also.removeAll { $0.cancelled }
+            plan.before.removeAll { $0.cancelled }
+            plan.after.removeAll { $0.cancelled }
+            for index in plan.slots.indices {
+                plan.slots[index].cancelled = []
+            }
         }
     }
 }
