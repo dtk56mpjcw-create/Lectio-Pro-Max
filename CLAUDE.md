@@ -88,6 +88,12 @@ problem.
 - The old `com.ivan.lectiopromax` IDs belong to the first team (`L78DTW7MMS`,
   device slots full) and can't be reused.
 - The deep-link scheme is still `lectiopromax://` (see `Shared/AppLink.swift`).
+- **Friends' phones** are installed by cable from Xcode, as a **Release**
+  build (Edit Scheme → Run → Build Configuration → Release). A Debug build
+  shows Settings' Testing section. Each phone needs iOS 26, Developer Mode,
+  and Dan's Apple ID trusted under VPN & Device Management; the app stops
+  opening after 7 days until it's installed again. The free team's device
+  slots run out fast; TestFlight needs the paid Apple Developer Program.
 
 ---
 
