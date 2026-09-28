@@ -19,9 +19,6 @@ struct SettingsScreen: View {
     @AppStorage(NotifyPrefs.workKey) private var notifyWork = true
     @AppStorage(NotifyPrefs.lessonsKey) private var notifyLessons = false
     @AppStorage(NotifyPrefs.leadKey) private var lessonLead = 5
-    #if DEBUG
-    @AppStorage(ScrollLab.enabledKey) private var scrollLab = false
-    #endif
 
     private var school: String {
         session.snapshot.profile.schoolName ?? LectioConfig.schoolName
@@ -90,7 +87,7 @@ struct SettingsScreen: View {
 
                 #if DEBUG
                 section("Testing",
-                        footer: "Only in builds from Xcode. Expire session throws the Lectio session away as if it had run out, to check the app gets back in by itself with the auto-login key. Scroll lab puts a test pager with made-up days in the Schedule tab, for finding the scroll jerk.") {
+                        footer: "Only in builds from Xcode. Expire session throws the Lectio session away as if it had run out, to check the app gets back in by itself with the auto-login key.") {
                     row("Auto-login key", "key.fill", .gray, value: keyText, chevron: nil)
                     Divider().padding(.leading, 56)
                     row("Session", "clock.arrow.circlepath", .gray, value: sessionText, chevron: nil)
@@ -102,8 +99,6 @@ struct SettingsScreen: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(testing)
-                    Divider().padding(.leading, 56)
-                    toggleRow("Scroll lab in Schedule", "flask", .purple, isOn: $scrollLab)
                 }
                 #endif
 

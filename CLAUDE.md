@@ -183,7 +183,7 @@ Mail (messages) and Reminders.
 
 ## Struggles so far (learn from them)
 
-### 1. Day view scroll jerk — FOUND, fix waiting for Dan's confirmation
+### 1. Day view scroll jerk — FIXED (confirmed 28 Sep 2026)
 
 - **Cause:** a row a little wider than the page (on 30 Sep, a cancelled
   "Also on" item with "Cancelled" in full) made the day wider than its
@@ -191,6 +191,8 @@ Mail (messages) and Reminders.
   drag over. Fixed by holding every day and week page to the page's width
   (`pageWide()` in `ScheduleTab`) and by letting that row fit. See the top
   of `SCROLL_BUG.md`.
+- Found with a scroll lab (a debug-only test pager whose pieces switched
+  on and off), since removed; it's in git history (`5d070fd`…`3c1aaa8`).
 - The history below is what didn't work.
 
 - On a long day (one with an "Also on" section, taller than the screen), the
@@ -291,11 +293,8 @@ SwiftUI scroll facts learned the hard way:
 
 ## Open items
 
-- [ ] Day view scroll jerk (`SCROLL_BUG.md`): found with the scroll lab
-      (`ScrollLab.swift`, debug builds only, Me → Settings → Testing) and
-      fixed (`55fb332`, `ae1c45b`). Confirm on the real Schedule on a phone
-      with a home indicator, then remove the lab and its debug hooks
-      (RootView, SettingsScreen, DayList, SmallItem).
+- [x] Day view scroll jerk (`SCROLL_BUG.md`): fixed (`55fb332`, `ae1c45b`),
+      confirmed by Dan; the scroll lab is removed.
 - [ ] Confirm on the classmate's iPhone 15 (iOS 27): elevfeedback wrapping,
       the search field only on Search, pull-to-refresh in week view.
 - [ ] Contact address for `docs/privacy.html` and `docs/terms.html` (Dan

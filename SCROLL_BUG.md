@@ -1,6 +1,6 @@
-# Day view scroll bug — handoff notes
+# Day view scroll bug — FIXED (28 Sep 2026)
 
-## Found (28 Sep): a row wider than the page
+## Found: a row wider than the page
 
 **The cause:** on 30 Sep, one row in "Also on" (a cancelled item with a long
 name, "Cancelled" in full and a room) came out a little wider than the page.
@@ -16,7 +16,7 @@ SE 3 never jerked isn't known: its narrower screen lays the row out
 differently, and whether that row still came out too wide there wasn't
 measured.
 
-**The fix, waiting for Dan to confirm on the real Schedule:**
+**The fix, confirmed by Dan on the real Schedule (28 Sep):**
 - `55fb332`: every day and week page holds its content to the page's width
   (`pageWide()`, `containerRelativeFrame(.horizontal)` in `ScheduleTab`),
   so no row can make a page wider than the screen. The lab's "Day no wider
@@ -26,9 +26,13 @@ measured.
 - Native paging and the shrinking tab bar both stay as they are.
 
 Found with the scroll lab: pieces switched off one at a time, then the real
-day's parts, then the cancelled row's look. The history below is kept so
-none of it is repeated. Once confirmed, remove the lab and its debug hooks
-(RootView, SettingsScreen, DayList, SmallItem).
+day's parts, then the cancelled row's look. The lab is removed now; it's in
+git (`ScrollLab.swift`, `5d070fd` to `3c1aaa8`) if it's ever needed again. The
+history below is kept so none of it is repeated.
+
+**If a jerk like this comes back:** first check whether a page's content is
+wider than the page (log `contentSize.width` against `containerSize.width`
+with `onScrollGeometryChange`), before touching the pager.
 
 ## In plain words (for Dan)
 

@@ -15,30 +15,15 @@ struct DayList: View, Equatable {
     let className: String
     /// See ScheduleWeek.rollingNotes.
     var rolling: Set<String> = []
-    #if DEBUG
-    /// Parts of the day the scroll lab leaves out (see ScrollLab).
-    var labLeavesOut: LabLeaveOut = []
-    #endif
 
     static func == (lhs: DayList, rhs: DayList) -> Bool {
-        #if DEBUG
-        guard lhs.labLeavesOut == rhs.labLeavesOut else { return false }
-        #endif
-        return lhs.day == rhs.day && lhs.modules == rhs.modules && lhs.className == rhs.className
+        lhs.day == rhs.day && lhs.modules == rhs.modules && lhs.className == rhs.className
             && lhs.rolling == rhs.rolling
-    }
-
-    private func makePlan(_ day: ScheduleDay) -> DayPlan {
-        var plan = DayPlan.build(day, modules: modules, className: className, rolling: rolling)
-        #if DEBUG
-        labLeavesOut.apply(to: &plan)
-        #endif
-        return plan
     }
 
     var body: some View {
         if let day, !day.lessons.isEmpty {
-            let plan = makePlan(day)
+            let plan = DayPlan.build(day, modules: modules, className: className, rolling: rolling)
             if day.date == LectioDates.isoString(from: Date()) {
                 TimelineView(.everyMinute) { context in
                     DayContent(plan: plan, dayISO: day.date, now: context.date)
@@ -729,24 +714,6 @@ private struct SmallItem: View {
     /// Off where the row already shows the times on its left.
     var showsTime = true
     @Environment(\.colorScheme) private var scheme
-    #if DEBUG
-    /// The scroll lab can switch parts of the cancelled look off (see
-    /// LabCancelledLook).
-    @Environment(\.labCancelledLook) private var labLook
-    private var struckThrough: Bool { lesson.cancelled && !labLook.contains(.noStrikethrough) }
-    private var saysCancelled: Bool { !labLook.contains(.noLabel) }
-    private var cancelledColor: Color {
-        if labLook.contains(.greyLabel) { return .secondary }
-        if labLook.contains(.systemRedLabel) { return .red }
-        return Palette.negative
-    }
-    /// The label sized as it was before the fix, to bring the jerk back.
-    private var labelFixed: Bool { labLook.contains(.labelFixed) }
-    #else
-    private var struckThrough: Bool { lesson.cancelled }
-    private var saysCancelled: Bool { true }
-    private var cancelledColor: Color { Palette.negative }
-    #endif
 
     var body: some View {
         HStack(spacing: 10) {
@@ -759,7 +726,7 @@ private struct SmallItem: View {
             Text(lesson.headline.replacingOccurrences(of: "\\s*\\bAFLYST\\b", with: "",
                                                       options: [.regularExpression, .caseInsensitive]))
                 .scaledFont(size: 15, weight: .medium)
-                .strikethrough(struckThrough, color: Palette.negative)
+                .strikethrough(lesson.cancelled, color: Palette.negative)
                 .foregroundStyle(lesson.cancelled ? Color(.secondaryLabel) : Color.primary)
                 .lineLimit(1)
                 .layoutPriority(1)
@@ -771,22 +738,14 @@ private struct SmallItem: View {
                     .lineLimit(1)
             }
             if lesson.cancelled {
-                if saysCancelled {
-                    Text("Cancelled")
-                        .scaledFont(size: 12.5, weight: .semibold)
-                        .foregroundStyle(cancelledColor)
-                        .lineLimit(1)
-                        #if DEBUG
-                        .fixedSize(horizontal: labelFixed, vertical: labelFixed)
-                        #endif
-                        // Never squeezed: it gets its room first, then the
-                        // name. Not by `.fixedSize()`: in this row, that made
-                        // a long day's scroll catch near the end and jump
-                        // back without a bounce (SCROLL_BUG.md, the scroll lab).
-                        // Last, so the stack sees it: under another modifier
-                        // it was lost, and the label shrank to "C…".
-                        .layoutPriority(2)
-                }
+                // Never squeezed: it gets its room first, then the name and
+                // the room share the rest. Kept last, so the stack sees it:
+                // under another modifier it was lost, and it shrank to "C…".
+                Text("Cancelled")
+                    .scaledFont(size: 12.5, weight: .semibold)
+                    .foregroundStyle(Palette.negative)
+                    .lineLimit(1)
+                    .layoutPriority(2)
             } else if lesson.isExam {
                 // "1g: Matematikscreening" during your English lesson.
                 ExamTag()
