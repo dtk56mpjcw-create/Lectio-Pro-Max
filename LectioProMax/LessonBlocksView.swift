@@ -96,6 +96,11 @@ struct LessonBlocksView: View {
 struct LoadedPicture {
     let image: UIImage
     let file: URL
+
+    /// Where the files go, all together, so signing out can clear them.
+    static var folder: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("LessonPictures", isDirectory: true)
+    }
 }
 
 /// A picture in a lesson's content, such as the workbook page a teacher
@@ -188,10 +193,22 @@ struct LessonPicture: View {
     @concurrent private static func fetch(_ source: String, cookies: [HTTPCookie]) async -> LoadedPicture? {
         guard let data = await bytes(source, cookies: cookies),
               let decoded = UIImage(data: data) else { return nil }
-        let image = await decoded.byPreparingForDisplay() ?? decoded
+        // At most 1600 px across: a card is never wider than that on any
+        // iPhone, and a phone photo at full size is about 48 MB decoded,
+        // enough for a few to get the app stopped. Quick Look still opens
+        // the file itself, full size, to zoom in.
+        let limit: CGFloat = 1600
+        let size = decoded.size
+        let image: UIImage
+        if max(size.width, size.height) > limit {
+            let scale = limit / max(size.width, size.height)
+            let target = CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
+            image = await decoded.byPreparingThumbnail(ofSize: target) ?? decoded
+        } else {
+            image = await decoded.byPreparingForDisplay() ?? decoded
+        }
 
-        let folder = FileManager.default.temporaryDirectory
-            .appendingPathComponent("LessonPictures", isDirectory: true)
+        let folder = LoadedPicture.folder
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         // Quick Look goes by the file's extension.
         let (written, ext): (Data?, String) = {

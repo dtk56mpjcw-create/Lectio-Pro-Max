@@ -39,8 +39,9 @@ final class LessonCache {
         loading.removeAll()
         details.removeAll()
         feedbacks.removeAll()
-        for picture in pictures.values { try? FileManager.default.removeItem(at: picture.file) }
         pictures.removeAll()
+        // Every lesson picture saved for Quick Look (see LessonPicture).
+        try? FileManager.default.removeItem(at: LoadedPicture.folder)
     }
 
     // MARK: Reading
@@ -63,6 +64,10 @@ final class LessonCache {
     func picture(_ source: String) -> LoadedPicture? { pictures[source] }
 
     func store(picture: LoadedPicture, for source: String) {
+        // A bound on it: a term of lessons with pictures shouldn't all stay
+        // in memory. Past it, start over. The files stay (one may be on
+        // screen, waiting for a tap); signing out removes them all.
+        if pictures.count >= 40 { pictures.removeAll() }
         pictures[source] = picture
     }
 
