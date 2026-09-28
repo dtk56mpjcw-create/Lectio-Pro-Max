@@ -204,13 +204,51 @@ struct LessonFile: Identifiable, Hashable {
     var link: String = ""
 }
 
-/// One block of content on a lesson's page — a piece of text, a file, or both.
+/// A stretch of text in a lesson's content as the teacher styled it in
+/// Lectio's editor: plain, bold, italic, or a link.
+struct LessonRun: Hashable {
+    var text: String
+    var link: String? = nil
+    var bold = false
+    var italic = false
+}
+
+/// A lesson's content in reading order, as the teacher laid it out: a
+/// paragraph (its own line breaks kept, its links tappable), an item of a
+/// list, or a picture. The text alone lost all three: links became plain
+/// words, pictures vanished, and paragraphs ran into each other.
+enum LessonBlock: Hashable {
+    case paragraph([LessonRun])
+    case listItem(marker: String, runs: [LessonRun])
+    case image(String)
+
+    var runs: [LessonRun] {
+        switch self {
+        case .paragraph(let runs), .listItem(_, let runs): return runs
+        case .image: return []
+        }
+    }
+
+    /// The words, without styling: for previews and search.
+    var plainText: String {
+        switch self {
+        case .paragraph(let runs): return runs.map(\.text).joined()
+        case .listItem(let marker, let runs): return marker + " " + runs.map(\.text).joined()
+        case .image: return ""
+        }
+    }
+}
+
+/// One block of content on a lesson's page — text, pictures, files, or all
+/// of them.
 struct LessonEntry: Identifiable, Hashable {
     var id: String
+    /// The words alone, one paragraph a line, for previews.
     var text: String = ""
+    var blocks: [LessonBlock] = []
     var files: [LessonFile] = []
 
-    var isEmpty: Bool { text.isEmpty && files.isEmpty }
+    var isEmpty: Bool { text.isEmpty && blocks.isEmpty && files.isEmpty }
 }
 
 /// Lectio groups a lesson's content under headings: "Lektier", "Øvrigt indhold"

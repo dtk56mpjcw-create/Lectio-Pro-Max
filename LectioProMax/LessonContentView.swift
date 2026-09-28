@@ -138,13 +138,9 @@ struct LessonContentView: View {
                 .foregroundStyle(.secondary)
 
             ForEach(section.entries) { entry in
-                VStack(alignment: .leading, spacing: 8) {
-                    if !entry.text.isEmpty {
-                        Text(LectioDates.tidy(entry.text))
-                            .scaledFont(size: 16)
-                            .lineSpacing(3)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                VStack(alignment: .leading, spacing: 10) {
+                    // Paragraphs, links and pictures as Lectio has them.
+                    LessonBlocksView(blocks: entry.blocks)
                     ForEach(entry.files) { file in
                         fileRow(file)
                     }

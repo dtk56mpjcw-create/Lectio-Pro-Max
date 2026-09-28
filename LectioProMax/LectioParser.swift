@@ -1115,7 +1115,8 @@ extension LectioParser {
 extension LectioParser {
 
     /// Lectio's lesson page: an activity note in a (disabled) textarea, then
-    /// content grouped under section headings. Files hang off anchors marked
+    /// content grouped under section headings, each piece read by
+    /// LessonContentReader. Files hang off anchors marked
     /// `data-lc-display-linktype="file"`, pointing at `/lectio/<school>/lc/…`.
     static func parseLessonDetail(_ html: String) -> LessonDetail {
         return parseLessonDetail(root: HTMLDocument.parse(html))
@@ -1155,19 +1156,12 @@ extension LectioParser {
                 if element.hasClass("lc-display-fragment") {
                     counter += 1
                     var entry = LessonEntry(id: "entry-\(counter)")
-                    for anchor in element.all("a") {
-                        guard (anchor.attr("data-lc-display-linktype") ?? "") == "file"
-                                || (anchor.attr("href") ?? "").contains("/lc/") else { continue }
-                        guard let link = absoluteURL(anchor.attr("href")) else { continue }
-                        let name = anchor.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                        entry.files.append(LessonFile(name: name.isEmpty ? "File" : name, link: link))
-                    }
-                    // The text, minus the file names we've already listed.
-                    var text = element.text
-                    for file in entry.files {
-                        text = text.replacingOccurrences(of: file.name, with: "")
-                    }
-                    entry.text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    // Paragraphs, links and pictures as the teacher laid
+                    // them out; files apart (see LessonContentReader).
+                    let read = LessonContentReader.read(element)
+                    entry.blocks = read.blocks
+                    entry.files = read.files
+                    entry.text = LessonContentReader.plainText(read.blocks)
                     if !entry.isEmpty { current.entries.append(entry) }
                     continue
                 }

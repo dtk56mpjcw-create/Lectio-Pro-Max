@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// Lesson pages and their Elevfeedback, fetched ahead of time.
 ///
@@ -18,6 +19,9 @@ final class LessonCache {
 
     private var details: [String: Entry<LessonDetail>] = [:]
     private var feedbacks: [String: Entry<LessonFeedback>] = [:]
+    /// Pictures in lessons' content (see LessonPicture), so going back and
+    /// forth doesn't fetch them again.
+    private var pictures: [String: LoadedPicture] = [:]
     /// One load per lesson at a time; a second asker waits for the first.
     private var loading: [String: Task<Void, Never>] = [:]
     private var prefetching: Task<Void, Never>?
@@ -35,6 +39,8 @@ final class LessonCache {
         loading.removeAll()
         details.removeAll()
         feedbacks.removeAll()
+        for picture in pictures.values { try? FileManager.default.removeItem(at: picture.file) }
+        pictures.removeAll()
     }
 
     // MARK: Reading
@@ -52,6 +58,12 @@ final class LessonCache {
 
     func store(feedback: LessonFeedback, for link: String) {
         feedbacks[link] = Entry(value: feedback, at: Date())
+    }
+
+    func picture(_ source: String) -> LoadedPicture? { pictures[source] }
+
+    func store(picture: LoadedPicture, for source: String) {
+        pictures[source] = picture
     }
 
     // MARK: Loading
