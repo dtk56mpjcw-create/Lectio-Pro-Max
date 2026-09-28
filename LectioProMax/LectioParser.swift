@@ -492,6 +492,39 @@ extension LectioParser {
         // --- the ASP.NET form, exactly as the browser would resubmit it ------
         result.form = LectioForms.fields(in: root)
 
+        // --- the assignment itself -------------------------------------------
+        //
+        // Found by the row's label, wherever the page puts it: "Opgave-
+        // beskrivelse" (the brief, its files) and "Opgavenote" (the note,
+        // read like lesson content so its links work). A page without them
+        // just has neither.
+        let base = URL(string: pageURL)
+        for row in root.all("tr") {
+            let cells = row.children.filter { $0.name == "th" || $0.name == "td" }
+            guard cells.count >= 2 else { continue }
+            let label = cells[0].text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            let values = cells.dropFirst()
+            if label.hasPrefix("opgavebeskrivelse") {
+                for anchor in values.flatMap({ $0.all("a") }) {
+                    let href = (anchor.attr("href") ?? "").trimmingCharacters(in: .whitespaces)
+                    guard !href.isEmpty, !href.lowercased().hasPrefix("javascript:"),
+                          let link = base.flatMap({ URL(string: href, relativeTo: $0)?.absoluteString })
+                            ?? absoluteURL(href),
+                          !result.briefFiles.contains(where: { $0.link == link }) else { continue }
+                    let name = anchor.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    result.briefFiles.append(LessonFile(name: name.isEmpty ? "Assignment" : name, link: link))
+                }
+            } else if label.hasPrefix("opgavenote") {
+                for cell in values {
+                    let read = LessonContentReader.read(cell, base: base)
+                    result.note += read.blocks
+                    for file in read.files where !result.briefFiles.contains(where: { $0.link == file.link }) {
+                        result.briefFiles.append(file)
+                    }
+                }
+            }
+        }
+
         // --- what's already been handed in -----------------------------------
         if let table = root.first(id: "m_Content_RecipientGV") {
             for row in table.all("tr") {

@@ -162,6 +162,22 @@ struct LessonContentTests {
         #expect(message?.blocks?.first?.plainText == "Read this text before Monday.\nKaren")
     }
 
+    @Test func anAssignmentShowsItsBrief() {
+        let html = """
+        <html><body><table class="ls-std-table-inputlist">
+          <tr><th>Opgavetitel:</th><td>Essay</td></tr>
+          <tr><th>Opgavebeskrivelse:</th><td><a href="/lectio/59/ExerciseFileGet.aspx?type=opgavedef&amp;entryid=5">Essay brief.pdf</a></td></tr>
+          <tr><th>Opgavenote:</th><td>Read <a href="https://example.com/guide">the guide</a> first.</td></tr>
+        </table></body></html>
+        """
+        let handIn = LectioParser.parseHandIn(html, pageURL: "https://www.lectio.dk/lectio/59/ElevAflevering.aspx?exerciseid=2")
+        #expect(handIn.briefFiles == [LessonFile(
+            name: "Essay brief.pdf",
+            link: "https://www.lectio.dk/lectio/59/ExerciseFileGet.aspx?type=opgavedef&entryid=5")])
+        #expect(handIn.note.first?.plainText == "Read the guide first.")
+        #expect(handIn.note.first?.runs.contains(LessonRun(text: "the guide", link: "https://example.com/guide")) == true)
+    }
+
     @Test func listsKeepTheirMarkers() {
         let html = """
         <div class="ls-paper"><div class="lc-display-fragment">

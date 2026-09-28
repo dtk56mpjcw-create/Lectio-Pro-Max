@@ -62,6 +62,12 @@ struct GroupPerson: Identifiable, Hashable {
 
 struct HandIn {
     var status = HandInStatus()
+    /// The assignment itself, from the top of Lectio's page: the teacher's
+    /// brief ("Opgavebeskrivelse"), as files, and note ("Opgavenote"), with
+    /// its links. Without them the sheet had only Open in Lectio for what
+    /// the assignment actually is.
+    var briefFiles: [LessonFile] = []
+    var note: [LessonContentBlock] = []
     var entries: [HandInEntry] = []
     /// A group hand-in ("Gruppeaflevering"): who's in it, and — while Lectio
     /// still allows it — who from the class can be added.

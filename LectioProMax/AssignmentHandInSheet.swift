@@ -46,6 +46,9 @@ struct AssignmentHandInSheet: View {
                 }
 
                 if let handIn = handIn {
+                    if !handIn.note.isEmpty || !handIn.briefFiles.isEmpty {
+                        briefSection(handIn)
+                    }
                     statusCard(handIn.status)
                     if handIn.isGroup {
                         groupSection(handIn)
@@ -234,6 +237,70 @@ struct AssignmentHandInSheet: View {
     }
 
     // MARK: Existing hand-ins
+
+    /// The assignment itself: the teacher's note, its links working, and the
+    /// brief's files, opened in the app like the handed-in ones.
+    private func briefSection(_ handIn: HandIn) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text("Assignment")
+                .scaledFont(size: 13, weight: .heavy)
+                .tracking(0.7)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 10) {
+                if !handIn.note.isEmpty {
+                    LessonBlocksView(blocks: handIn.note)
+                }
+                ForEach(handIn.briefFiles) { file in
+                    briefRow(file)
+                }
+            }
+            .padding(13)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentCard(radius: Metrics.inner)
+        }
+    }
+
+    private func briefRow(_ file: LessonFile) -> some View {
+        Button {
+            Task { await open(file) }
+        } label: {
+            HStack(spacing: 7) {
+                if downloading == file.link {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "doc")
+                        .scaledFont(size: 13, weight: .semibold)
+                        .foregroundStyle(tint)
+                }
+                Text(file.name)
+                    .scaledFont(size: 15.5, weight: .semibold)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.down.circle")
+                    .scaledFont(size: 13.5, weight: .semibold)
+                    .foregroundStyle(.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(downloading != nil)
+    }
+
+    private func open(_ file: LessonFile) async {
+        actionError = nil
+        downloading = file.link
+        defer { downloading = nil }
+
+        let cookies = await session.requestCookies()
+        do {
+            let saved = try await LectioHandInService.downloadDocument(
+                link: file.link, suggestedName: file.name, cookies: cookies)
+            preview = PreviewDocument(url: saved)
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
 
     private func entriesSection(_ entries: [HandInEntry]) -> some View {
         VStack(alignment: .leading, spacing: 9) {
