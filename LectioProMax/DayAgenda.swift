@@ -139,7 +139,12 @@ enum ModuleGrid {
         let count = CGFloat(max(1, slot.last.number - slot.module.number + 1))
         let length = CGFloat(max(slot.module.endMinutes - slot.module.startMinutes, 30))
         let extra = CGFloat(slot.overrunBefore + slot.overrunAfter) * module / length
-        return count * module + (count - 1) * gap + extra
+        // Two lessons of yours in one module (History and KL at 9:50, say)
+        // each need a lesson's room. Squeezed into one module's height,
+        // each kept its own and the pair, twice too tall, spilled over the
+        // modules above and below.
+        let stacked = CGFloat(slot.main.count + slot.continuing.count)
+        return max(count * module + (count - 1) * gap + extra, stacked * module)
     }
 }
 
