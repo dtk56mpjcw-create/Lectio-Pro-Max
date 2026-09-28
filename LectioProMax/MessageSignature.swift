@@ -25,10 +25,12 @@ enum MessageSignature {
     }
 
     /// The message as it's sent: the text, an empty line, the signature.
+    /// Just the signature when there's no text (a photo on its own) —
+    /// not two empty lines above it.
     static func apply(to body: String, include: Bool = true) -> String {
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         guard include, let signature = active else { return trimmed }
-        return trimmed + "\n\n" + signature
+        return trimmed.isEmpty ? signature : trimmed + "\n\n" + signature
     }
 }
 
