@@ -147,6 +147,9 @@ enum NotificationService {
         content.body = LectioDates.tidy(item.title)
         if !item.dueTime.isEmpty { content.subtitle = "Due at " + item.dueTime }
         content.sound = .default
+        // A tap opens Homework, as a "New homework" notice does, rather than
+        // the app on whatever tab it was left on.
+        content.userInfo = ["link": AppLink.homework.absoluteString]
 
         // With its calendar and time zone, so it fires at that Danish time
         // even on a phone set to another zone.
