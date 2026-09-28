@@ -1,11 +1,35 @@
 import SwiftUI
 
-/// The Overview side of a lesson's page: the header, room and teacher, and
-/// Elevfeedback. Its homework and other content are on the Content side, not
-/// here (Dan's choice): the overview stays short.
+/// The Overview side of a lesson's page: the header, room and teacher, the
+/// teacher's note, and Elevfeedback. Its homework and other content are on
+/// the Content side, not here (Dan's choice): the overview stays short.
+///
+/// It loads the lesson's Lectio page and its Elevfeedback tab together,
+/// through the shared cache: the note comes from the page, and Content is
+/// ready by the time you swipe to it.
 struct LessonDetailContent: View {
     let lesson: Lesson
     let dayISO: String
+
+    @Environment(LectioSession.self) private var session
+    @State private var detail: LessonDetail?
+    @State private var feedback: LessonFeedback?
+    @State private var showFeedback = false
+
+    init(lesson: Lesson, dayISO: String) {
+        self.lesson = lesson
+        self.dayISO = dayISO
+        // Whatever was fetched ahead of time is there from the first frame.
+        _detail = State(initialValue: lesson.link.flatMap { LessonCache.shared.detail($0) })
+        _feedback = State(initialValue: lesson.link.flatMap { LessonCache.shared.feedback($0) })
+    }
+
+    /// The page's note, as the teacher wrote it; the schedule's copy until
+    /// the page is here (or if it has none we could read).
+    private var note: String {
+        if let page = detail?.note, !page.isEmpty { return page }
+        return lesson.note
+    }
 
     private var tint: Color { Color.forSubject(lesson.code) }
     private var state: LessonState { lesson.state(onDay: dayISO) }
@@ -52,8 +76,25 @@ struct LessonDetailContent: View {
                 }
             }
 
-            if let link = lesson.link {
-                LessonFeedbackCard(link: link, title: lesson.displayTitle, code: lesson.code)
+            if !note.isEmpty {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("NOTE")
+                        .scaledFont(size: 12, weight: .heavy)
+                        .tracking(0.7)
+                        .foregroundStyle(.secondary)
+                    Text(LectioDates.tidy(note))
+                        .scaledFont(size: 16.5)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(15)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentCard(radius: Metrics.inner + 2)
+            }
+
+            // A lesson without the tab is normal: no card, and no message.
+            if let feedback, feedback.available {
+                LessonFeedbackCard(feedback: feedback) { showFeedback = true }
             }
 
             if let link = lesson.link, let url = URL(string: link) {
@@ -71,6 +112,36 @@ struct LessonDetailContent: View {
                     .contentCard(radius: Metrics.inner + 2)
                 }
             }
+        }
+        .task { await load() }
+        .sheet(isPresented: $showFeedback, onDismiss: { Task { await reloadFeedback() } }) {
+            if let link = lesson.link {
+                FeedbackSheet(lessonLink: link, title: lesson.displayTitle, code: lesson.code)
+                    .environment(session)
+            }
+        }
+    }
+
+    /// The page and its Elevfeedback, through the shared cache: only what's
+    /// out of date is asked for, quietly, over what's already shown.
+    private func load() async {
+        guard let link = lesson.link else { return }
+        let cache = LessonCache.shared
+        if !cache.isDetailFresh(link) || !cache.isFeedbackFresh(link) {
+            let cookies = await session.requestCookies()
+            await cache.load(link, detail: true, feedback: true, cookies: cookies)
+        }
+        if let fresh = cache.detail(link) { detail = fresh }
+        if let fresh = cache.feedback(link) { feedback = fresh }
+    }
+
+    /// After the Elevfeedback sheet closes: what was just written, fresh.
+    private func reloadFeedback() async {
+        guard let link = lesson.link else { return }
+        let cookies = await session.requestCookies()
+        if let fresh = try? await LectioFeedbackService.load(lessonLink: link, cookies: cookies) {
+            feedback = fresh
+            LessonCache.shared.store(feedback: fresh, for: link)
         }
     }
 
@@ -123,9 +194,9 @@ enum LessonPage: Hashable {
 /// from the card that was tapped. The system back button replaces the sheet's close button —
 /// nothing floats over the schedule's own controls any more.
 ///
-/// Two sides, as in Dan's reference: Overview (the lesson and its
-/// Elevfeedback) and Content (its note, homework and everything else on its
-/// Lectio page). Chosen with the system's segmented control, which is Liquid
+/// Two sides, as in Dan's reference: Overview (the lesson, the teacher's
+/// note and Elevfeedback) and Content (its homework and everything else on
+/// its Lectio page). Chosen with the system's segmented control, which is Liquid
 /// Glass on iOS 26, on a glass capsule over the page, or by swiping between
 /// them (native paging). Something with no Lectio page of its own, such as
 /// your own event, has only the overview, and no chooser.
@@ -144,10 +215,8 @@ struct LessonDetailScreen: View {
                     }
                     .tag(LessonPage.overview)
                     scrolling {
-                        LessonContentView(link: link,
-                                          placeholder: [lesson.homework, lesson.note]
-                                            .filter { !$0.isEmpty }
-                                            .joined(separator: "\n\n"))
+                        // The note is on the Overview side.
+                        LessonContentView(link: link, placeholder: lesson.homework, showsNote: false)
                     }
                     .tag(LessonPage.content)
                 }

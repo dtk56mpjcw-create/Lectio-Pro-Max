@@ -11,6 +11,9 @@ struct LessonContentView: View {
     let link: String
     /// Shown immediately while the page loads, so there's never a blank wait.
     var placeholder: String = ""
+    /// Off on a lesson's page, whose Overview side has the note (Dan's
+    /// choice); on in the homework sheet, which has no other place for it.
+    var showsNote: Bool = true
 
     @Environment(LectioSession.self) private var session
 
@@ -20,9 +23,10 @@ struct LessonContentView: View {
     @State private var preview: PreviewDocument?
     @State private var downloading: String?
 
-    init(link: String, placeholder: String = "") {
+    init(link: String, placeholder: String = "", showsNote: Bool = true) {
         self.link = link
         self.placeholder = placeholder
+        self.showsNote = showsNote
         // Whatever was fetched ahead of time is there from the first frame.
         _detail = State(initialValue: LessonCache.shared.detail(link))
     }
@@ -31,7 +35,7 @@ struct LessonContentView: View {
         VStack(alignment: .leading, spacing: 14) {
             // Also when the page came back with nothing we could read: the
             // schedule's own copy of the homework is better than nothing.
-            if (detail == nil || detail?.isEmpty == true) && !placeholder.isEmpty {
+            if (detail == nil || hasNothing) && !placeholder.isEmpty {
                 textCard("Homework", placeholder)
             }
 
@@ -46,13 +50,13 @@ struct LessonContentView: View {
             }
 
             if let detail = detail {
-                if !detail.note.isEmpty {
+                if showsNote && !detail.note.isEmpty {
                     textCard("Note", detail.note)
                 }
                 ForEach(detail.sections) { section in
                     sectionCard(section)
                 }
-                if detail.isEmpty && placeholder.isEmpty {
+                if hasNothing && placeholder.isEmpty {
                     EmptyNotice(icon: "doc.text", text: "Nothing attached to this lesson")
                 }
             }
@@ -61,6 +65,14 @@ struct LessonContentView: View {
         .sheet(item: $preview) { document in
             DocumentPreview(url: document.url).ignoresSafeArea()
         }
+    }
+
+    /// Nothing to show here: no content, and no note, or a note shown
+    /// elsewhere.
+    private var hasNothing: Bool {
+        guard let detail else { return false }
+        let noContent = detail.sections.allSatisfy { $0.entries.allSatisfy(\.isEmpty) }
+        return noContent && (!showsNote || detail.note.isEmpty)
     }
 
     private func textCard(_ title: String, _ body: String) -> some View {
@@ -168,46 +180,15 @@ struct LessonContentView: View {
     }
 }
 
-/// The lesson's Elevfeedback, on the Overview side of its page. It loads the
-/// lesson's Lectio page along with the tab, through the shared cache, so the
-/// Content side is ready by the time you swipe to it.
+/// A lesson's Elevfeedback as a card: what's written (or that nothing is
+/// yet), opening the editor on a tap. On the Overview side of the lesson's
+/// page, which loads it (see LessonDetailContent).
 struct LessonFeedbackCard: View {
-    let link: String
-    /// The lesson's name and subject code, for the Elevfeedback sheet.
-    var title: String = ""
-    var code: String = ""
-
-    @Environment(LectioSession.self) private var session
-
-    @State private var feedback: LessonFeedback?
-    @State private var showFeedback = false
-
-    init(link: String, title: String = "", code: String = "") {
-        self.link = link
-        self.title = title
-        self.code = code
-        _feedback = State(initialValue: LessonCache.shared.feedback(link))
-    }
+    let feedback: LessonFeedback
+    var open: () -> Void
 
     var body: some View {
-        Group {
-            // A lesson without the tab is normal: no card, and no message.
-            if let feedback = feedback, feedback.available {
-                card(feedback)
-            }
-        }
-        .task { await load() }
-        .sheet(isPresented: $showFeedback, onDismiss: { Task { await loadFeedback() } }) {
-            FeedbackSheet(lessonLink: link, title: title, code: code)
-                .environment(session)
-        }
-    }
-
-    /// Elevfeedback is a tab on the same Lectio page, so it costs one more
-    /// request — made only when a lesson page is actually open, never while
-    /// drawing a week of the schedule.
-    private func card(_ feedback: LessonFeedback) -> some View {
-        Button { showFeedback = true } label: {
+        Button(action: open) {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 6) {
                     Text("ELEVFEEDBACK")
@@ -238,27 +219,5 @@ struct LessonFeedbackCard: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-    }
-
-    /// The tab and the lesson's page together, through the shared cache:
-    /// only what's out of date is asked for.
-    private func load() async {
-        guard !link.isEmpty else { return }
-        let cache = LessonCache.shared
-        if !cache.isFeedbackFresh(link) || !cache.isDetailFresh(link) {
-            let cookies = await session.requestCookies()
-            await cache.load(link, detail: true, feedback: true, cookies: cookies)
-        }
-        if let fresh = cache.feedback(link) { feedback = fresh }
-    }
-
-    /// After the Elevfeedback sheet closes: what was just written, fresh.
-    private func loadFeedback() async {
-        guard !link.isEmpty else { return }
-        let cookies = await session.requestCookies()
-        if let fresh = try? await LectioFeedbackService.load(lessonLink: link, cookies: cookies) {
-            feedback = fresh
-            LessonCache.shared.store(feedback: fresh, for: link)
-        }
     }
 }
