@@ -52,7 +52,8 @@ with the home-made snap Dan didn't like.
     week pager sits on top with opacity 0 in day mode. Each pager has
     `.scrollDisabled(...)` / `.allowsHitTesting(...)` for the mode it isn't in.
   - `dayPager(_:)` / `weekPager(_:)`: `ScrollView(.horizontal)` →
-    `LazyHStack(spacing: 0)` → pages with `.containerRelativeFrame([.horizontal, .vertical])`,
+    `LazyHStack(spacing: 0)` → pages with `.pagerPage(height:)` (attempt 10; before
+    it, `.containerRelativeFrame([.horizontal, .vertical])`),
     `.scrollTargetLayout()`, `.scrollPosition(id: $dayPage / $weekPage, anchor: .center)`,
     and `onScrollPhaseChange` that calls `align` only if the pager came to rest
     between pages.

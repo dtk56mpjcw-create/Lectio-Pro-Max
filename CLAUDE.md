@@ -192,6 +192,13 @@ Mail (messages) and Reminders.
   the native snap and the jerk.
 - Every attempt is on the branch `scroll-experiments`, and `SCROLL_BUG.md`
   lists each attempt, its result and ranked next experiments.
+- **Attempt 10** (branch `claude/new-session-5ognj6`, waiting for Dan's
+  test): two causes removed together. The pager pages with UIKit's own
+  paging (`NativePaging`), so nothing reaches the days, and each page is
+  exactly as tall as the room under the navigation bar (`pagerPage`), so the
+  pager can't take over a pull past the end of a long day. Debug builds
+  print "pager moved up/down" if the pager ever moves vertically. See
+  "Attempt 10" in `SCROLL_BUG.md`.
 - **Don't repeat those attempts.** Start by confirming the coupling with
   logging or a minimal repro.
 
@@ -240,6 +247,12 @@ SwiftUI scroll facts learned the hard way:
   through `@concurrent` entry points.
 - **Other schools** have classes named by their start year, kursister, and
   students with no class. See `ClassNames` in `DayPlan.swift` and the tests.
+- **Show every error you store.** Eight screens kept a failed send, save or
+  upload in an `@State` error and never displayed it, so a hand-in that never
+  reached Lectio looked like nothing happened. Put a `Banner(text:)` next to
+  the button, and a `RetryNotice` where a page didn't load.
+- **Text boxes are read with `textareaValue`**, not `text`: `text` turns line
+  breaks into spaces, which flattened notes that were posted back.
 - **Debugging that worked:**
   - timestamped `#if DEBUG` console logs around the problem;
   - Dan's screen recordings, looked at frame by frame;
@@ -249,7 +262,8 @@ SwiftUI scroll facts learned the hard way:
 
 ## Open items
 
-- [ ] Day view scroll jerk (`SCROLL_BUG.md`).
+- [ ] Day view scroll jerk (`SCROLL_BUG.md`): test attempt 10, then remove
+      its debug logging (`watchForDrift`).
 - [ ] Confirm on the classmate's iPhone 15 (iOS 27): elevfeedback wrapping,
       the search field only on Search, pull-to-refresh in week view.
 - [ ] Contact address for `docs/privacy.html` and `docs/terms.html` (Dan
