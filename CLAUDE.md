@@ -67,6 +67,10 @@ problem.
     heavy work.
 - `SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY` is on: import the module
   whose members you use (`import UIKit` for UIKit APIs).
+- The cloud sessions have no Swift compiler. A syntax-only check catches
+  typos: `pip install tree-sitter tree-sitter-swift`, then parse each file
+  and look for ERROR nodes. It misreads `as? T ?? x` and `if let x = try?
+  await …` (false alarms), and can't see type errors such as name clashes.
 - There's no demo or mock data. Seeing real content needs a Lectio sign-in in
   the Simulator, and Dan does that himself. For layout and scroll experiments,
   a small self-contained repro view is often better.
@@ -289,6 +293,17 @@ SwiftUI scroll facts learned the hard way:
   through `@concurrent` entry points.
 - **Other schools** have classes named by their start year, kursister, and
   students with no class. See `ClassNames` in `DayPlan.swift` and the tests.
+  - A subject is the first word of a team without a digit in it (class
+    names have one: "1j", "HF1b", "2.a", "IB1"). "ap la" is its own
+    subject, AP Latin.
+  - A team with your own class anywhere in it ("Ma A 3.b") is yours when
+    the word beside it is a subject code itself (`SubjectNames.isSubjectCode`:
+    "Ma", "MaA", "Mat"; not "MUN" or "Pre-IB").
+  - Colours read `Lesson.subjectCode` (the team's subject part), not `code`.
+- **Schedule tooltips** have three labelled blocks after the blank line:
+  "Lektier:", "Øvrigt indhold:" and "Note:" (`LectioParser.labelledBlocks`).
+- **The hand-in page** gives the assignment's brief and note by row label
+  ("Opgavebeskrivelse", "Opgavenote").
 - **No error messages or Try again buttons, by Dan's choice.** Several
   screens keep a failed send, save or upload in an `@State` error that isn't
   shown. Showing them was tried and taken out again (Sep 2026): in Dan's use
