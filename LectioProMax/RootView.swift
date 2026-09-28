@@ -42,9 +42,6 @@ struct RootView: View {
                     .searchable(text: $query, prompt: "Homework, messages, lessons")
             }
         }
-        // Shrinks as you scroll down (iOS 26; iOS 27 keeps every bar full
-        // size). The schedule's pages don't resize with it: see barLine in
-        // ScheduleTab.
         .tabBarMinimizeBehavior(.onScrollDown)
         // A widget or a notification: go to what it showed (see AppLink).
         .onOpenURL { AppRouter.shared.open($0) }

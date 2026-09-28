@@ -18,9 +18,12 @@ pager has iOS's built-in paging (the snap) switched on, and disappears when it's
 off.** It doesn't matter how it's switched on. The goal is to get both:
 the native snap sideways *and* smooth scrolling up and down.
 
-Right now (commit `9e90dcc`) the snap is on, so the jerk is back.
-`git revert 9e90dcc` takes you back to the version without the jerk but with the
-home-made snap Dan didn't like (`1e90d72`).
+**Current state of `main`:** the Schedule code (`ScheduleTab.swift`, `RootView.swift`,
+`GlassKit.swift`) is rolled back to how it was before any scroll fix (`7840174`):
+`.scrollTargetBehavior(.paging)` on the pagers, the native snap, and the original
+long-day jerk. All the attempts below are kept on the branch `scroll-experiments`
+(`git log scroll-experiments`); `1e90d72` there is the version without the jerk but
+with the home-made snap Dan didn't like.
 
 ---
 
@@ -71,7 +74,7 @@ home-made snap Dan didn't like (`1e90d72`).
 | `8bc7cbf` | `.paging` | `FreeScrolling` (a custom behavior with an empty `updateTarget`) | **jerk** |
 | `7eb549c` | no behavior; `NativePaging` sets `isPagingEnabled` once, which **didn't stick** | none | **vertical fixed**; sideways scrolled freely, no snap |
 | `1e90d72` | no behavior; snap done by hand in `onScrollPhaseChange` (`scrollTo` on interacting→decelerating) | none | vertical fine; sideways snap slow and unnatural |
-| `9e90dcc` (now) | no behavior; `NativePaging` with KVO keeping `isPagingEnabled` on | none | **jerk back** (sideways snap presumably fine — confirm) |
+| `9e90dcc` | no behavior; `NativePaging` with KVO keeping `isPagingEnabled` on | none | **jerk back** (sideways snap presumably fine — confirm) |
 
 Console logs from the debug build (`fc8e42b`) showed that on a long day, a slow
 release near the end made the day's scroll phase go **interacting → idle at the

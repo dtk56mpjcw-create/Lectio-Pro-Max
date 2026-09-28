@@ -168,7 +168,6 @@ struct PressableCard: ButtonStyle {
     }
 }
 
-
 /// With Reduce Motion on, a press dims instead of shrinking — Apple's advice
 /// is to swap movement for a fade rather than drop the feedback.
 private struct PressableCardBody: View {

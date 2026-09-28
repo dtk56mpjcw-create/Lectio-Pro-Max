@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 // MARK: - Routing
 
@@ -83,9 +82,6 @@ struct ScheduleTab: View {
     /// Where the tab bar starts, in points from the top of the screen. Each
     /// page measures itself against it (see `barClearance`).
     @State private var barLine: CGFloat = 0
-    /// The width `barLine` was measured at: a new width (the phone turned)
-    /// measures afresh.
-    @State private var measuredWidth: CGFloat = 0
 
     /// Eight months either side of today. The pages are lazy, so the length
     /// costs nothing.
@@ -278,34 +274,20 @@ struct ScheduleTab: View {
         }
         .ignoresSafeArea(.container, edges: .bottom)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Both held at the tab bar's tallest. The bar shrinks as you scroll
-        // down and grows back as you scroll up; following it moved the end of
-        // every page with it, mid-scroll — the page's height changed under
-        // your finger, which is what made a held scroll jerk (and could tip
-        // the bar back and forth). The tallest bar's line holds for both.
         .onGeometryChange(for: CGFloat.self) { geometry in
             geometry.safeAreaInsets.bottom
         } action: { inset in
-            // Only a real change is written: each write redraws the pages.
-            if inset > safeBottom { safeBottom = inset }
+            safeBottom = inset
         }
         // The bottom of the area the tab bar leaves free: this frame is the
         // one inside the safe area (the pagers only draw past it), so its
         // bottom edge is the top of the bar. Taking the reported inset off
         // as well counted the bar twice — 84 pt of empty space under the
         // last lesson.
-        .onGeometryChange(for: CGPoint.self) { geometry in
-            CGPoint(x: geometry.size.width.rounded(), y: geometry.frame(in: .global).maxY.rounded())
-        } action: { measured in
-            if measured.x != measuredWidth || barLine <= 0 {
-                measuredWidth = measured.x
-                barLine = measured.y
-            } else if measured.y < barLine, barLine - measured.y < 150 {
-                // Up to a whole bar higher: the bar grown back, or the first
-                // reading taken before there was one. Anything more (a
-                // keyboard) is passing, and would leave a screen of space.
-                barLine = measured.y
-            }
+        .onGeometryChange(for: CGFloat.self) { geometry in
+            geometry.frame(in: .global).maxY.rounded()
+        } action: { line in
+            barLine = line
         }
     }
 
@@ -318,16 +300,13 @@ struct ScheduleTab: View {
                 }
             }
             .scrollTargetLayout()
-            // Pages a day at a time: see NativePaging.
-            .background(alignment: .topLeading) { NativePaging().frame(width: 1, height: 1) }
         }
+        .scrollTargetBehavior(.paging)
         .scrollPosition(id: $dayPage, anchor: .center)
         .scrollIndicators(.hidden)
         .onAppear { align(proxy, on: selectedDate) }
-        .onScrollPhaseChange { _, phase, context in
-            if phase == .idle, Self.isBetweenPages(context.geometry) {
-                align(proxy, on: dayPage ?? selectedDate, animated: true)
-            }
+        .onScrollPhaseChange { _, phase, _ in
+            if phase == .idle { align(proxy, on: dayPage ?? selectedDate, animated: true) }
         }
     }
 
@@ -343,28 +322,16 @@ struct ScheduleTab: View {
                 }
             }
             .scrollTargetLayout()
-            .background(alignment: .topLeading) { NativePaging().frame(width: 1, height: 1) }
         }
+        .scrollTargetBehavior(.paging)
         .scrollPosition(id: $weekPage, anchor: .center)
         .scrollIndicators(.hidden)
         .onAppear { align(proxy, on: Self.monday(of: selectedDate)) }
-        .onScrollPhaseChange { _, phase, context in
-            if phase == .idle, Self.isBetweenPages(context.geometry) {
+        .onScrollPhaseChange { _, phase, _ in
+            if phase == .idle {
                 align(proxy, on: weekPage ?? Self.monday(of: selectedDate), animated: true)
             }
         }
-    }
-
-    /// Whether a pager came to rest part-way between two pages. Normally it
-    /// doesn't — paging (NativePaging) sees to that — and then it's left
-    /// alone: scrolling it to where it already is, after every swipe, could
-    /// still be under way when your finger came down to scroll the day, and
-    /// caught it.
-    static func isBetweenPages(_ geometry: ScrollGeometry) -> Bool {
-        let width = geometry.containerSize.width
-        guard width > 0 else { return false }
-        let off = geometry.contentOffset.x.truncatingRemainder(dividingBy: width)
-        return abs(off) > 1 && abs(width - off) > 1
     }
 
     /// Makes sure a pager rests squarely on a page. Normally a no-op; it's
@@ -586,74 +553,6 @@ private struct DayPage: View {
         // The system's own pull to refresh, the work in a task of its own so
         // an update mid-refresh can't cancel it.
         .refreshable { await Task { await session.refresh() }.value }
-    }
-}
-
-
-/// UIKit's own paging — the snap `.scrollTargetBehavior(.paging)` gives —
-/// switched on for the pager alone.
-///
-/// Not `.scrollTargetBehavior(.paging)` itself: a scroll behaviour is handed
-/// down to every scroll view inside the one it's set on, so each day and
-/// week paged too, up and down, and any behaviour at all on them (even one
-/// that changed nothing) had SwiftUI decide where each of their scrolls
-/// ends — on a long day, a release past the end jumped instead of bouncing.
-/// UIKit's paging belongs to the one scroll view it's switched on for; the
-/// days and weeks inside scroll as any list does.
-///
-/// Placed as a background of the pager's stack, so the first scroll view
-/// above it is the pager. SwiftUI switches paging off again when it updates
-/// a scroll view it wasn't told to page — an earlier probe that switched it
-/// on once left the pager scrolling freely — so this one watches the
-/// setting and puts it straight back.
-struct NativePaging: UIViewRepresentable {
-    func makeUIView(context: Context) -> Probe { Probe() }
-
-    func updateUIView(_ probe: Probe, context: Context) {
-        probe.attach()
-    }
-
-    final class Probe: UIView {
-        private weak var pager: UIScrollView?
-        private var watch: NSKeyValueObservation?
-
-        override init(frame: CGRect) {
-            super.init(frame: frame)
-            isUserInteractionEnabled = false
-            backgroundColor = .clear
-        }
-
-        required init?(coder: NSCoder) {
-            super.init(coder: coder)
-        }
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            attach()
-            // Once more after SwiftUI has finished setting the scroll view up.
-            DispatchQueue.main.async { [weak self] in self?.attach() }
-        }
-
-        func attach() {
-            guard window != nil else { return }
-            var view = superview
-            while let current = view, !(current is UIScrollView) { view = current.superview }
-            guard let scroll = view as? UIScrollView else {
-                #if DEBUG
-                print("NativePaging: no scroll view above the probe")
-                #endif
-                return
-            }
-            if scroll !== pager {
-                pager = scroll
-                watch = scroll.observe(\.isPagingEnabled) { scroll, _ in
-                    MainActor.assumeIsolated {
-                        if !scroll.isPagingEnabled { scroll.isPagingEnabled = true }
-                    }
-                }
-            }
-            if !scroll.isPagingEnabled { scroll.isPagingEnabled = true }
-        }
     }
 }
 
