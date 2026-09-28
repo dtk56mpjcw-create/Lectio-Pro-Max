@@ -109,7 +109,7 @@ problem.
 | Parsing | `LectioParser.swift`, `HTMLDocument.swift`, `HTMLNode.swift`: Lectio's HTML scraped; selectors reverse-engineered from real pages; Danish text |
 | Schedule logic | `DayPlan.swift` (what an item is, `ClassNames`), `DayAgenda.swift`, `WeekAgenda.swift`, `LectioDates.swift` (always Danish time: `LectioDates.calendar`) |
 | Schedule UI | `ScheduleTab.swift`: day and week pagers, `DayPage`/`WeekPage`, `ScreenZoom` day↔week switch, `PageHeading` |
-| Lesson page | `LessonDetailSheet.swift` (`LessonDetailScreen`: Overview and Content, a segmented control on a glass capsule plus paging; Overview is lesson info and Elevfeedback only, by Dan's choice), `LessonContentView.swift`, `LessonContentReader.swift` (Lectio's editor HTML into paragraphs, links, pictures), `LessonBlocksView.swift` |
+| Lesson page | `LessonDetailSheet.swift` (`LessonDetailScreen`: Overview and Content, a segmented control on a glass capsule plus paging; Overview is lesson info, the note and Elevfeedback, Content the homework and other content, by Dan's choice), `LessonContentView.swift`, `LessonContentReader.swift` (Lectio's editor HTML into paragraphs, links, pictures), `LessonBlocksView.swift` |
 | Widgets | `Shared/WidgetFeed.swift` (JSON in the app group), `WidgetFeedBuilder.swift`, `LectioWidgets/` |
 | Background and notifications | `BackgroundCheck.swift`, `ScheduleWatch.swift`, `NotificationService.swift`, `Reminder*.swift` |
 | Design kit | `GlassKit.swift` (Palette, Metrics, ContentCard, GlassCircleButton, PressableCard…), `TypeScale.swift`, `SubjectColor.swift`, `NavigationChrome.swift` |
@@ -298,6 +298,8 @@ SwiftUI scroll facts learned the hard way:
   breaks into spaces, which flattened notes that were posted back.
 - **Lesson content is read with `LessonContentReader`**, not `text`: `text`
   drops links, pictures and the breaks at headings.
+- **Start loading from a view that's always on screen.** `.task` on a
+  `Group` whose only child is an `if` that's still false may never run.
 - **Search the project for a new type's name first.** A `private struct` in
   one file still clashes with a type of the same name elsewhere ("Invalid
   redeclaration"); `LessonBlock` is DayAgenda's lesson card.
