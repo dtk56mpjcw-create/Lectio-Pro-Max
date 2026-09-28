@@ -729,6 +729,16 @@ private struct SmallItem: View {
     /// Off where the row already shows the times on its left.
     var showsTime = true
     @Environment(\.colorScheme) private var scheme
+    #if DEBUG
+    /// The scroll lab can switch parts of the cancelled look off (see
+    /// LabCancelledLook).
+    @Environment(\.labCancelledLook) private var labLook
+    private var struckThrough: Bool { lesson.cancelled && !labLook.contains(.noStrikethrough) }
+    private var saysCancelled: Bool { !labLook.contains(.noLabel) }
+    #else
+    private var struckThrough: Bool { lesson.cancelled }
+    private var saysCancelled: Bool { true }
+    #endif
 
     var body: some View {
         HStack(spacing: 10) {
@@ -741,7 +751,7 @@ private struct SmallItem: View {
             Text(lesson.headline.replacingOccurrences(of: "\\s*\\bAFLYST\\b", with: "",
                                                       options: [.regularExpression, .caseInsensitive]))
                 .scaledFont(size: 15, weight: .medium)
-                .strikethrough(lesson.cancelled)
+                .strikethrough(struckThrough)
                 .foregroundStyle(lesson.cancelled ? Color(.secondaryLabel) : Color.primary)
                 .lineLimit(1)
                 .layoutPriority(1)
@@ -753,11 +763,13 @@ private struct SmallItem: View {
                     .lineLimit(1)
             }
             if lesson.cancelled {
-                Text("Cancelled")
-                    .scaledFont(size: 12.5, weight: .semibold)
-                    .foregroundStyle(Palette.negative)
-                    .lineLimit(1)
-                    .fixedSize()
+                if saysCancelled {
+                    Text("Cancelled")
+                        .scaledFont(size: 12.5, weight: .semibold)
+                        .foregroundStyle(Palette.negative)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
             } else if lesson.isExam {
                 // "1g: Matematikscreening" during your English lesson.
                 ExamTag()

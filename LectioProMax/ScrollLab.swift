@@ -34,6 +34,12 @@ struct ScrollLab: View {
     @AppStorage("lab.leaveOutCancelled") private var leaveOutCancelled = false
     @AppStorage("lab.leaveOutAlsoOn") private var leaveOutAlsoOn = false
     @AppStorage("lab.leaveOutAllDay") private var leaveOutAllDay = false
+    // Narrowing down a cancelled row in Also on (see LabLeaveOut and
+    // LabCancelledLook).
+    @AppStorage("lab.leaveOutCancelledAlsoOn") private var leaveOutCancelledAlsoOn = false
+    @AppStorage("lab.cancelledAsNormal") private var cancelledAsNormal = false
+    @AppStorage("lab.cancelledNoStrike") private var cancelledNoStrike = false
+    @AppStorage("lab.cancelledNoLabel") private var cancelledNoLabel = false
     @AppStorage("lab.rowsAreButtons") private var rowsAreButtons = false
 
     @State private var page: Int? = LabDays.start
@@ -55,6 +61,10 @@ struct ScrollLab: View {
         if leaveOutCancelled { parts.append("no cancelled") }
         if leaveOutAlsoOn { parts.append("no Also on") }
         if leaveOutAllDay { parts.append("no All day") }
+        if leaveOutCancelledAlsoOn { parts.append("no cancelled in Also on") }
+        if cancelledAsNormal { parts.append("cancelled in Also on drawn as normal") }
+        if cancelledNoStrike { parts.append("cancelled not struck through") }
+        if cancelledNoLabel { parts.append("no red Cancelled") }
         parts.append("+\(rows) made-up rows" + (rowsAreButtons ? " (buttons)" : ""))
         return parts.joined(separator: " · ")
     }
@@ -64,6 +74,15 @@ struct ScrollLab: View {
         if leaveOutCancelled { set.insert(.cancelled) }
         if leaveOutAlsoOn { set.insert(.alsoOn) }
         if leaveOutAllDay { set.insert(.allDay) }
+        if leaveOutCancelledAlsoOn { set.insert(.cancelledInAlsoOn) }
+        if cancelledAsNormal { set.insert(.cancelledAsNormal) }
+        return set
+    }
+
+    private var cancelledLook: LabCancelledLook {
+        var set: LabCancelledLook = []
+        if cancelledNoStrike { set.insert(.noStrikethrough) }
+        if cancelledNoLabel { set.insert(.noLabel) }
         return set
     }
 
@@ -103,6 +122,7 @@ struct ScrollLab: View {
                             rows: rows, rowsAreButtons: rowsAreButtons, summary: summary,
                             refreshable: refreshable, measuredBottom: measuredBottom,
                             barLine: barLine, floor: max(safeBottom, 84))
+                        .environment(\.labCancelledLook, cancelledLook)
                         .containerRelativeFrame(pageAxes)
                 }
             }
@@ -170,10 +190,18 @@ struct ScrollLab: View {
             }
             Section("What the days show") {
                 Toggle("Real days (from Lectio)", isOn: $realDays)
-                Toggle("Leave out cancelled", isOn: $leaveOutCancelled)
+                Toggle("Leave out cancelled, everywhere", isOn: $leaveOutCancelled)
                 Toggle("Leave out Also on", isOn: $leaveOutAlsoOn)
                 Toggle("Leave out All day", isOn: $leaveOutAllDay)
                 Toggle("Made-up rows are buttons", isOn: $rowsAreButtons)
+            }
+            // The first narrows down where; the other three keep the day
+            // the same length (the row stays, only its look changes).
+            Section("Cancelled rows") {
+                Toggle("Leave out cancelled in Also on only", isOn: $leaveOutCancelledAlsoOn)
+                Toggle("Cancelled in Also on drawn as normal", isOn: $cancelledAsNormal)
+                Toggle("Cancelled not struck through", isOn: $cancelledNoStrike)
+                Toggle("No red \u{201C}Cancelled\u{201D}", isOn: $cancelledNoLabel)
             }
             Picker("Made-up rows at the end", selection: $rows) {
                 Text("None").tag(0)
@@ -364,8 +392,20 @@ struct LabLeaveOut: OptionSet, Hashable {
     static let cancelled = LabLeaveOut(rawValue: 1 << 0)
     static let alsoOn = LabLeaveOut(rawValue: 1 << 1)
     static let allDay = LabLeaveOut(rawValue: 1 << 2)
+    /// Only the cancelled items in Also on; free modules and the rows
+    /// before and after school keep theirs.
+    static let cancelledInAlsoOn = LabLeaveOut(rawValue: 1 << 3)
+    /// Cancelled items in Also on stay, drawn as if they weren't
+    /// cancelled: the same row, the same length, no cancelled look.
+    static let cancelledAsNormal = LabLeaveOut(rawValue: 1 << 4)
 
     func apply(to plan: inout DayPlan) {
+        if contains(.cancelledInAlsoOn) { plan.also.removeAll { $0.cancelled } }
+        if contains(.cancelledAsNormal) {
+            for index in plan.also.indices {
+                plan.also[index].cancelled = false
+            }
+        }
         if contains(.alsoOn) { plan.also = [] }
         if contains(.allDay) {
             plan.allDay = []
@@ -380,6 +420,19 @@ struct LabLeaveOut: OptionSet, Hashable {
             }
         }
     }
+}
+
+/// Parts of a cancelled row's look the lab can switch off (read by the
+/// Schedule's SmallItem, debug builds only), to find the one that brings
+/// the jerk while the day keeps its length.
+struct LabCancelledLook: OptionSet, Hashable {
+    let rawValue: Int
+    static let noStrikethrough = LabCancelledLook(rawValue: 1 << 0)
+    static let noLabel = LabCancelledLook(rawValue: 1 << 1)
+}
+
+extension EnvironmentValues {
+    @Entry var labCancelledLook: LabCancelledLook = []
 }
 
 // MARK: - The pieces, each one switchable

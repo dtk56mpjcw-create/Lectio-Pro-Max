@@ -301,8 +301,28 @@ Next test plan:
    long: cancelled; Also on; All day. The one that stops the jerk is it.
 3. If none does: made-up days again, rows as buttons.
 
-Remove the lab (and its lines in RootView, SettingsScreen and DayList) once
-the jerk is fixed.
+**Result (Dan, 28 Sep): the real 30 Sep jerks in the lab too. "Leave out
+cancelled" stops it; leaving out the other parts (All day, Also on's other
+items) doesn't.** So it isn't the day's length (leaving out All day shortens
+it about as much, and it still jerks): it's the cancelled item in Also on.
+
+Nothing in a cancelled row obviously moves while scrolling: `SmallItem` draws
+it like any other row, only struck through, grey, with a red "Cancelled"
+(`.fixedSize()`) and no topic. So the lab narrows it down further, under
+"Cancelled rows" in its menu:
+
+| Switch | What it tells |
+|---|---|
+| Leave out cancelled in Also on only | whether it's that item (free modules and before/after keep theirs; "Leave out cancelled, everywhere" also cleared those) |
+| Cancelled in Also on drawn as normal | the row stays, the day keeps its length, but it's drawn as not cancelled: the look or the item? |
+| Cancelled not struck through | the strikethrough (`SmallItem`, through a debug-only `labCancelledLook` environment value) |
+| No red "Cancelled" | the red label |
+
+Test each switch on its own, on the real 30 Sep, from "Like the Schedule",
+made-up rows None.
+
+Remove the lab (and its lines in RootView, SettingsScreen, DayList and
+SmallItem) once the jerk is fixed.
 
 ### Experiments, cheapest first
 
