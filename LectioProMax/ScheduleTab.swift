@@ -327,8 +327,9 @@ struct ScheduleTab: View {
                 }
             }
             .scrollTargetLayout()
+            // Pages a day at a time: see NativePaging.
+            .background(alignment: .topLeading) { NativePaging().frame(width: 1, height: 1) }
         }
-        .scrollTargetBehavior(.paging)
         .scrollPosition(id: $dayPage, anchor: .center)
         .scrollIndicators(.hidden)
         .onAppear { align(proxy, on: selectedDate) }
@@ -351,8 +352,8 @@ struct ScheduleTab: View {
                 }
             }
             .scrollTargetLayout()
+            .background(alignment: .topLeading) { NativePaging().frame(width: 1, height: 1) }
         }
-        .scrollTargetBehavior(.paging)
         .scrollPosition(id: $weekPage, anchor: .center)
         .scrollIndicators(.hidden)
         .onAppear { align(proxy, on: Self.monday(of: selectedDate)) }
@@ -363,9 +364,6 @@ struct ScheduleTab: View {
         }
     }
 
-    /// Makes sure a pager rests squarely on a page. Normally a no-op; it's
-    /// there for the times something interrupts a swipe halfway — switching
-    /// between day and week mid-gesture left two half days on screen.
     /// Whether a pager came to rest part-way between two pages. Normally it
     /// doesn't — paging sees to that — and then it's left alone: scrolling
     /// it to where it already is, after every swipe, could still be under
@@ -377,6 +375,9 @@ struct ScheduleTab: View {
         return abs(off) > 1 && abs(width - off) > 1
     }
 
+    /// Makes sure a pager rests squarely on a page. Normally a no-op; it's
+    /// there for the times something interrupts a swipe halfway — switching
+    /// between day and week mid-gesture left two half days on screen.
     private func align(_ proxy: ScrollViewProxy, on id: String, animated: Bool = false) {
         DispatchQueue.main.async {
             if animated {
@@ -612,26 +613,60 @@ private struct DayPage: View {
         }
         #endif
         .scrollIndicators(.hidden)
-        // Scrolls freely: see FreeScrolling.
-        .scrollTargetBehavior(FreeScrolling())
         // The system's own pull to refresh, the work in a task of its own so
         // an update mid-refresh can't cancel it.
         .refreshable { await Task { await session.refresh() }.value }
     }
 }
 
-/// Ordinary scrolling — wherever you let go, it glides to a stop.
+/// UIKit's own paging, switched on for the scroll view it's placed in (as a
+/// background of the pager's stack, so the first scroll view above it is the
+/// pager itself).
 ///
-/// A scroll behaviour is handed down to every scroll view inside the one
-/// it's set on. The pagers page (`.scrollTargetBehavior(.paging)`), so each
-/// day and week inside them paged too — up and down, a screen at a time. On
-/// a day short enough to fit there's nothing to page. On a longer one a
-/// scroll could only end at the top or at the bottom: stop part-way and it
-/// was pulled back ("something holds it, then lets go and it jumps back"),
-/// and a pull past the end snapped back without the usual bounce. This
-/// leaves the target where the fling would have ended anyway.
-struct FreeScrolling: ScrollTargetBehavior {
-    func updateTarget(_ target: inout ScrollTarget, context: TargetContext) {}
+/// Not SwiftUI's `.scrollTargetBehavior(.paging)`: a scroll behaviour is
+/// handed down to every scroll view inside the one it's set on, so each day
+/// and week paged too — up and down, a screen at a time — and any behaviour
+/// at all on them (even one that changed nothing) had SwiftUI set where
+/// each scroll ends. Let go of a long day past its end, slowly, and UIKit,
+/// told where to stop while in the bounce, jumped there instead of
+/// bouncing: the jerk at the end of a long day. Short days, with nothing to
+/// scroll, never showed it. UIKit's paging stays on the pager alone, and
+/// the days scroll exactly as any list does.
+///
+/// Should it ever not find its scroll view, the pager still settles on a
+/// page: `align` straightens up a pager that stops between two.
+struct NativePaging: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let probe = Probe()
+        probe.isUserInteractionEnabled = false
+        probe.backgroundColor = .clear
+        return probe
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {}
+
+    final class Probe: UIView {
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            enable()
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            enable()
+        }
+
+        private func enable() {
+            var view = superview
+            while let current = view {
+                if let scroll = current as? UIScrollView {
+                    if !scroll.isPagingEnabled { scroll.isPagingEnabled = true }
+                    return
+                }
+                view = current.superview
+            }
+        }
+    }
 }
 
 /// How far the end of a page's content has to stay above the page's bottom
@@ -764,7 +799,6 @@ private struct WeekPage: View {
             pageBottom = bottom
         }
         .scrollIndicators(.hidden)
-        .scrollTargetBehavior(FreeScrolling())      // see FreeScrolling
         .refreshable { await Task { await session.refresh() }.value }
     }
 }
