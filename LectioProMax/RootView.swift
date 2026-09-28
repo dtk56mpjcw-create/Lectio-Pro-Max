@@ -31,12 +31,17 @@ struct RootView: View {
                 MeTab()
             }
             // Search is a tab of its own at the trailing end of the bar, as
-            // iOS 26 lays it out; the searchable field below belongs to it.
+            // iOS 26 lays it out (iOS 27 puts it back in the bar). Its field
+            // is attached here, to this tab alone: on the TabView it reached
+            // every tab's navigation bar too, and on some phones a search
+            // field sat over the Schedule and Homework headings — or hid
+            // under them, so pulling a page down tugged at a field that
+            // wasn't there.
             Tab(value: AppTab.search, role: .search) {
                 SearchTab(query: query)
+                    .searchable(text: $query, prompt: "Homework, messages, lessons")
             }
         }
-        .searchable(text: $query, prompt: "Homework, messages, lessons")
         .tabBarMinimizeBehavior(.onScrollDown)
         // A widget or a notification: go to what it showed (see AppLink).
         .onOpenURL { AppRouter.shared.open($0) }

@@ -9,9 +9,10 @@ import SwiftUI
 /// year fills up, and this answers questions a filter can't ("that thing about
 /// the poster").
 ///
-/// The field itself belongs to the tab bar. `.searchable` sits on the TabView
-/// and this is its `.search`-role tab — where iOS 26 puts search: its own
-/// button at the end of the bar, which turns into the field.
+/// The field belongs to this tab: `.searchable` is attached to it in
+/// RootView, and it's the `.search`-role tab — on iOS 26 its own button at
+/// the end of the bar, which turns into the field. (Not on the TabView: from
+/// there it reached every tab's navigation bar.)
 struct SearchTab: View {
     let query: String
     @Environment(LectioSession.self) private var session
