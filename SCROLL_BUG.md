@@ -353,6 +353,15 @@ standard SwiftUI way to say who gives way) instead of `.fixedSize()`. The
 lab's "Not fixed size" switch is now "Fixed size, the old way (jerks)", to
 bring the jerk back and compare.
 
+**First test of the fix (Dan, 28 Sep): no jerk on the real 30 Sep, but the
+label showed as "C…".** The priority sat under the lab's debug-only
+`.fixedSize(false, false)` and never reached the stack, so that build had a
+squeezed label, not the planned layout. `f950e6d` puts `.layoutPriority(2)`
+last: the label is back to its full width, the same geometry as with
+`.fixedSize()`, only without it. **Test again:** if 30 Sep still doesn't jerk,
+`.fixedSize()` itself was the trigger. If it jerks again, the trigger is the
+row's geometry (the label at full width), not the modifier.
+
 Remove the lab (and its lines in RootView, SettingsScreen, DayList and
 SmallItem) once the fix is confirmed.
 
