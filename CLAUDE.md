@@ -296,8 +296,11 @@ SwiftUI scroll facts learned the hard way:
   them back unless he asks.
 - **Text boxes are read with `textareaValue`**, not `text`: `text` turns line
   breaks into spaces, which flattened notes that were posted back.
-- **Lesson content is read with `LessonContentReader`**, not `text`: `text`
-  drops links, pictures and the breaks at headings.
+- **Lesson content and message bodies are read with `LessonContentReader`**,
+  not `text`: `text` drops links, pictures, videos and the breaks at
+  headings. It covers what Lectio's guide says a teacher can add (text,
+  material, files, links, pictures, video, audio, formulas); relative
+  addresses are read from the page's own address.
 - **Start loading from a view that's always on screen.** `.task` on a
   `Group` whose only child is an `if` that's still false may never run.
 - **Search the project for a new type's name first.** A `private struct` in
