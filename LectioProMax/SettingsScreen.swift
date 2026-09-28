@@ -248,8 +248,7 @@ struct SettingsScreen: View {
                 Text("Last updated \(LectioDates.timeString(fetched))")
             }
             Text("Lectio Pro Max \(version)")
-            // Said plainly, as the App Store and Macom would expect.
-            Text("An unofficial app, not made by Macom or your school.")
+            Text("Made by good people")
         }
         .multilineTextAlignment(.center)
         .scaledFont(size: 13)

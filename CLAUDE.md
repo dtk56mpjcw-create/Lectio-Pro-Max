@@ -174,8 +174,10 @@ Mail (messages) and Reminders.
    buttons, header traits on titles, and contrast checked.
 8. **Words.**
    - The UI is in English, in sentence case, short and plain.
-   - Be honest about limits, e.g. "Lectio empties Deleted after 3 months", or
-     "An unofficial app, not made by Macom or your school."
+   - Be honest about limits, e.g. "Lectio empties Deleted after 3 months".
+   - No "unofficial app" line in the app, by Dan's choice (Sep 2026):
+     Settings ends with "Made by good people". `docs/privacy.html` and
+     `docs/terms.html` still say it's unofficial.
    - Keep Lectio's own Danish names where they *are* the name (Elevfeedback,
      Elevtid).
    - Anything with a time from Lectio is in Danish time.
