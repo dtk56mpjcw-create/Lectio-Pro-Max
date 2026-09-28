@@ -45,6 +45,8 @@ struct LoginScreen: View {
     @Environment(LectioSession.self) private var session
     @State private var pickingSchool = !LectioConfig.hasChosenSchool
     @State private var schoolName = LectioConfig.schoolName
+    /// Bumped by Reload: a new web view, starting the sign-in over.
+    @State private var attempt = 0
 
     var body: some View {
         NavigationStack {
@@ -58,14 +60,19 @@ struct LoginScreen: View {
                 LoginWebView {
                     Task { await session.handleLoginSucceeded() }
                 }
-                // A fresh web view per school, so it loads that school's login.
-                .id(LectioConfig.schoolID)
+                // A fresh web view per school, so it loads that school's
+                // login — and per Reload.
+                .id(LectioConfig.schoolID + "#\(attempt)")
                 .ignoresSafeArea(edges: .bottom)
                 .navigationTitle(schoolName.isEmpty ? "Sign in to Lectio" : schoolName)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Change school") { pickingSchool = true }
+                    }
+                    // When Lectio's page is stuck on an error: start over.
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Reload", systemImage: "arrow.clockwise") { attempt += 1 }
                     }
                 }
             }

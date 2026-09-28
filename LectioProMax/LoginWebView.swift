@@ -35,6 +35,11 @@ struct LoginWebView: UIViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate {
         private let onFinished: () -> Void
         private var hasFinished = false
+        /// Automatic retries after one of Lectio's error pages, so a page
+        /// that keeps failing is left for the Reload button rather than
+        /// loaded over and over.
+        private var retries = 0
+        private static let maxRetries = 2
 
         init(onFinished: @escaping () -> Void) {
             self.onFinished = onFinished
@@ -66,9 +71,27 @@ struct LoginWebView: UIViewRepresentable {
                 guard let self = self, !self.hasFinished else { return }
                 let text = (result as? String ?? "")
 
-                if text.contains("Teknisk fejl under login") {
+                if text.contains("Teknisk fejl under login"), self.retries < Self.maxRetries {
+                    self.retries += 1
                     if let retry = URL(string: LectioConfig.forsideURL) {
                         webView.load(URLRequest(url: retry))
+                    }
+                    return
+                }
+
+                // "Fejl: Der opstod en ukendt fejl" on the way in. Seen when
+                // the login page was reached with a sign-in Lectio had given
+                // up on — an old key or session, or one being renewed
+                // somewhere else at the same moment. Start again without
+                // any Lectio cookies: the login then just asks, as it would
+                // in a fresh browser. (Other sites' cookies — MitID's —
+                // stay, so it still remembers you there.)
+                if Self.isLectioError(text), !self.isContentPage(address), self.retries < Self.maxRetries {
+                    self.retries += 1
+                    Self.forgetLectioCookies {
+                        if let retry = URL(string: LectioConfig.forsideURL) {
+                            webView.load(URLRequest(url: retry))
+                        }
                     }
                     return
                 }
@@ -82,6 +105,25 @@ struct LoginWebView: UIViewRepresentable {
 
                 self.hasFinished = true
                 self.onFinished()
+            }
+        }
+
+        /// Lectio's own error page or dialog.
+        static func isLectioError(_ text: String) -> Bool {
+            text.contains("Der opstod en ukendt fejl") || text.contains("Der opstod en fejl")
+        }
+
+        /// Every lectio.dk cookie out of WebKit's store, then `done`.
+        private static func forgetLectioCookies(then done: @escaping () -> Void) {
+            let store = WKWebsiteDataStore.default().httpCookieStore
+            store.getAllCookies { all in
+                let lectio = all.filter { $0.domain.lowercased().contains("lectio.dk") }
+                let group = DispatchGroup()
+                for cookie in lectio {
+                    group.enter()
+                    store.delete(cookie) { group.leave() }
+                }
+                group.notify(queue: .main, execute: done)
             }
         }
 

@@ -528,6 +528,10 @@ final class LectioSession {
         guard let url = URL(string: LectioConfig.forsideURL) else { return false }
         await pushJarToWebKit()
         let web = cookieStoreKeepAlive
+        // However it ends, it stops here: left running, it could go on
+        // using the key while the sign-in screen does, and the two would
+        // trip each other up.
+        defer { web.stopLoading() }
         _ = web.load(URLRequest(url: url))
 
         // Settled: loaded, and at the same address for a moment — a step of

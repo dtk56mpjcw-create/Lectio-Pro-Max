@@ -119,6 +119,7 @@ enum BackgroundCheck {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         let web = WKWebView(frame: .zero, configuration: config)
+        defer { web.stopLoading() }
         _ = web.load(URLRequest(url: url))
         var last: URL?
         var steady = 0
