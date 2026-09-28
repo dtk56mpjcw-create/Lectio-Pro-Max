@@ -1118,11 +1118,12 @@ extension LectioParser {
     /// content grouped under section headings, each piece read by
     /// LessonContentReader. Files hang off anchors marked
     /// `data-lc-display-linktype="file"`, pointing at `/lectio/<school>/lc/…`.
-    static func parseLessonDetail(_ html: String) -> LessonDetail {
-        return parseLessonDetail(root: HTMLDocument.parse(html))
+    static func parseLessonDetail(_ html: String, pageURL: String? = nil) -> LessonDetail {
+        return parseLessonDetail(root: HTMLDocument.parse(html), pageURL: pageURL)
     }
 
-    static func parseLessonDetail(root: HTMLNode) -> LessonDetail {
+    static func parseLessonDetail(root: HTMLNode, pageURL: String? = nil) -> LessonDetail {
+        let base = pageURL.flatMap { URL(string: $0) }
         var detail = LessonDetail()
 
         if let note = root.firstWhere({
@@ -1158,7 +1159,7 @@ extension LectioParser {
                     var entry = LessonEntry(id: "entry-\(counter)")
                     // Paragraphs, links and pictures as the teacher laid
                     // them out; files apart (see LessonContentReader).
-                    let read = LessonContentReader.read(element)
+                    let read = LessonContentReader.read(element, base: base)
                     entry.blocks = read.blocks
                     entry.files = read.files
                     entry.text = LessonContentReader.plainText(read.blocks)

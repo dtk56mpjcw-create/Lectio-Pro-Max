@@ -77,6 +77,72 @@ struct LessonContentTests {
         #expect(!entry.text.contains("attach_file"))
     }
 
+    @Test func videosAndEmbedsOpenWhereTheyLive() {
+        let html = """
+        <div class="ls-paper"><div class="lc-display-fragment">
+          <p>Watch before class:</p>
+          <iframe src="//www.youtube.com/embed/abc123?si=x" title="YouTube video player"></iframe>
+          <iframe src="https://player.vimeo.com/video/42"></iframe>
+          <iframe src="https://docs.google.com/presentation/d/1/embed"></iframe>
+          <video src="/lectio/59/lc/clip.mp4"></video>
+        </div></div>
+        """
+        let entry = LectioParser.parseLessonDetail(html).sections.first?.entries.first
+        let embeds = entry?.blocks.compactMap { block -> String? in
+            if case .embed(let link, let title) = block { return title + " " + link }
+            return nil
+        }
+        #expect(embeds == [
+            "YouTube video https://www.youtube.com/watch?v=abc123",
+            "Vimeo video https://vimeo.com/42",
+            "Google Slides https://docs.google.com/presentation/d/1/embed",
+        ])
+        // One kept in Lectio is a file, which Quick Look plays.
+        #expect(entry?.files == [LessonFile(name: "Video", link: "https://www.lectio.dk/lectio/59/lc/clip.mp4")])
+    }
+
+    @Test func addressesAreReadFromThePage() {
+        let html = """
+        <div class="ls-paper"><div class="lc-display-fragment">
+          <p><img src="../GetImage.aspx?pictureid=7" width="500"></p>
+          <p><a href="www.quizlet.com/dk/1">Quizlet</a> and <a href="https://example.com/lc/page">a page</a></p>
+          <p><a href="../lc/file.aspx?id=3">notes.pdf</a></p>
+        </div></div>
+        """
+        let entry = LectioParser.parseLessonDetail(
+            html, pageURL: "https://www.lectio.dk/lectio/59/aktivitet/aktivitetforside2.aspx?absid=1"
+        ).sections.first?.entries.first
+        #expect(entry?.blocks.first == .image("https://www.lectio.dk/lectio/59/GetImage.aspx?pictureid=7"))
+        let links = entry?.blocks.flatMap { $0.runs.compactMap(\.link) } ?? []
+        #expect(links.contains("https://www.quizlet.com/dk/1"))
+        // Another site's "/lc/" is a link, not a Lectio file.
+        #expect(links.contains("https://example.com/lc/page"))
+        #expect(entry?.files.map(\.link) == ["https://www.lectio.dk/lectio/59/lc/file.aspx?id=3"])
+    }
+
+    @Test func linkedPicturesAndStruckWords() {
+        let html = """
+        <div class="ls-paper"><div class="lc-display-fragment">
+          <p><a href="https://www.youtube.com/watch?v=abc"><img src="https://i.ytimg.com/vi/abc/0.jpg" width="480"></a></p>
+          <p>Read <s>p. 10–12</s> p. 14–16, <u>all of it</u></p>
+          <p><img src="/lectio/59/formula.png" width="140" height="24"></p>
+        </div></div>
+        """
+        let blocks = LectioParser.parseLessonDetail(html).sections.first?.entries.first?.blocks ?? []
+        #expect(blocks.count == 3)
+        guard blocks.count == 3 else { return }
+        #expect(blocks[0] == .image("https://i.ytimg.com/vi/abc/0.jpg", link: "https://www.youtube.com/watch?v=abc"))
+        // The line runs through the spaces too.
+        #expect(blocks[1].runs == [
+            LessonRun(text: "Read "),
+            LessonRun(text: "p. 10–12", strike: true),
+            LessonRun(text: " p. 14–16, "),
+            LessonRun(text: "all of it", underline: true),
+        ])
+        // Short but wide, like a formula: a picture, not its code.
+        #expect(blocks[2] == .image("https://www.lectio.dk/lectio/59/formula.png"))
+    }
+
     @Test func listsKeepTheirMarkers() {
         let html = """
         <div class="ls-paper"><div class="lc-display-fragment">

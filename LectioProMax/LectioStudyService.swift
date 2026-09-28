@@ -14,7 +14,8 @@ enum LectioStudyService {
     /// Everything on a lesson's own page, including any pinned files.
     @concurrent static func loadLessonDetail(link: String, cookies: [HTTPCookie]) async throws -> LessonDetail {
         let html = try await LectioService.fetchHTML(link, cookies: cookies)
-        return LectioParser.parseLessonDetail(html)
+        // The page's own address, for the addresses in it that are relative.
+        return LectioParser.parseLessonDetail(html, pageURL: link)
     }
 
     /// The year's plan: every subject's units and the hours it expects of you.

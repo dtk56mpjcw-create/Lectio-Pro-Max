@@ -3,9 +3,12 @@ import UIKit
 
 /// A piece of a lesson's content as the teacher laid it out (see
 /// LessonContentReader): paragraphs with their own line breaks, links you
-/// can tap (they open in Safari), bold and italic, list items, and pictures.
+/// can tap (they open in Safari), bold, italic, crossed out and underlined,
+/// list items, pictures, and rows for videos and pages embedded from
+/// elsewhere.
 struct LessonBlocksView: View {
     let blocks: [LessonContentBlock]
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -21,8 +24,10 @@ struct LessonBlocksView: View {
                             .foregroundStyle(.secondary)
                         paragraph(runs)
                     }
-                case .image(let source):
-                    LessonPicture(source: source)
+                case .image(let source, let link):
+                    LessonPicture(source: source, link: link)
+                case .embed(let link, let title):
+                    embedRow(link: link, title: title)
                 }
             }
         }
@@ -37,8 +42,38 @@ struct LessonBlocksView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// A video, or a page such as Google Slides, embedded in Lectio's page:
+    /// a row, like a file's, that opens it where it lives (the YouTube app,
+    /// or Safari). A player can't run inside the card.
+    private func embedRow(link: String, title: String) -> some View {
+        Button {
+            if let url = URL(string: link) { openURL(url) }
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: LessonEmbeds.isVideo(link) ? "play.rectangle.fill" : "globe")
+                    .scaledFont(size: 13.5, weight: .semibold)
+                    .foregroundStyle(Palette.accent)
+                Text(title)
+                    .scaledFont(size: 15.5, weight: .semibold)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right")
+                    .scaledFont(size: 12.5, weight: .bold)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentCard(radius: Metrics.inner)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens it outside the app")
+    }
+
     /// The runs as one string: links tappable (in the accent colour, as the
-    /// system draws them), bold and italic as the teacher set them.
+    /// system draws them), bold, italic, crossed out and underlined as the
+    /// teacher set them.
     static func attributed(_ runs: [LessonRun]) -> AttributedString {
         var out = AttributedString()
         for run in runs {
@@ -47,7 +82,10 @@ struct LessonBlocksView: View {
             var intent: InlinePresentationIntent = []
             if run.bold { intent.insert(.stronglyEmphasized) }
             if run.italic { intent.insert(.emphasized) }
+            if run.strike { intent.insert(.strikethrough) }
             if !intent.isEmpty { piece.inlinePresentationIntent = intent }
+            // Typed, so it's SwiftUI's underline and not UIKit's.
+            if run.underline { piece.underlineStyle = Text.LineStyle.single }
             out += piece
         }
         return out
@@ -64,17 +102,22 @@ struct LoadedPicture {
 /// adds for anyone without the book. Lectio's own pictures need the
 /// sign-in, so they're fetched with the session's cookies; one pasted into
 /// the editor comes as data. Never wider than the card, never blown up past
-/// its own size. A tap opens it in Quick Look, to zoom in or save it.
+/// its own size. A tap opens it in Quick Look, to zoom in or save it; a
+/// picture that's a link (a video's thumbnail, say) opens the link instead,
+/// with a small arrow on it to say so.
 struct LessonPicture: View {
     let source: String
+    var link: String? = nil
 
     @Environment(LectioSession.self) private var session
+    @Environment(\.openURL) private var openURL
     @State private var picture: LoadedPicture?
     @State private var failed = false
     @State private var preview: PreviewDocument?
 
-    init(source: String) {
+    init(source: String, link: String? = nil) {
         self.source = source
+        self.link = link
         _picture = State(initialValue: LessonCache.shared.picture(source))
     }
 
@@ -82,19 +125,33 @@ struct LessonPicture: View {
         Group {
             if let picture {
                 Button {
-                    preview = PreviewDocument(url: picture.file)
+                    if let link, let url = URL(string: link) {
+                        openURL(url)
+                    } else {
+                        preview = PreviewDocument(url: picture.file)
+                    }
                 } label: {
                     Image(uiImage: picture.image)
                         .resizable()
                         .scaledToFit()
                         .frame(maxWidth: picture.image.size.width)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(alignment: .topTrailing) {
+                            if link != nil {
+                                Image(systemName: "arrow.up.right")
+                                    .scaledFont(size: 12, weight: .bold)
+                                    .foregroundStyle(.white)
+                                    .padding(6)
+                                    .background(Circle().fill(.black.opacity(0.55)))
+                                    .padding(6)
+                            }
+                        }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Picture")
-                .accessibilityHint("Opens it larger")
+                .accessibilityLabel(link == nil ? "Picture" : "Picture, link")
+                .accessibilityHint(link == nil ? "Opens it larger" : "Opens it outside the app")
             } else if !failed {
                 // No message if it can't be had, by Dan's choice (CLAUDE.md):
                 // the space just closes.

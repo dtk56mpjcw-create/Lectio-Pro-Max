@@ -205,27 +205,40 @@ struct LessonFile: Identifiable, Hashable {
 }
 
 /// A stretch of text in a lesson's content as the teacher styled it in
-/// Lectio's editor: plain, bold, italic, or a link.
+/// Lectio's editor: plain, bold, italic, crossed out (a changed homework
+/// often keeps the old one struck through), underlined, or a link.
 struct LessonRun: Hashable {
     var text: String
     var link: String? = nil
     var bold = false
     var italic = false
+    var strike = false
+    var underline = false
+
+    /// The same look and link, whatever the words.
+    func hasStyle(of other: LessonRun) -> Bool {
+        link == other.link && bold == other.bold && italic == other.italic
+            && strike == other.strike && underline == other.underline
+    }
 }
 
 /// A lesson's content in reading order, as the teacher laid it out: a
 /// paragraph (its own line breaks kept, its links tappable), an item of a
-/// list, or a picture. The text alone lost all three: links became plain
-/// words, pictures vanished, and paragraphs ran into each other.
+/// list, a picture (which can be a link too, say a video's thumbnail), or
+/// something embedded from elsewhere, such as a YouTube video, Google
+/// Slides or GeoGebra, which opens where it lives. The text alone lost all
+/// of these: links became plain words, pictures and videos vanished, and
+/// paragraphs ran into each other.
 enum LessonContentBlock: Hashable {
     case paragraph([LessonRun])
     case listItem(marker: String, runs: [LessonRun])
-    case image(String)
+    case image(String, link: String? = nil)
+    case embed(link: String, title: String)
 
     var runs: [LessonRun] {
         switch self {
         case .paragraph(let runs), .listItem(_, let runs): return runs
-        case .image: return []
+        case .image, .embed: return []
         }
     }
 
@@ -235,6 +248,7 @@ enum LessonContentBlock: Hashable {
         case .paragraph(let runs): return runs.map(\.text).joined()
         case .listItem(let marker, let runs): return marker + " " + runs.map(\.text).joined()
         case .image: return ""
+        case .embed(_, let title): return title
         }
     }
 }
