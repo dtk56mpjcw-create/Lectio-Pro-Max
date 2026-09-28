@@ -15,7 +15,7 @@ import WebKit
 enum BackgroundCheck {
 
     /// Also listed in Info.plist (BGTaskSchedulerPermittedIdentifiers).
-    static let taskID = "com.ivan.lectiopromax.refresh"
+    static let taskID = "com.ivan.lectiopro.refresh"
 
     /// Asks iOS to wake the app again: about every 20 minutes during a
     /// school day, hourly in the evening, and not before 6:30 at night.

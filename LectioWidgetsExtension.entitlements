@@ -4,7 +4,7 @@
 <dict>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.ivan.lectiopromax</string>
+		<string>group.com.ivan.lectiopro</string>
 	</array>
 </dict>
 </plist>

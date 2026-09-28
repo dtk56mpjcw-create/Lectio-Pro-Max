@@ -4,13 +4,13 @@
 <dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.ivan.lectiopromax.refresh</string>
+		<string>com.ivan.lectiopro.refresh</string>
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.ivan.lectiopromax</string>
+			<string>com.ivan.lectiopro</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>lectiopromax</string>

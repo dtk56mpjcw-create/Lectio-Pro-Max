@@ -9,7 +9,7 @@ import Foundation
 struct WidgetFeed: Codable, Equatable {
 
     /// Shared by the app and its widgets (Signing & Capabilities → App Groups).
-    static let appGroup = "group.com.ivan.lectiopromax"
+    static let appGroup = "group.com.ivan.lectiopro"
     private static let fileName = "widget-feed.json"
 
     struct Item: Codable, Equatable, Hashable {
