@@ -740,12 +740,12 @@ private struct SmallItem: View {
         if labLook.contains(.systemRedLabel) { return .red }
         return Palette.negative
     }
-    private var labelFixed: Bool { !labLook.contains(.labelNotFixed) }
+    /// The label sized as it was before the fix, to bring the jerk back.
+    private var labelFixed: Bool { labLook.contains(.labelFixed) }
     #else
     private var struckThrough: Bool { lesson.cancelled }
     private var saysCancelled: Bool { true }
     private var cancelledColor: Color { Palette.negative }
-    private var labelFixed: Bool { true }
     #endif
 
     var body: some View {
@@ -776,7 +776,14 @@ private struct SmallItem: View {
                         .scaledFont(size: 12.5, weight: .semibold)
                         .foregroundStyle(cancelledColor)
                         .lineLimit(1)
+                        // Never squeezed: it gets its room first, then the
+                        // name. Not by `.fixedSize()`: in this row, that made
+                        // a long day's scroll catch near the end and jump
+                        // back without a bounce (SCROLL_BUG.md, the scroll lab).
+                        .layoutPriority(2)
+                        #if DEBUG
                         .fixedSize(horizontal: labelFixed, vertical: labelFixed)
+                        #endif
                 }
             } else if lesson.isExam {
                 // "1g: Matematikscreening" during your English lesson.

@@ -335,8 +335,26 @@ Next switches, under "The red Cancelled" (the label stays, the same size):
 | In plain system red (SwiftUI's `.red`) | it's `Palette.negative`'s UIColor provider, not red as such; then the fix is Apple's usual way for light/dark colours (asset catalog colours), for all three status colours |
 | Not fixed size | it's the `.fixedSize()` layout |
 
+**Result (Dan, 28 Sep): grey jerks, plain system red jerks, not fixed size
+doesn't jerk.** So the colour doesn't matter: it's the label's `.fixedSize()`.
+
+Why exactly is still open. Other `.fixedSize()` views in the day don't
+jerk: every lesson card's room, and the All day strip's "08:15–15:30" on
+30 Sep itself. What's special about this one: it sits in `SmallItem`'s
+`HStack` between a name with `.layoutPriority(1)` and a `Spacer` plus a room
+that can shrink, near the bottom of the day, inside a pressable
+`OpenButton`. `KindTag` (the "Exam" tag) sits in the same place in the
+same row for an exam in Also on, with its own `.fixedSize()`: watch for a
+long day with one.
+
+**The fix (to confirm on the real Schedule):** the label keeps its whole
+width through `.layoutPriority(2)` (it gets its room before the name, the
+standard SwiftUI way to say who gives way) instead of `.fixedSize()`. The
+lab's "Not fixed size" switch is now "Fixed size, the old way (jerks)", to
+bring the jerk back and compare.
+
 Remove the lab (and its lines in RootView, SettingsScreen, DayList and
-SmallItem) once the jerk is fixed.
+SmallItem) once the fix is confirmed.
 
 ### Experiments, cheapest first
 

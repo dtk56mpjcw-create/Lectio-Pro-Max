@@ -42,7 +42,7 @@ struct ScrollLab: View {
     @AppStorage("lab.cancelledNoLabel") private var cancelledNoLabel = false
     @AppStorage("lab.cancelledGreyLabel") private var cancelledGreyLabel = false
     @AppStorage("lab.cancelledSystemRed") private var cancelledSystemRed = false
-    @AppStorage("lab.cancelledLabelNotFixed") private var cancelledLabelNotFixed = false
+    @AppStorage("lab.cancelledLabelFixed") private var cancelledLabelFixed = false
     @AppStorage("lab.rowsAreButtons") private var rowsAreButtons = false
 
     @State private var page: Int? = LabDays.start
@@ -70,7 +70,7 @@ struct ScrollLab: View {
         if cancelledNoLabel { parts.append("no red Cancelled") }
         if cancelledGreyLabel { parts.append("Cancelled in grey") }
         if cancelledSystemRed { parts.append("Cancelled in plain red") }
-        if cancelledLabelNotFixed { parts.append("Cancelled not fixed size") }
+        if cancelledLabelFixed { parts.append("Cancelled fixed size (old)") }
         parts.append("+\(rows) made-up rows" + (rowsAreButtons ? " (buttons)" : ""))
         return parts.joined(separator: " · ")
     }
@@ -91,7 +91,7 @@ struct ScrollLab: View {
         if cancelledNoLabel { set.insert(.noLabel) }
         if cancelledGreyLabel { set.insert(.greyLabel) }
         if cancelledSystemRed { set.insert(.systemRedLabel) }
-        if cancelledLabelNotFixed { set.insert(.labelNotFixed) }
+        if cancelledLabelFixed { set.insert(.labelFixed) }
         return set
     }
 
@@ -216,7 +216,7 @@ struct ScrollLab: View {
             Section("The red \u{201C}Cancelled\u{201D}") {
                 Toggle("In grey", isOn: $cancelledGreyLabel)
                 Toggle("In plain system red", isOn: $cancelledSystemRed)
-                Toggle("Not fixed size", isOn: $cancelledLabelNotFixed)
+                Toggle("Fixed size, the old way (jerks)", isOn: $cancelledLabelFixed)
             }
             Picker("Made-up rows at the end", selection: $rows) {
                 Text("None").tag(0)
@@ -449,8 +449,9 @@ struct LabCancelledLook: OptionSet, Hashable {
     /// The label in SwiftUI's own `.red` instead of `Palette.negative`,
     /// which is a UIColor with a light/dark provider.
     static let systemRedLabel = LabCancelledLook(rawValue: 1 << 3)
-    /// The label without `.fixedSize()`.
-    static let labelNotFixed = LabCancelledLook(rawValue: 1 << 4)
+    /// The label with `.fixedSize()`, as before the fix: brings the jerk
+    /// back, to compare.
+    static let labelFixed = LabCancelledLook(rawValue: 1 << 4)
 }
 
 extension EnvironmentValues {

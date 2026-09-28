@@ -277,10 +277,10 @@ SwiftUI scroll facts learned the hard way:
 - [ ] Day view scroll jerk (`SCROLL_BUG.md`): attempts 10 and 11 failed and
       were rolled back. Next: the scroll lab (`ScrollLab.swift`, debug builds
       only, Me → Settings → Testing), a repro with made-up days whose pieces
-      switch on and off. So far: made-up days don't jerk; the real 30 Sep
-      does, and stops when its cancelled "Also on" item is left out. The
-      lab's "Cancelled rows" switches narrow that down. Find the piece
-      first; remove the lab (and its debug hooks) once fixed.
+      switch on and off. Found with it: the red "Cancelled" label in an
+      "Also on" row (`SmallItem`) had `.fixedSize()`; without it, no jerk.
+      Fixed with `.layoutPriority(2)`: confirm on the real Schedule, then
+      remove the lab (and its debug hooks).
 - [ ] Confirm on the classmate's iPhone 15 (iOS 27): elevfeedback wrapping,
       the search field only on Search, pull-to-refresh in week view.
 - [ ] Contact address for `docs/privacy.html` and `docs/terms.html` (Dan
