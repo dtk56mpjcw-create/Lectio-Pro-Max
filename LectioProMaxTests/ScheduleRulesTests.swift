@@ -430,6 +430,23 @@ struct ScheduleRulesTests {
         #expect(LectioParser.parseLessonDetail(html).note == "Read p. 12\r\nBring a calculator")
     }
 
+    @Test func tooltipDetailByLabel() {
+        let t = LectioParser.parseTooltip(
+            "Estados Unidos\n30/9-2026 08:00 til 09:35\nHold: 1j SP 2\nLærer: KM\nLokale: 130\n\n"
+            + "Lektier:\n- Practise the dialogue\nØvrigt indhold:\n- Quizlet\nNote:\nI am back this week")
+        #expect(t.homework == "- Practise the dialogue")
+        #expect(t.note == "I am back this week")
+        // Other content on its own is neither homework nor a note.
+        let other = LectioParser.parseTooltip(
+            "Estados Unidos\n30/9-2026 08:00 til 09:35\nHold: 1j SP 2\n\nØvrigt indhold:\n- Quizlet")
+        #expect(other.homework.isEmpty)
+        #expect(other.note.isEmpty)
+        // No label at all: the detail is the note, as before.
+        let plain = LectioParser.parseTooltip(
+            "Estados Unidos\n30/9-2026 08:00 til 09:35\nHold: 1j SP 2\n\nBring the book")
+        #expect(plain.note == "Bring the book")
+    }
+
     @Test func tooltip() {
         let t = LectioParser.parseTooltip(
             "Ændret!\nAp Eksamen\n6/10-2026 08:00 til 09:35\nHold: 1i ap la, 1j ap la\nLærere: AM, KF, LS\nLokaler: 062, 064")

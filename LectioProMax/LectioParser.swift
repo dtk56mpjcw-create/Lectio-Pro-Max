@@ -99,28 +99,53 @@ enum LectioParser {
         if let r = Rx.match("Lokaler?:\\s*([^\\n]+)", remainder) {
             result.room = r[1].trimmingCharacters(in: .whitespaces)
         }
-        // Everything after the first blank line is detail; Lectio labels it
-        // "Lektier:" (homework) and/or "Note:".
+        // Everything after the first blank line is detail, in blocks Lectio
+        // labels "Lektier:" (homework), "Øvrigt indhold:" (other content) and
+        // "Note:", each at the start of a line. Other content isn't kept
+        // here (the lesson's Content side has it in full); it used to run
+        // on at the end of the homework, or pass for the note.
         if let n = Rx.match("\\n\\s*\\n([\\s\\S]+)$", remainder) {
-            let detail = n[1]
-            if let lektier = detail.range(of: "Lektier:") {
-                let after = detail[lektier.upperBound...]
-                if let noteMark = after.range(of: "Note:") {
-                    result.homework = String(after[..<noteMark.lowerBound])
-                    result.note = String(after[noteMark.upperBound...])
-                } else {
-                    result.homework = String(after)
-                }
-            } else if let noteMark = detail.range(of: "Note:") {
-                result.note = String(detail[noteMark.upperBound...])
+            let blocks = labelledBlocks(n[1])
+            if blocks.isEmpty {
+                result.note = n[1]
             } else {
-                result.note = detail
+                result.homework = blocks["lektier"] ?? ""
+                result.note = blocks["note"] ?? ""
             }
             result.homework = result.homework.trimmingCharacters(in: .whitespacesAndNewlines)
             result.note = result.note.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
         return result
+    }
+
+    /// A tooltip's detail cut at its labels, "Lektier:", "Øvrigt indhold:"
+    /// and "Note:", each at the start of a line: label (lower-cased, no
+    /// colon) to what follows it. Empty when there's no label at all.
+    static func labelledBlocks(_ detail: String) -> [String: String] {
+        let labels = ["lektier", "øvrigt indhold", "note"]
+        var blocks: [String: String] = [:]
+        var current: String?
+        var lines: [String] = []
+        func close() {
+            if let current { blocks[current] = lines.joined(separator: "\n") }
+            lines = []
+        }
+        for line in detail.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let lower = trimmed.lowercased()
+            if let label = labels.first(where: { lower.hasPrefix($0 + ":") }) {
+                close()
+                current = label
+                // Anything after the label on its own line belongs to it.
+                let rest = trimmed.dropFirst(label.count + 1).trimmingCharacters(in: .whitespaces)
+                if !rest.isEmpty { lines.append(rest) }
+            } else if current != nil {
+                lines.append(line)
+            }
+        }
+        close()
+        return blocks
     }
 
     /// "1j hi" -> "hi", "1ij enB" -> "enB" (the per-subject code used for colours).
