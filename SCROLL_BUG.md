@@ -198,6 +198,31 @@ If it still jerks: in Xcode's console, filter by `NativePaging`, reproduce, and
 copy the lines. "pager moved up/down" means B isn't fixed; "tab bar line" lines
 with a jerk would mean something else still follows the bar.
 
+**Result of attempt 11 (Dan, 28 Sep):** still jerks. Dan's suggestion: compare
+the day that jerks with the ones that don't. 30 Sep is built like every other
+day; the only difference is its length. It's the one day long enough to scroll
+far enough for iOS 26 to shrink the tab bar (`.tabBarMinimizeBehavior(.onScrollDown)`),
+and the bar grows back when the page bounces at the end. The SE never jerked.
+
+### Attempt 12: no shrinking tab bar (waiting for Dan's test)
+
+- **D. The bar resizing under a paging pager.** When the bar shrinks or grows,
+  the bottom of the screen changes and the views under it are laid out again.
+  A paging `UIScrollView` snaps its offset back onto a page when it's laid out.
+  Hypothesis: that's the yank. It fits every row: paging off (`7eb549c`,
+  `1e90d72`) never jerked even with the shrinking bar on; the SE (no shrinking
+  bar, if confirmed) never jerked; short days never scroll far enough to shrink
+  it. The one row with shrinking off (`42425b4`) still had A.
+- Change: `RootView` no longer sets `.tabBarMinimizeBehavior(.onScrollDown)`.
+  The bar keeps its size, which is the system's default and iOS 27's only
+  behaviour. One change, nothing else.
+- Confirm: (1) on the SE, scroll Homework down: does the bar shrink? If not,
+  that's why the SE never jerked. (2) Face ID phone, 30 Sep: jerk gone?
+- If it's gone: keep it; later, try going back from `NativePaging` to the
+  standard `.scrollTargetBehavior(.paging)` alone, to see whether A was real.
+  If it isn't gone: D is wrong; the console lines (`NativePaging` filter) are
+  needed before anything else.
+
 ### Experiments, cheapest first
 
 For each one, test in the Simulator on a long day:

@@ -5,7 +5,7 @@ enum AppTab: String, Hashable {
 }
 
 /// The native TabView is what gives us Apple's real Liquid Glass tab bar —
-/// finger-tracking highlight, morphing, and minimising on scroll — rather than
+/// finger-tracking highlight and morphing — rather than
 /// the hand-rolled approximation this used to be.
 struct RootView: View {
     @Environment(LectioSession.self) private var session
@@ -42,7 +42,13 @@ struct RootView: View {
                     .searchable(text: $query, prompt: "Homework, messages, lessons")
             }
         }
-        .tabBarMinimizeBehavior(.onScrollDown)
+        // No `.tabBarMinimizeBehavior(.onScrollDown)`: the bar keeps its size
+        // while you scroll, the system's default and all iOS 27 does.
+        // Shrinking it resized the bottom of the screen mid-scroll on phones
+        // with a home indicator, and that looks to be what made the paging
+        // day pager jerk at the end of a long day (being tested: see
+        // SCROLL_BUG.md, attempt 12).
+
         // A widget or a notification: go to what it showed (see AppLink).
         .onOpenURL { AppRouter.shared.open($0) }
         // `initial`: a tap that launched the app can arrive before this

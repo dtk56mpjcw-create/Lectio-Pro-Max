@@ -200,9 +200,12 @@ Mail (messages) and Reminders.
   print "pager moved up/down" if the pager ever moves vertically. See
   "Attempt 10" in `SCROLL_BUG.md`. Result: still jerks, but only on phones
   with a home indicator (not the SE 3).
-- **Attempt 11** (same branch, waiting for a test): also holds the tab bar
-  measurements (`barLine`, `safeBottom`) at the tallest bar, so pages don't
-  change length when iOS 26's bar shrinks mid-scroll.
+- **Attempt 11**: also holds the tab bar measurements (`barLine`,
+  `safeBottom`) at the tallest bar. Result: still jerks.
+- **Attempt 12** (same branch, waiting for a test): no shrinking tab bar at
+  all (`.tabBarMinimizeBehavior` removed). 30 Sep is the only day long enough
+  to scroll far enough to shrink the bar, and the SE never jerked.
+  Hypothesis: the bar resizing under the paging pager makes it snap.
 - **Don't repeat those attempts.** Start by confirming the coupling with
   logging or a minimal repro.
 
