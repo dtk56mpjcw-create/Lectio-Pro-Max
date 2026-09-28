@@ -31,6 +31,7 @@ enum SubjectPalette {
         "sa": .yellow,     // Social studies
         "nv": .green,      // Science foundation course
         "ap": .teal,       // AP / Latin
+        "ap la": .teal,
         "la": .teal,
         "ma": .blue,       // Maths
         "en": .purple,     // English
@@ -82,6 +83,10 @@ enum SubjectPalette {
     /// Class prefixes start with a digit ("1j", "2i"); the level letters glued
     /// on the end ("daAB", "enB") are dropped by keeping the first two letters,
     /// which is how Danish subject abbreviations are written.
+    ///
+    /// One subject takes two words: AP's Latin part ("1j ap la") is a
+    /// subject of its own, "ap la", AP Latin, not the whole of AP. Read by
+    /// its first word alone it was called General linguistics.
     static func subjectKey(_ rawCode: String) -> String? {
         let tokens = rawCode
             .split(whereSeparator: { $0 == " " || $0 == "\t" || $0 == "\n" })
@@ -90,10 +95,13 @@ enum SubjectPalette {
                 guard let first = token.first else { return false }
                 return !first.isNumber
             }
-        guard let token = tokens.first else { return nil }
-        let letters = token.lowercased().filter { $0.isLetter }
-        guard letters.count >= 2 else { return nil }
-        return String(letters.prefix(2))
+        func key(_ token: String) -> String? {
+            let letters = token.lowercased().filter { $0.isLetter }
+            return letters.count >= 2 ? String(letters.prefix(2)) : nil
+        }
+        guard let first = tokens.first, let subject = key(first) else { return nil }
+        if subject == "ap", tokens.count > 1, key(tokens[1]) == "la" { return "ap la" }
+        return subject
     }
 }
 
@@ -173,6 +181,7 @@ enum SubjectNames {
         "re": "Religion", "fi": "Philosophy", "id": "Sport", "mu": "Music",
         "bk": "Visual arts", "dr": "Drama", "ty": "German", "fr": "French",
         "sp": "Spanish", "la": "Latin", "ap": "General linguistics (AP)",
+        "ap la": "AP Latin",
         "ol": "Classical studies", "ps": "Psychology", "it": "IT",
         "in": "Informatics", "ge": "Geography", "me": "Media",
         "ki": "Chinese", "ar": "Arabic", "ru": "Russian",

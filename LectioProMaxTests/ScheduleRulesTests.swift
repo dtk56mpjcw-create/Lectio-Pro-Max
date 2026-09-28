@@ -286,6 +286,18 @@ struct ScheduleRulesTests {
         #expect(Lesson(code: "ap la", title: "x", team: "1i ap la, 1j ap la").isClassLesson)
     }
 
+    @Test func apLatinIsItsOwnSubject() {
+        // AP's Latin part, not the whole of AP, wherever the name is shown.
+        #expect(Lesson(code: "ap la", title: "x", team: "1i ap la, 1j ap la").subjectName == "AP Latin")
+        #expect(SubjectPalette.subjectKey("1j ap la") == "ap la")
+        #expect(SubjectPalette.subjectKey("ap la, 1j ap la") == "ap la")
+        // AP on its own, as some schools teach it, stays AP.
+        #expect(SubjectPalette.subjectKey("1a ap") == "ap")
+        #expect(SubjectNames.name(forKey: "ap") == "General linguistics (AP)")
+        // Latin itself is still Latin.
+        #expect(SubjectPalette.subjectKey("3b la") == "la")
+    }
+
     @Test func classesNamedByTheYearTheyStarted() throws {
         let autumn = try #require(ISO8601DateFormatter().date(from: "2026-09-18T10:00:00Z"))
         let spring = try #require(ISO8601DateFormatter().date(from: "2027-03-01T10:00:00Z"))
