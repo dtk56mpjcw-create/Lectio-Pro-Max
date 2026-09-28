@@ -42,7 +42,11 @@ struct RootView: View {
                     .searchable(text: $query, prompt: "Homework, messages, lessons")
             }
         }
-        .tabBarMinimizeBehavior(.onScrollDown)
+        // The bar stays its full size while you scroll. Shrinking it on the
+        // way down changed the bottom of the screen mid-scroll, and on
+        // phones with a home indicator (an iPhone 15, not an SE) a held
+        // scroll in the day view jerked with it. iOS 27 has dropped the
+        // shrinking bar for every app anyway.
         // A widget or a notification: go to what it showed (see AppLink).
         .onOpenURL { AppRouter.shared.open($0) }
         // `initial`: a tap that launched the app can arrive before this

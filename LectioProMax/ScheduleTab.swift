@@ -285,7 +285,8 @@ struct ScheduleTab: View {
         .onGeometryChange(for: CGFloat.self) { geometry in
             geometry.safeAreaInsets.bottom
         } action: { inset in
-            safeBottom = max(safeBottom, inset)
+            // Only a real change is written: each write redraws the pages.
+            if inset > safeBottom { safeBottom = inset }
         }
         // The bottom of the area the tab bar leaves free: this frame is the
         // one inside the safe area (the pagers only draw past it), so its
