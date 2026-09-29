@@ -68,6 +68,7 @@ struct MessageThreadSheet: View {
                         }
                     }
                 }
+                .findScroller()
                 .padding(.horizontal, Metrics.margin)
                 .padding(.top, 24)
                 .padding(.bottom, 36)
@@ -83,16 +84,18 @@ struct MessageThreadSheet: View {
         .sheet(item: $preview) { document in
             DocumentPreview(url: document.url).ignoresSafeArea()
         }
+        // Its words can be found with the search field (see PageFind).
+        .findsOnPage()
     }
 
     private var headline: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(thread?.subject.isEmpty == false ? thread!.subject : summary.subject)
+            FindableText(thread?.subject.isEmpty == false ? thread!.subject : summary.subject)
                 .scaledFont(size: 25, weight: .bold)
                 .fixedSize(horizontal: false, vertical: true)
                 .sheetTitleSpacing()
             if let recipients = thread?.recipients, !recipients.isEmpty {
-                Text(recipients)
+                FindableText(recipients)
                     .scaledFont(size: 13.5)
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
@@ -104,7 +107,7 @@ struct MessageThreadSheet: View {
     private func messageCard(_ message: ThreadMessage) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 7) {
-                Text(message.sender)
+                FindableText(message.sender)
                     .scaledFont(size: 15, weight: .semibold)
                 Spacer(minLength: 0)
                 Text(message.date)
@@ -115,7 +118,7 @@ struct MessageThreadSheet: View {
                 // Links tappable, pictures shown, as the sender wrote it.
                 LessonBlocksView(blocks: blocks)
             } else if !message.body.isEmpty {
-                Text(message.body)
+                FindableText(message.body)
                     .scaledFont(size: 16)
                     .lineSpacing(3.5)
                     .fixedSize(horizontal: false, vertical: true)
@@ -132,7 +135,7 @@ struct MessageThreadSheet: View {
                                 .scaledFont(size: 12.5, weight: .semibold)
                                 .foregroundStyle(Palette.accent)
                         }
-                        Text(attachment.name)
+                        FindableText(attachment.name)
                             .scaledFont(size: 14.5, weight: .semibold)
                             .multilineTextAlignment(.leading)
                         Spacer(minLength: 0)

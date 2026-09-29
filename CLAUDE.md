@@ -115,7 +115,7 @@ problem.
 | Area | Files |
 |---|---|
 | App entry, sign-in gate | `LectioProMaxApp.swift`, `ContentView.swift` (`LoginScreen`), `LoginWebView.swift` (the only web view: UNI-Login / MitID) |
-| Tabs | `RootView.swift`: a native `TabView` with Schedule, Homework, Messages, Me, and Search (`Tab(role: .search)`). The search button searches **the tab you were on** (`SearchTab.swift`, `SearchKind`): Schedule → your own lessons only, Homework → homework and assignments, Messages → messages, Me → absence, grades, study plan and the Me pages. A screen can have its own: Me › Find a schedule and someone's schedule search anyone's schedule, "Find a Schedule" (`.searchedAs(.findSchedule)`, `SearchContexts`, read the moment search is pressed). Dan wants these two apart: from his own day and week, people in the results didn't belong. Until you type, the search tab shows **a working copy of the tab you came from, where you left it** (`SearchTab.backdrop`); see "The search backdrop" below. Where each tab is lives in `TabPlaces.swift` (`SchedulePlace`, `HomeworkPlace`, `MessagesPlace`, `MePlace`, `TargetPlace`), owned by RootView and shared by the tab and its copy No other screen has a search bar (Dan's call: they flashed on push and stuck half-way) |
+| Tabs | `RootView.swift`: a native `TabView` with Schedule, Homework, Messages, Me, and Search (`Tab(role: .search)`). The search button searches **the tab you were on** (`SearchTab.swift`, `SearchKind`): Schedule → your own lessons only, Homework → homework and assignments, Messages → messages, Me → absence, grades, study plan and the Me pages. A screen can have its own: Me › Find a schedule and someone's schedule search anyone's schedule, "Find a Schedule" (`.searchedAs(.findSchedule)`, `SearchContexts`, read the moment search is pressed). Dan wants these two apart: from his own day and week, people in the results didn't belong. Until you type, the search tab shows **a working copy of the tab you came from, where you left it** (`SearchTab.backdrop`); see "The search backdrop" below. Where each tab is lives in `TabPlaces.swift` (`SchedulePlace`, `HomeworkPlace`, `MessagesPlace`, `MePlace`, `TargetPlace`), owned by RootView and shared by the tab and its copy. On an **open page** (lesson, homework, assignment, message, absence, grades, study plan, Settings pages) the search is **find on page** (`PageFind.swift`): matches marked yellow, the count and ↑↓ in the bar, the Search key goes to the next. A new page takes part with `.findsOnPage()`, `.findScroller()` on its scroll content and `FindableText` instead of `Text` No other screen has a search bar (Dan's call: they flashed on push and stuck half-way) |
 | State | `LectioSession.swift`: `@MainActor @Observable`, holds `snapshot`; `SnapshotCache` is the offline copy |
 | Network | `LectioHTTP.swift` (URLSession plus the cookie jar), `CookieVault.swift` (Keychain, this device only), `LectioForms.swift` (ASP.NET postbacks) |
 | Services | `LectioService`, `LectioStudyService`, `LectioMessagesService`, `LectioMeService`, `LectioFeedbackService`, `LectioHandInService`, `LectioEventService` |
@@ -386,6 +386,17 @@ SwiftUI scroll facts learned the hard way:
   `SearchContexts` live (it's `@Observable`).
 - Not shared: a lesson opened from someone's schedule (it's an item
   destination, not in a path).
+- Find on page (Dan: "if u open like homework ... theres a long text in
+  it u should be able to search it", "it should work for all") happens
+  only in the copy: `PageFind` is in the environment there and nowhere
+  else, so the real tabs draw plain `Text`. Each `FindableText` with a
+  match reports itself through a preference (`FindReportsKey`, in page
+  order); `.findScroller()` collects them and scrolls to the current one
+  (`ScrollViewReader`, ids are the texts' own `UUID`s). Preferences don't
+  leave a `List`, so this only works on pages built on a `ScrollView`,
+  which all of them are. A lesson's two sides are areas 0 and 1; finding
+  switches to the side the match is on (only a side that's been drawn
+  can report).
 
 ## Open items
 

@@ -490,7 +490,7 @@ struct WorkDetailSheet: View {
                             .foregroundStyle(.secondary)
                         Spacer()
                     }
-                    Text(item.displayTitle)
+                    FindableText(item.displayTitle)
                         .scaledFont(size: 25.5, weight: .bold)
                         .fixedSize(horizontal: false, vertical: true)
                     if let due = item.due {
@@ -525,7 +525,7 @@ struct WorkDetailSheet: View {
                     LessonContentView(link: link, placeholder: item.text)
                         .environment(session)
                 } else if !item.text.isEmpty {
-                    Text(LectioDates.tidy(item.text))
+                    FindableText(LectioDates.tidy(item.text))
                         .scaledFont(size: 16.5)
                         .lineSpacing(3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -551,5 +551,7 @@ struct WorkDetailSheet: View {
                 }
             }
         }
+        // Its words can be found with the search field (see PageFind).
+        .findsOnPage()
     }
 }

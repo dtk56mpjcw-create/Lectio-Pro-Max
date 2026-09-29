@@ -95,7 +95,7 @@ struct SignatureScreen: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Signature")
                         .scaledFont(size: 26, weight: .bold)
-                    Text("A line added under every message and reply you send from the app. It's part of the message, so it's what people see in Lectio too.")
+                    FindableText("A line added under every message and reply you send from the app. It's part of the message, so it's what people see in Lectio too.")
                         .scaledFont(size: 15)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -138,6 +138,7 @@ struct SignatureScreen: View {
                     preview
                 }
             }
+            .findScroller()
             .padding(.horizontal, Metrics.margin)
             .padding(.top, 8)
             .padding(.bottom, 36)
@@ -146,6 +147,8 @@ struct SignatureScreen: View {
         .scrollDismissesKeyboard(.interactively)
         .background { AppBackground() }
         .sensoryFeedback(.selection, trigger: enabled)
+        // Its words can be found with the search field (see PageFind).
+        .findsOnPage()
     }
 
     /// A message the way it arrives.

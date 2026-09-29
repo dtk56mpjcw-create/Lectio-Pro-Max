@@ -55,6 +55,7 @@ struct GradesScreen: View {
                     }
                 }
             }
+            .findScroller()
             .padding(.horizontal, Metrics.margin)
             .padding(.top, 8)
             .padding(.bottom, 36)
@@ -67,6 +68,8 @@ struct GradesScreen: View {
             await session.loadGrades()
             loading = false
         }
+        // Its words can be found with the search field (see PageFind).
+        .findsOnPage()
     }
 
     // MARK: Pieces
@@ -105,10 +108,10 @@ struct GradesScreen: View {
             SubjectDot(code: row.team, size: 9)
                 .frame(width: 10)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title(for: row))
+                FindableText(title(for: row))
                     .scaledFont(size: 16.5, weight: .semibold)
                     .lineLimit(2)
-                Text(row.team)
+                FindableText(row.team)
                     .scaledFont(size: 13.5, weight: .medium)
                     .foregroundStyle(.secondary)
             }
@@ -169,7 +172,7 @@ struct GradesScreen: View {
                                     .scaledFont(size: 13, weight: .semibold)
                                     .foregroundStyle(.secondary)
                                     .frame(width: 84, alignment: .leading)
-                                Text(field.value)
+                                FindableText(field.value)
                                     .scaledFont(size: 15)
                                     .fixedSize(horizontal: false, vertical: true)
                             }

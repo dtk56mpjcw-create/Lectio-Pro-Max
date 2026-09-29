@@ -24,6 +24,8 @@ struct RootView: View {
     @State private var homeworkPlace = HomeworkPlace()
     @State private var messagesPlace = MessagesPlace()
     @State private var mePlace = MePlace()
+    /// Find on the page open in the copy behind the search (PageFind).
+    @State private var pageFind = PageFind()
 
     /// What the search searches: the tab's own, or the screen's on top
     /// (see SearchContexts). Followed as it changes, because the copy of
@@ -76,8 +78,13 @@ struct RootView: View {
             // under them, so pulling a page down tugged at a field that
             // wasn't there.
             Tab(value: AppTab.search, role: .search) {
-                SearchTab(query: query, source: searchSource, context: searchContext)
+                SearchTab(query: query, source: searchSource, context: searchContext, find: pageFind)
                     .searchable(text: $query, prompt: searchContext.prompt)
+                    // The Search key on the keyboard: the next match on the
+                    // page, as in Safari.
+                    .onSubmit(of: .search) {
+                        if searchContext == .page { pageFind.next() }
+                    }
             }
         }
         .environment(schedulePlace)

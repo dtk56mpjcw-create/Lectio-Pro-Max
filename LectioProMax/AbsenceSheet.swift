@@ -51,6 +51,7 @@ struct AbsenceSheet: View {
                         EmptyNotice(icon: "checkmark.circle", text: "No absence registered")
                     }
                 }
+                .findScroller()
                 .padding(.horizontal, Metrics.margin)
                 .padding(.top, 24)
                 .padding(.bottom, 36)
@@ -68,6 +69,8 @@ struct AbsenceSheet: View {
         .sheet(item: $explaining) { record in
             ExplainAbsenceSheet(record: record).environment(session)
         }
+        // Its words can be found with the search field (see PageFind).
+        .findsOnPage()
     }
 
     private var header: some View {
@@ -96,7 +99,7 @@ struct AbsenceSheet: View {
 
     private func subjectRow(_ subject: AbsenceSubject) -> some View {
         HStack(spacing: 10) {
-            Text(AbsenceWording.subject(subject.code))
+            FindableText(AbsenceWording.subject(subject.code))
                 .scaledFont(size: 15, weight: subject.isTotal ? .bold : .medium)
             Spacer(minLength: 0)
             if !subject.modules.isEmpty {
@@ -120,7 +123,7 @@ struct AbsenceSheet: View {
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 7) {
                     SubjectDot(code: record.code, size: 7)
-                    Text(record.whenLine)
+                    FindableText(record.whenLine)
                         .scaledFont(size: 15.5, weight: .semibold)
                         .multilineTextAlignment(.leading)
                     Spacer(minLength: 0)
@@ -134,12 +137,12 @@ struct AbsenceSheet: View {
                     }
                 }
                 if !record.whereLine.isEmpty {
-                    Text(record.whereLine)
+                    FindableText(record.whereLine)
                         .scaledFont(size: 13.5, weight: .medium)
                         .foregroundStyle(.secondary)
                 }
                 if !record.reason.isEmpty || !record.comment.isEmpty {
-                    Text([AbsenceWording.reason(record.reason), record.comment]
+                    FindableText([AbsenceWording.reason(record.reason), record.comment]
                             .filter { !$0.isEmpty }.joined(separator: " · "))
                         .scaledFont(size: 14)
                         .foregroundStyle(.secondary)

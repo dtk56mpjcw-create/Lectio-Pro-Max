@@ -86,6 +86,8 @@ struct AssignmentHandInSheet: View {
                 Task { await addMember(person) }
             }
         }
+        // Its words can be found with the search field (see PageFind).
+        .findsOnPage()
         .confirmationDialog(
             "Take \(confirmRemove?.name ?? "them") off this group hand-in?",
             isPresented: Binding(get: { confirmRemove != nil },
@@ -114,7 +116,7 @@ struct AssignmentHandInSheet: View {
                     .foregroundStyle(.secondary)
                 Spacer()
             }
-            Text(item.displayTitle)
+            FindableText(item.displayTitle)
                 .scaledFont(size: 25.5, weight: .bold)
                 .fixedSize(horizontal: false, vertical: true)
             if let due = item.due {
@@ -160,7 +162,7 @@ struct AssignmentHandInSheet: View {
                 .scaledFont(size: 14, weight: .medium)
                 .foregroundStyle(.secondary)
                 .frame(width: 96, alignment: .leading)
-            Text(value)
+            FindableText(value)
                 .scaledFont(size: 14.5)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
@@ -182,7 +184,7 @@ struct AssignmentHandInSheet: View {
                     HStack(spacing: 11) {
                         PersonAvatar(target: person.asTarget, size: 32)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(person.name)
+                            FindableText(person.name)
                                 .scaledFont(size: 16, weight: .medium)
                             if !person.className.isEmpty {
                                 Text(person.className)
@@ -273,7 +275,7 @@ struct AssignmentHandInSheet: View {
                         .scaledFont(size: 13, weight: .semibold)
                         .foregroundStyle(tint)
                 }
-                Text(file.name)
+                FindableText(file.name)
                     .scaledFont(size: 15.5, weight: .semibold)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
@@ -318,7 +320,7 @@ struct AssignmentHandInSheet: View {
                             documentRow(entry)
                         }
                         if !entry.comment.isEmpty {
-                            Text(entry.comment)
+                            FindableText(entry.comment)
                                 .scaledFont(size: 14.5)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -348,7 +350,7 @@ struct AssignmentHandInSheet: View {
                         .scaledFont(size: 13, weight: .semibold)
                         .foregroundStyle(tint)
                 }
-                Text(entry.document)
+                FindableText(entry.document)
                     .scaledFont(size: 15.5, weight: .semibold)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)

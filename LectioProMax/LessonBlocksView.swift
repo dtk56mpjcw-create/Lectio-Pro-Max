@@ -34,7 +34,8 @@ struct LessonBlocksView: View {
     }
 
     private func paragraph(_ runs: [LessonRun]) -> some View {
-        Text(Self.attributed(runs))
+        // Findable on the page (see PageFind), links and all.
+        FindableText(Self.attributed(runs))
             .scaledFont(size: 16)
             .lineSpacing(3)
             .multilineTextAlignment(.leading)
@@ -53,7 +54,7 @@ struct LessonBlocksView: View {
                 Image(systemName: LessonEmbeds.isVideo(link) ? "play.rectangle.fill" : "globe")
                     .scaledFont(size: 13.5, weight: .semibold)
                     .foregroundStyle(Palette.accent)
-                Text(title)
+                FindableText(title)
                     .scaledFont(size: 15.5, weight: .semibold)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)

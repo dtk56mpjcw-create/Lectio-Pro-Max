@@ -32,6 +32,8 @@ struct SearchTab: View {
     let source: AppTab
     /// What's searched.
     let context: SearchKind
+    /// Find on the open page, for the copy of the tab (see PageFind).
+    let find: PageFind
 
     @Environment(LectioSession.self) private var session
     @State private var path = NavigationPath()
@@ -39,8 +41,12 @@ struct SearchTab: View {
 
     private var trimmed: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    /// Results once you type; until then, the tab you came from.
-    private var showsResults: Bool { !trimmed.isEmpty }
+    /// Results once you type; until then, the tab you came from. On an
+    /// open page there are no results: the words are found on the page.
+    private var showsResults: Bool { !trimmed.isEmpty && context != .page }
+
+    /// What to find on the open page, if that's the search.
+    private var pageQuery: String { context == .page ? trimmed : "" }
 
     var body: some View {
         ZStack {
@@ -78,6 +84,7 @@ struct SearchTab: View {
         // top next time.
         .onChange(of: context) { path = NavigationPath() }
         .onChange(of: showsResults) { if !showsResults { path = NavigationPath() } }
+        .onChange(of: pageQuery, initial: true) { _, words in find.look(for: words) }
         .sheet(item: $openWork) { item in
             // As the Homework tab opens it: an assignment on its hand-in
             // page, homework on its own.
@@ -118,6 +125,8 @@ struct SearchTab: View {
             }
         }
         .environment(\.hostTab, source)
+        // Only here: the real tabs' pages draw their text as always.
+        .environment(find)
         // The keyboard comes up over it instead of squeezing it: the
         // schedule's pages are as tall as the screen.
         .ignoresSafeArea(.keyboard)
@@ -136,12 +145,15 @@ struct SearchTab: View {
             MessageSearch(query: trimmed)
         case .me:
             MeSearch(query: trimmed)
+        case .page:
+            // Found on the page itself, never listed.
+            EmptyView()
         }
     }
 }
 
-/// What the search button searches: a tab's own things, or, from Me ›
-/// Find a schedule, anyone's schedule.
+/// What the search button searches: a tab's own things, anyone's schedule
+/// (from Me › Find a schedule), or the page you have open (see PageFind).
 ///
 /// Your own schedule and Find a schedule are two searches. From your day
 /// and week the search used to be Find a schedule's (people, classes,
@@ -149,6 +161,8 @@ struct SearchTab: View {
 /// schedule (Dan, 29 Sep).
 enum SearchKind: Hashable {
     case schedule, findSchedule, homework, messages, me
+    /// Find on the page you have open: a lesson, a homework, a message…
+    case page
 
     /// A tab's own search.
     init(_ tab: AppTab) {
@@ -168,6 +182,7 @@ enum SearchKind: Hashable {
         case .homework: return "Homework and assignments"
         case .messages: return "Messages"
         case .me: return "Absence, grades, study plan"
+        case .page: return "Find on this page"
         }
     }
 
@@ -179,6 +194,7 @@ enum SearchKind: Hashable {
         case .homework: return "Search Homework"
         case .messages: return "Search Messages"
         case .me: return "Search Me"
+        case .page: return "Find on Page"
         }
     }
 }
