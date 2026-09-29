@@ -1,17 +1,23 @@
-# Search: the background and find on page — tried, and put back (29 Sep 2026)
+# Search: what was tried on 29 Sep 2026, and put back
 
 Read this before changing the search. It explains what Dan wants, why it's
-hard on iOS 26, every attempt made on 29 Sep and why each one didn't work,
-and what to try next. All the code is in git: each attempt names its
+hard on iOS 26, every attempt made on 29 Sep and why each one was taken
+out, and what to try next. All the code is in git: each attempt names its
 commit, and `git show <commit>` or `git checkout <commit> -- <file>` brings
 it back.
 
 ## In plain words (for Dan)
 
-The search that works is back: it searches the tab you're on (your own
-lessons from Schedule, anyone's schedule from Find a schedule, and so on),
-on a page of its own. Everything after that was taken out again:
+The search is back to how it was before any of this (commit `4fc2981`):
+the search button searches everything the app has at once (homework,
+messages and lessons), and Messages and Find a schedule have their own
+search bars. Taken out again, in the order they were built:
 
+- **A search per tab.** The search button searched the tab you were on:
+  your own lessons from Schedule, anyone's schedule from Find a schedule
+  (with its own title), homework from Homework, and so on; Messages and
+  Find a schedule lost their own search bars. You said this one worked
+  fine (`6f83686`), and it can come back as it was (see "Stage 1" below).
 - **The background.** You wanted the screen you were on to stay behind the
   search field, working, until you type. iOS doesn't do that: the search
   button is a tab of its own, and the moment it opens, iOS takes the old
@@ -29,24 +35,43 @@ on a page of its own. Everything after that was taken out again:
 Next time, this should be built with Claude Code running on the Mac, where
 it can run the Simulator and see the result before the phone.
 
-## What's in the app now (commit `6f83686`, plus the test fix `20a5b9d`)
+## What's in the app now (commit `4fc2981`)
 
 - `RootView.swift`: the native `TabView` with `Tab(role: .search)`. The
   field is `.searchable` on the search tab only (on the `TabView` it leaked
-  into every tab's navigation bar, `7840174`).
-- `SearchTab.swift`: its own `NavigationStack`. `SearchKind` says what's
-  searched: your lessons (Schedule), anyone's schedule (Find a schedule),
-  homework, messages, Me. The title is "Search Schedule", "Find a
-  Schedule"…
-- Which search: the tab you were on, unless the screen on show says
-  otherwise. `.searchedAs(kind)` on a screen; `SearchContexts` keeps the last
+  into every tab's navigation bar, `7840174`), prompt "Homework, messages,
+  lessons".
+- `SearchTab.swift`: one search across everything the app holds: homework
+  and assignments, message threads, and the lessons in the weeks loaded.
+- Messages and Find a schedule have search bars of their own (Find a
+  schedule with scopes). A pushed screen's search field showed through
+  for a moment as it slid in; `quietSearchBarWhilePushing()` makes it
+  see-through for the push.
+
+## Stage 1: a search per tab (`7924b15` to `6f83686`) — worked, taken out on request
+
+Dan's earlier session made the search button search the tab you were on
+and removed the other search bars (`7924b15`; the task that followed is in
+`SEARCH_TASK.md` at `3fe3621`). Then, in this one:
+
+- `5b659c1`, `786f95d`: pressing search on Find a schedule said "Search
+  Me", because those screens live in the Me tab. A screen now says whose
+  search it is (`.searchedAs(kind)`); `SearchContexts` keeps the last
   screen on show per tab from appearing and disappearing (either order, a
   swipe back let go, leaving the tab), read the moment search is pressed
-  through the tab bar's selection binding. Tested in `SearchContextTests`.
-- Before you type: a plain "Search …" page. Pinned and Recent are only on
-  Find a schedule itself (Dan: from his own schedule they didn't belong).
-- The search lists hide their own background (`searchListBackground`), so a
-  list with no sections isn't white.
+  through the tab bar's selection binding (`SearchContextTests`). Also:
+  search lists hide their own background, as Search Me came out white.
+- `9e2b18e`: search from your own schedule no longer listed Find a
+  schedule's Pinned and Recent.
+- `6f83686`: two searches: your own lessons from your day and week ("Search
+  Schedule"), anyone's schedule from Find a schedule ("Find a Schedule").
+  Dan: "seems to work fine now".
+- `20a5b9d`: the test target built again (a test helper still took the old
+  type). **Bring this back with `6f83686`**, or the tests don't build.
+
+To bring Stage 1 back as it was: the files as at `6f83686`, plus
+`LectioProMaxTests/SearchContextTests.swift` from `20a5b9d` (that's what
+`af38362` was).
 
 ## What Dan wants (his words and answers, 29 Sep)
 
@@ -89,7 +114,9 @@ it can run the Simulator and see the result before the phone.
 - iOS 27 (the classmate's iPhone 15) puts search back into the tab bar.
   Where the field sits there wasn't checked for any of this.
 
-## The attempts
+## Stage 2: the background and find on page — none good enough
+
+All of these were built on top of Stage 1.
 
 | # | Commit | What it did | What happened |
 |---|---|---|---|
@@ -102,8 +129,8 @@ it can run the Simulator and see the result before the phone.
 | 4b | (not committed) | The picture taken as a finger touches the tab bar, by a gesture recognizer that notices and fails at once. | Dropped before testing: Dan doesn't want a picture. |
 | 5 | `e536a01` | **The real tab lent to the search tab**: the previous tab's view controller's view moved into the search tab's first page while search is on (`LiveTab`/`LiveTabBox` in `TabBarBridge.swift`), told it's on screen again with `beginAppearanceTransition`, given back when search goes. Find on page on the real page (`PageFind` in every tab's environment; only page parts on screen count; starts on the lesson side on show). | Never tested: Dan asked to put search back as it was first. |
 
-Put back in the commit after `e536a01`: the files are as at `6f83686`, with
-the test fix from `20a5b9d`.
+Put back in `af38362` to Stage 1 (`6f83686` with the test fix), then, at
+Dan's request, further back to `4fc2981`, before Stage 1.
 
 ## Rules learned (don't repeat these)
 
@@ -127,6 +154,9 @@ the test fix from `20a5b9d`.
   tabs, which is enough for the search's look and feel.
 
 ## Ideas for next time (most promising first)
+
+First bring Stage 1 back (see above): everything below builds on the
+search per tab.
 
 1. **Attempt 5, tried in the Simulator.** Lending the real tab's view to
    the search tab is the only way found to have exactly what's in the app

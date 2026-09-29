@@ -21,9 +21,6 @@ struct MeTab: View {
             content
                 .navigationTitle(profile.name.isEmpty ? "Me" : profile.name)
                 .navigationSubtitle(subtitle)
-                // Find a schedule, pushed from here, has a search of its
-                // own; back here it's Me's again.
-                .searchedAs(.me)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         NavigationLink(value: MeRoute.settings) {

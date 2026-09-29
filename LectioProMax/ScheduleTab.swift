@@ -121,7 +121,6 @@ struct ScheduleTab: View {
                 .toolbarTitleDisplayMode(.inline)
                 .toolbar { toolbar }
                 .environment(opener)
-                .searchedAs(.schedule)
             .navigationDestination(for: LessonRoute.self) { route in
                 LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
             }
