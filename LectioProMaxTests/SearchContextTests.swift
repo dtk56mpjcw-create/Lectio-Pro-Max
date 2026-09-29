@@ -74,7 +74,7 @@ struct SearchContextTests {
 
     /// `new` takes `old`'s place on screen (a push or a pop), appearing
     /// before or after `old` disappears.
-    private func replace(_ old: UUID, with new: UUID, as context: AppTab, newFirst: Bool,
+    private func replace(_ old: UUID, with new: UUID, as context: SearchKind, newFirst: Bool,
                          _ contexts: SearchContexts) {
         if newFirst {
             contexts.appeared(new, context: context, in: .me)
