@@ -234,6 +234,10 @@ struct LessonDetailScreen: View {
             }
         }
         .background { AppBackground() }
+        // Finding on the page starts on the side on show: on Content, the
+        // first match there, not the title on Overview (Dan, 29 Sep).
+        .onAppear { find?.startArea = page == .content ? 1 : 0 }
+        .onChange(of: page) { _, side in find?.startArea = side == .content ? 1 : 0 }
         // Finding on the page: to the side the current match is on.
         .onChange(of: find?.currentHit?.area) { _, area in
             guard let area else { return }

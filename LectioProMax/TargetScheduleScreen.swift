@@ -135,7 +135,7 @@ struct TargetScheduleScreen: View {
         }
         .navigationDestination(item: $openLesson) { route in
             LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
-                .searchPage(.page) { LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO) }
+                .searchPage(.page)
         }
         .onChange(of: dayPage) { _, page in
             // A swipe landed on another day.

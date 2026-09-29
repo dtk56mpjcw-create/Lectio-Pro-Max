@@ -19,15 +19,22 @@ struct RootView: View {
     @State private var searchPresented = false
     @FocusState private var searchFocused: Bool
 
-    // What search was pressed on, all read in that moment (openSearch):
+    // What search was pressed on, read in that moment (openSearch):
     /// the tab,
     @State private var searchSource: AppTab = .schedule
-    /// what's searched there,
+    /// what was searched there then,
     @State private var searchContext: SearchKind = .schedule
-    /// the open page, to find on (nil on a tab's first page),
-    @State private var searchPage: SearchContexts.Page?
-    /// and a picture of the screen, to keep behind the field.
-    @State private var searchPicture: UIView?
+    /// and the tab's view controller, to keep the tab itself behind the
+    /// field (LiveTab).
+    @State private var searchController: UIViewController?
+
+    /// What's searched: while search is on, followed as it changes, since
+    /// the tab behind the field works (go back a page in it, and it's the
+    /// tab's search again). Read only then, so outside search a screen
+    /// opening or closing doesn't redraw the tabs.
+    private var liveContext: SearchKind {
+        tab == .search ? SearchContexts.shared.context(for: searchSource) : searchContext
+    }
 
     /// Where each tab is (see TabPlaces). Here, so signing in again starts
     /// afresh.
@@ -35,7 +42,7 @@ struct RootView: View {
     @State private var homeworkPlace = HomeworkPlace()
     @State private var messagesPlace = MessagesPlace()
     @State private var mePlace = MePlace()
-    /// Find on the open page, in the search tab (PageFind).
+    /// Find on the open page: the page itself, in its tab (PageFind).
     @State private var pageFind = PageFind()
 
     /// The tab bar's selection. Pressing search goes through here, so the
@@ -50,27 +57,38 @@ struct RootView: View {
         }
     }
 
+    /// While a tab is behind the search field, the keyboard comes up over
+    /// it instead of squeezing it; the rest of the time, text boxes in the
+    /// tabs (a reply, say) move up for it as usual.
+    private var behindSearch: SafeAreaRegions {
+        tab == .search ? .keyboard : []
+    }
+
     var body: some View {
         TabView(selection: selection) {
             Tab("Schedule", systemImage: "calendar", value: AppTab.schedule) {
                 // Its own navigation stack draws the background.
                 ScheduleTab()
                     .environment(\.hostTab, .schedule)
+                    .ignoresSafeArea(behindSearch, edges: .all)
             }
             // Each tab is its own navigation stack and draws its own background.
             Tab("Homework", systemImage: "checklist", value: AppTab.homework) {
                 HomeworkTab()
                     .badge(session.snapshot.outstandingCount)
                     .environment(\.hostTab, .homework)
+                    .ignoresSafeArea(behindSearch, edges: .all)
             }
             Tab("Messages", systemImage: "envelope", value: AppTab.messages) {
                 MessagesTab()
                     .badge(session.snapshot.unreadMessages)
                     .environment(\.hostTab, .messages)
+                    .ignoresSafeArea(behindSearch, edges: .all)
             }
             Tab("Me", systemImage: "person.crop.circle", value: AppTab.me) {
                 MeTab()
                     .environment(\.hostTab, .me)
+                    .ignoresSafeArea(behindSearch, edges: .all)
             }
             // Search is a tab of its own at the trailing end of the bar, as
             // iOS 26 lays it out (iOS 27 puts it back in the bar), and it
@@ -82,23 +100,26 @@ struct RootView: View {
             // wasn't there.
             Tab(value: AppTab.search, role: .search) {
                 SearchTab(query: $query, presented: $searchPresented,
-                          context: searchContext, page: searchPage, picture: searchPicture,
-                          find: pageFind, leave: leaveSearch)
+                          context: liveContext, source: searchController,
+                          active: tab == .search, find: pageFind, leave: leaveSearch)
                     // The one field, at the bottom, on the first page of the
                     // search tab's stack: the only page it has, until a
-                    // result is opened.
+                    // result is opened. The tab behind it is inside that
+                    // page, with its own stack.
                     .searchable(text: $query, isPresented: $searchPresented,
-                                prompt: searchContext.prompt)
+                                prompt: liveContext.prompt)
                     .searchFocused($searchFocused)
                     // The Search key on the keyboard: the next match on the
                     // page, as in Safari.
                     .onSubmit(of: .search) {
-                        if searchContext == .page { pageFind.next() }
+                        if liveContext == .page { pageFind.next() }
                     }
             }
         }
+        // For finding on a page: the page is the real one, in its tab.
+        .environment(pageFind)
         .onChange(of: tab) { old, new in
-            SearchLog.note("tab \(old) → \(new), searching \(searchContext), picture: \(searchPicture != nil)")
+            SearchLog.note("tab \(old) → \(new), searching \(liveContext), tab to keep: \(searchController != nil)")
             if new == .search { makeSureTheFieldIsOut() }
         }
         // Before the first tap on search.
@@ -144,9 +165,7 @@ struct RootView: View {
         if old != searchSource || context != searchContext { query = "" }
         searchSource = old
         searchContext = context
-        searchPage = contexts.page(for: old)
-        // Now, before the search tab takes the screen.
-        searchPicture = TabBarBridge.pictureOfSelectedTab()
+        searchController = TabBarBridge.viewController(for: old)
         // In case SwiftUI made the tabs again since launch.
         TabBarBridge.searchTabActivatesField()
     }

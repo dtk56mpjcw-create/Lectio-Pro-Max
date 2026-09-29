@@ -12,9 +12,9 @@ import Observation
 /// long text you should be able to search it with this search bar, the
 /// same everywhere.
 ///
-/// It happens in the search tab, on the open page drawn again there
-/// (SearchTab), the only place with a PageFind in the environment. The
-/// pages in the tabs draw their text as they always have.
+/// It happens on the page itself, in its tab, while the tab is behind the
+/// search field (SearchTab, LiveTab). Outside finding the query is empty
+/// and every `FindableText` is plain `Text`.
 ///
 /// A page takes part with three things:
 /// - `.findsOnPage()` on the page: the search is this page's, and the bar
@@ -29,29 +29,47 @@ final class PageFind {
     private(set) var query = ""
     /// The current match, counted from the top of the page.
     private(set) var current = 0
-    /// What each scrolling part of the page found, by its order on the
-    /// page (a lesson's Overview, then its Content).
-    private var found: [Int: [FindReport]] = [:]
+    /// The part of the page finding starts in: the side of a lesson you're
+    /// on (areas, see FindScroller). New words start at its first match,
+    /// not at the top of the page.
+    var startArea = 0
+    /// Still at the start, not moved with the arrows: as more of the page
+    /// reports, the start is worked out again.
+    private var atStart = true
+    /// What each scrolling part of the page on screen found (see
+    /// FindScroller), and its place on the page (a lesson's Overview 0, its
+    /// Content 1). Only parts on screen: the other tabs' pages stay alive in
+    /// the background, and mustn't count.
+    private var found: [UUID: Part] = [:]
+
+    private struct Part: Equatable {
+        let area: Int
+        let reports: [FindReport]
+    }
 
     /// One match: in which part of the page, in which text, and which one
     /// in that text.
     struct Hit: Equatable {
         let area: Int
+        let part: UUID
         let text: UUID
         let index: Int
     }
 
     /// Every match on the page, in reading order.
     var hits: [Hit] {
-        found.keys.sorted().flatMap { area in
-            (found[area] ?? []).flatMap { report in
-                (0..<report.count).map { Hit(area: area, text: report.id, index: $0) }
+        found.sorted { a, b in
+            a.value.area != b.value.area ? a.value.area < b.value.area : a.key.uuidString < b.key.uuidString
+        }
+        .flatMap { part in
+            part.value.reports.flatMap { report in
+                (0..<report.count).map { Hit(area: part.value.area, part: part.key, text: report.id, index: $0) }
             }
         }
     }
 
     var total: Int {
-        found.values.reduce(0) { sum, reports in sum + reports.reduce(0) { $0 + $1.count } }
+        found.values.reduce(0) { sum, part in sum + part.reports.reduce(0) { $0 + $1.count } }
     }
 
     var currentHit: Hit? {
@@ -76,25 +94,41 @@ final class PageFind {
     func look(for query: String) {
         guard query != self.query else { return }
         self.query = query
-        current = 0
+        atStart = true
+        current = startIndex
     }
 
     func next() {
         let total = total
         guard total > 0 else { return }
+        atStart = false
         current = (min(current, total - 1) + 1) % total
     }
 
     func previous() {
         let total = total
         guard total > 0 else { return }
+        atStart = false
         current = (min(current, total - 1) + total - 1) % total
     }
 
-    /// What a scrolling part of the page has found (see FindScroller).
-    func report(_ reports: [FindReport], area: Int) {
-        let now = reports.isEmpty ? nil : reports
-        if found[area] != now { found[area] = now }
+    /// What a scrolling part of the page on screen has found (see
+    /// FindScroller).
+    func report(_ reports: [FindReport], area: Int, from part: UUID) {
+        let now = reports.isEmpty ? nil : Part(area: area, reports: reports)
+        guard found[part] != now else { return }
+        found[part] = now
+        if atStart, current != startIndex { current = startIndex }
+    }
+
+    /// A part of the page went off screen: its matches don't count.
+    func withdraw(_ part: UUID) {
+        report([], area: 0, from: part)
+    }
+
+    /// The first match in `startArea`, or the first on the page.
+    private var startIndex: Int {
+        hits.firstIndex { $0.area == startArea } ?? 0
     }
 
     /// Where `query` is in `text`, whatever the case or accents, as the
@@ -174,12 +208,13 @@ struct FindableText: View {
 
 /// What a page's scroll view scrolls: it collects the page's matches and
 /// scrolls to the current one, into the top part of the screen, clear of
-/// the keyboard.
+/// the keyboard. Only while it's on screen (see PageFind.found).
 private struct FindScroller: ViewModifier {
     let area: Int
     @Environment(PageFind.self) private var find: PageFind?
-    /// What was found last, to tell the page again when it's back on
-    /// screen (going away takes its matches off the count).
+    @State private var id = UUID()
+    @State private var onScreen = false
+    /// What was found last, to tell again when it's back on screen.
     @State private var latest: [FindReport] = []
 
     func body(content: Content) -> some View {
@@ -189,17 +224,23 @@ private struct FindScroller: ViewModifier {
                     .onPreferenceChange(FindReportsKey.self) { reports in
                         Task { @MainActor in
                             latest = reports
-                            find.report(reports, area: area)
+                            if onScreen { find.report(reports, area: area, from: id) }
                         }
                     }
                     .onChange(of: find.currentHit) { _, hit in
-                        guard let hit, hit.area == area else { return }
+                        guard let hit, hit.part == id else { return }
                         withAnimation(.snappy) {
                             proxy.scrollTo(hit.text, anchor: UnitPoint(x: 0.5, y: 0.3))
                         }
                     }
-                    .onAppear { find.report(latest, area: area) }
-                    .onDisappear { find.report([], area: area) }
+                    .onAppear {
+                        onScreen = true
+                        find.report(latest, area: area, from: id)
+                    }
+                    .onDisappear {
+                        onScreen = false
+                        find.withdraw(id)
+                    }
             }
         } else {
             content
@@ -209,7 +250,7 @@ private struct FindScroller: ViewModifier {
 
 /// The count and the arrows in the page's bar while finding. That the page
 /// is searched by finding on it is said where it's pushed
-/// (`.searchPage(.page)`), with how to draw it again in the search tab.
+/// (`.searchPage(.page)`).
 private struct FindsOnPage: ViewModifier {
     @Environment(PageFind.self) private var find: PageFind?
 

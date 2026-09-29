@@ -34,12 +34,10 @@ struct MeTab: View {
                     }
                 }
                 .navigationDestination(for: MeRoute.self) { route in
-                    Self.destination(route)
+                    destination(route)
                         // Find a schedule searches for a schedule; the other
                         // pages find on the page.
-                        .searchPage(route == .findSchedule ? .findSchedule : .page) {
-                            Self.destination(route)
-                        }
+                        .searchPage(route == .findSchedule ? .findSchedule : .page)
                 }
         }
         .fullScreenCover(isPresented: $showingCard) {
@@ -53,7 +51,7 @@ struct MeTab: View {
     }
 
     @ViewBuilder
-    private static func destination(_ route: MeRoute) -> some View {
+    private func destination(_ route: MeRoute) -> some View {
         switch route {
         case .absence: AbsenceSheet().asPushedScreen()
         case .grades: GradesScreen().toolbarTitleDisplayMode(.inline)

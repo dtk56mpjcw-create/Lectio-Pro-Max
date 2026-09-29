@@ -54,11 +54,11 @@ struct FindScheduleScreen: View {
         // MeTab) and from the lists and schedules it opens.
         .navigationDestination(for: ScheduleTarget.self) { target in
             TargetScheduleScreen(target: target)
-                .searchPage(.findSchedule) { TargetScheduleScreen(target: target) }
+                .searchPage(.findSchedule)
         }
         .navigationDestination(for: FindBrowse.self) { browse in
             FindBrowseScreen(browse: browse)
-                .searchPage(.findSchedule) { FindBrowseScreen(browse: browse) }
+                .searchPage(.findSchedule)
         }
     }
 }

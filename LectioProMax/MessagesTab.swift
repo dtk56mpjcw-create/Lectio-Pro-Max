@@ -102,7 +102,7 @@ struct MessagesTab: View {
                 .navigationDestination(for: MessageThreadSummary.self) { thread in
                     MessageThreadSheet(summary: thread).asPushedScreen()
                         // Search here finds in the thread.
-                        .searchPage(.page) { MessageThreadSheet(summary: thread).asPushedScreen() }
+                        .searchPage(.page)
                 }
                 // No search bar of its own: the search button in the tab
                 // bar searches messages from here (SearchTab).

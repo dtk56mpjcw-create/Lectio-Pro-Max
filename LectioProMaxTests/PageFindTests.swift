@@ -26,12 +26,13 @@ struct PageFindTests {
         find.look(for: "x")
         let title = UUID(), note = UUID(), content = UUID()
         // The Content side reports before the Overview: still after it.
-        find.report([FindReport(id: content, count: 1)], area: 1)
-        find.report([FindReport(id: title, count: 1), FindReport(id: note, count: 2)], area: 0)
+        let overview = UUID(), contentSide = UUID()
+        find.report([FindReport(id: content, count: 1)], area: 1, from: contentSide)
+        find.report([FindReport(id: title, count: 1), FindReport(id: note, count: 2)], area: 0, from: overview)
 
         #expect(find.total == 4)
         #expect(find.hits.map(\.text) == [title, note, note, content])
-        #expect(find.currentHit == PageFind.Hit(area: 0, text: title, index: 0))
+        #expect(find.currentHit == PageFind.Hit(area: 0, part: overview, text: title, index: 0))
         #expect(find.countLabel == "1 of 4")
     }
 
@@ -39,7 +40,7 @@ struct PageFindTests {
         let find = PageFind()
         find.look(for: "x")
         let text = UUID()
-        find.report([FindReport(id: text, count: 3)], area: 0)
+        find.report([FindReport(id: text, count: 3)], area: 0, from: UUID())
 
         find.next()
         #expect(find.currentIndex(in: text) == 1)
@@ -54,17 +55,34 @@ struct PageFindTests {
     @Test func newWordsStartFromTheTop() {
         let find = PageFind()
         find.look(for: "x")
-        find.report([FindReport(id: UUID(), count: 3)], area: 0)
+        find.report([FindReport(id: UUID(), count: 3)], area: 0, from: UUID())
         find.next()
         find.look(for: "xy")
         #expect(find.current == 0)
     }
 
+    @Test func startsOnTheSideYoureOn() {
+        let find = PageFind()
+        find.startArea = 1
+        find.look(for: "x")
+        let title = UUID(), content = UUID()
+        find.report([FindReport(id: title, count: 1)], area: 0, from: UUID())
+        find.report([FindReport(id: content, count: 1)], area: 1, from: UUID())
+        #expect(find.currentHit?.text == content)
+        // Nothing on that side: from the top.
+        let other = PageFind()
+        other.startArea = 1
+        other.look(for: "y")
+        other.report([FindReport(id: title, count: 1)], area: 0, from: UUID())
+        #expect(other.currentHit?.text == title)
+    }
+
     @Test func aPageThatGoesTakesItsMatches() {
         let find = PageFind()
         find.look(for: "x")
-        find.report([FindReport(id: UUID(), count: 2)], area: 0)
-        find.report([], area: 0)
+        let part = UUID()
+        find.report([FindReport(id: UUID(), count: 2)], area: 0, from: part)
+        find.withdraw(part)
         #expect(find.total == 0)
         #expect(find.currentHit == nil)
         #expect(find.countLabel == "No matches")

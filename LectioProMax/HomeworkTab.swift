@@ -49,10 +49,10 @@ struct HomeworkTab: View {
                 }
                 // A piece of homework or an assignment opens as a page of its
                 // own, with the system back button — not a sheet over the list.
-                .navigationDestination(for: WorkItem.self) { [session] item in
-                    Self.workScreen(item, session: session)
+                .navigationDestination(for: WorkItem.self) { item in
+                    workScreen(item)
                         // Search here finds on the page.
-                        .searchPage(.page) { Self.workScreen(item, session: session) }
+                        .searchPage(.page)
                 }
         }
         .task { await session.loadAbsence() }
@@ -162,10 +162,8 @@ struct HomeworkTab: View {
         }
     }
 
-    /// Static and given the session, so it can be drawn again behind the
-    /// search field (searchPage) outside this tab's own drawing.
     @ViewBuilder
-    private static func workScreen(_ item: WorkItem, session: LectioSession) -> some View {
+    private func workScreen(_ item: WorkItem) -> some View {
         let done = session.snapshot.isCompleted(item)
         let toggle: () -> Void = {
             withAnimation(.snappy(duration: 0.22)) { session.toggleCompleted(item) }
