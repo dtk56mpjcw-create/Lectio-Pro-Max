@@ -675,17 +675,23 @@ extension ScheduleTarget {
 // MARK: - Pinned and recent
 
 /// The schedules you pinned and the ones you opened lately, on this phone,
-/// per school. Pinning is the star on someone's schedule.
+/// per school. Pinning is the pin on someone's schedule.
 @MainActor
 @Observable
 final class FindMemory {
     static let shared = FindMemory()
 
+    /// Read in straight away, so Find a schedule's list is complete from its
+    /// first frame: the list growing while the screen slid in made the
+    /// search field show through for a moment.
+    init() { prepare() }
+
     private(set) var pinned: [ScheduleTarget] = []
     private(set) var recent: [ScheduleTarget] = []
     @ObservationIgnored private var school: String?
 
-    private static let recentLimit = 8
+    /// The last few only: more was a list to scroll past.
+    private static let recentLimit = 3
 
     private var pinnedKey: String { "find.pinned." + LectioConfig.schoolID }
     private var recentKey: String { "find.recent." + LectioConfig.schoolID }
@@ -695,7 +701,7 @@ final class FindMemory {
         guard school != LectioConfig.schoolID else { return }
         school = LectioConfig.schoolID
         pinned = Self.read(pinnedKey)
-        recent = Self.read(recentKey)
+        recent = Array(Self.read(recentKey).prefix(Self.recentLimit))
     }
 
     func isPinned(_ target: ScheduleTarget) -> Bool {

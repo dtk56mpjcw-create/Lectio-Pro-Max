@@ -5,7 +5,7 @@ import SwiftUI
 /// same lesson cards, colours and "min left" bar, swiped sideways with the
 /// system's own paging, and the week a tap away (the calendar button).
 ///
-/// Their name and what they are sit small in the bar; the star pins them
+/// Their name and what they are sit small in the bar; the pin pins them
 /// to the top of Find a schedule. A class also has its students there.
 ///
 /// The weeks are fetched as you go (the one on screen, then either side)
@@ -157,7 +157,7 @@ struct TargetScheduleScreen: View {
                 memory.togglePin(target)
             } label: {
                 Label(memory.isPinned(target) ? "Unpin" : "Pin",
-                      systemImage: memory.isPinned(target) ? "star.fill" : "star")
+                      systemImage: memory.isPinned(target) ? "pin.fill" : "pin")
             }
         }
     }
