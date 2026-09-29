@@ -11,10 +11,12 @@ struct RootView: View {
     @Environment(LectioSession.self) private var session
     @State private var tab: AppTab = .schedule
     @State private var query = ""
-    /// The search field is out and typing. Set as the search tab comes on
-    /// (SearchTab), so one tap on the search button is enough: before, the
-    /// first tap only opened the field and a second one started typing.
+    /// The search field is out, and has the keyboard. Both are asked for as
+    /// the search tab comes on (activateSearch), so one tap on the search
+    /// button is enough: the first tap only opened the field, and a second
+    /// one started typing (Dan, 29 Sep).
     @State private var searchPresented = false
+    @FocusState private var searchFocused: Bool
     /// The tab search was pressed on. The search tab shows it behind the
     /// field, where you left it, until you type; set the moment search is
     /// pressed.
@@ -83,13 +85,24 @@ struct RootView: View {
             // wasn't there.
             Tab(value: AppTab.search, role: .search) {
                 SearchTab(query: $query, presented: $searchPresented,
-                          source: searchSource, context: searchContext, find: pageFind)
-                    // For the first page of the tab behind the field and
-                    // for the results. A page open on top has one of its
-                    // own (see SearchTab.backdrop).
+                          source: searchSource, context: searchContext, find: pageFind,
+                          leave: leaveSearch)
+                    // The one field, at the bottom, on the first page of the
+                    // search tab's stack; so what you were looking at is
+                    // always drawn as that first page (SearchTab.backdrop).
                     .searchable(text: $query, isPresented: $searchPresented,
                                 prompt: searchContext.prompt)
+                    .searchFocused($searchFocused)
+                    // The Search key on the keyboard: the next match on the
+                    // page, as in Safari.
+                    .onSubmit(of: .search) {
+                        if searchContext == .page { pageFind.next() }
+                    }
             }
+        }
+        .onChange(of: tab) { old, new in
+            SearchLog.note("tab \(old) → \(new), searching \(searchContext)")
+            if new == .search { activateSearch() }
         }
         .environment(schedulePlace)
         .environment(homeworkPlace)
@@ -128,5 +141,29 @@ struct RootView: View {
         if old != searchSource || context != lastContext { query = "" }
         searchSource = old
         lastContext = context
+    }
+
+    /// One tap on the search button opens the field ready to type. Asked
+    /// for the moment the search tab came on, it didn't happen (still two
+    /// taps): most likely iOS 26 was still turning the tab bar into the
+    /// field. So it's asked a moment later, both ways SwiftUI offers.
+    private func activateSearch() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard tab == .search else { return }
+            searchPresented = true
+            searchFocused = true
+            SearchLog.note("asked for the field: out \(searchPresented), keyboard \(searchFocused)")
+        }
+    }
+
+    /// The field was closed: back to where search was pressed, as you left
+    /// it. The search tab used to stay on, with a field you couldn't type
+    /// in (Dan, 29 Sep).
+    private func leaveSearch() {
+        guard tab == .search else { return }
+        SearchLog.note("field closed: back to \(searchSource)")
+        query = ""
+        tab = searchSource
     }
 }

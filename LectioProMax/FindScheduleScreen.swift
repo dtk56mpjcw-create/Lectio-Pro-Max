@@ -46,20 +46,19 @@ struct FindScheduleScreen: View {
         .listStyle(.insetGrouped)
         .navigationTitle("Find a schedule")
         .toolbarTitleDisplayMode(.large)
-        // It's in Me, but searching here is for a schedule: the search
-        // button finds anyone's, from here and from the lists and
-        // schedules it opens.
-        .searchedAs(.findSchedule)
-        .searchableInBackdrop()
         .task { await session.loadScheduleTargets() }
         .onAppear { memory.prepare() }
         // Everything this screen leads to, however deep: someone's schedule,
-        // and the lists to browse.
+        // and the lists to browse. It's in Me, but searching here is for a
+        // schedule: the search button finds anyone's, from here (see
+        // MeTab) and from the lists and schedules it opens.
         .navigationDestination(for: ScheduleTarget.self) { target in
             TargetScheduleScreen(target: target)
+                .searchPage(.findSchedule) { TargetScheduleScreen(target: target) }
         }
         .navigationDestination(for: FindBrowse.self) { browse in
             FindBrowseScreen(browse: browse)
+                .searchPage(.findSchedule) { FindBrowseScreen(browse: browse) }
         }
     }
 }
@@ -142,19 +141,16 @@ struct FindBrowseScreen: View {
     @Environment(LectioSession.self) private var session
 
     var body: some View {
-        Group {
-            switch browse {
-            case .kind(let kind):
-                TargetListScreen(kind: kind, title: kind.label)
-            case .teams:
-                TeamsScreen()
-            case .teamSubject(let subject):
-                TeamSubjectScreen(subject: subject)
-            case .classmates(let klasse):
-                TargetListScreen(kind: .student, title: "Students in " + klasse.name, onlyClass: klasse.name)
-            }
+        switch browse {
+        case .kind(let kind):
+            TargetListScreen(kind: kind, title: kind.label)
+        case .teams:
+            TeamsScreen()
+        case .teamSubject(let subject):
+            TeamSubjectScreen(subject: subject)
+        case .classmates(let klasse):
+            TargetListScreen(kind: .student, title: "Students in " + klasse.name, onlyClass: klasse.name)
         }
-        .searchableInBackdrop()
     }
 }
 

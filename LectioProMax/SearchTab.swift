@@ -36,6 +36,8 @@ struct SearchTab: View {
     let context: SearchKind
     /// Find on the open page, for the copy of the tab (see PageFind).
     let find: PageFind
+    /// Back to the tab you came from.
+    var leave: () -> Void = {}
 
     @Environment(LectioSession.self) private var session
     @State private var path = NavigationPath()
@@ -87,8 +89,14 @@ struct SearchTab: View {
         .onChange(of: context) { path = NavigationPath() }
         .onChange(of: showsResults) { if !showsResults { path = NavigationPath() } }
         .onChange(of: pageQuery, initial: true) { _, words in find.look(for: words) }
-        // One tap on the search button: the field comes out ready to type.
-        .onAppear { presented = true }
+        // Closing the field closes the search: back where you were. Before,
+        // the search tab stayed on with a field you couldn't type in (Dan,
+        // 29 Sep). Not while a result is open: that's the field folding
+        // away as the result slides in.
+        .onChange(of: presented) { was, now in
+            SearchLog.note("field out \(was) → \(now), a result open: \(!path.isEmpty)")
+            if was, !now, path.isEmpty { leave() }
+        }
         .sheet(item: $openWork) { item in
             // As the Homework tab opens it: an assignment on its hand-in
             // page, homework on its own.
@@ -106,10 +114,18 @@ struct SearchTab: View {
         }
     }
 
-    /// The tab you came from, where you left it: the same day or week, the
-    /// same folder or filter, the same page open (they share TabPlaces), so
-    /// pressing search doesn't feel like going to a new tab. It works as
-    /// the tab does, and counts as it (hostTab) for which search is on.
+    /// What you were looking at, where you left it, so pressing search
+    /// doesn't feel like going to a new tab. It works as it does in the
+    /// tab, and counts as the tab (hostTab) for which search is on.
+    ///
+    /// - On a tab's first page: a copy of the tab, on the same day or week,
+    ///   folder or filter (they share TabPlaces).
+    /// - On a page opened in the tab (a lesson, a homework, Find a
+    ///   schedule…): that page, drawn again as the first page of a stack
+    ///   of its own (SearchContexts.page). The search tab shows its field,
+    ///   at the bottom, only on the first page of its stack. With the page
+    ///   pushed on top of a copy of the tab there was no field, and a field
+    ///   of the page's own went to the top instead (Dan, 29 Sep).
     ///
     /// Only one of the two copies is ever on screen, and loads start as a
     /// view appears, so nothing is fetched twice; the session skips what it
@@ -117,24 +133,28 @@ struct SearchTab: View {
     @ViewBuilder
     private var backdrop: some View {
         Group {
-            switch source {
-            case .schedule, .search:
-                ScheduleTab(backdrop: true)
-            case .homework:
-                HomeworkTab()
-            case .messages:
-                MessagesTab()
-            case .me:
-                MeTab()
+            if let page = SearchContexts.shared.page(for: source) {
+                NavigationStack {
+                    page()
+                        // Settings opens its pages from here as in Me.
+                        .navigationDestination(for: MeRoute.self) { route in
+                            MeSearchDestination(route: route)
+                        }
+                }
+            } else {
+                switch source {
+                case .schedule, .search:
+                    ScheduleTab(backdrop: true)
+                case .homework:
+                    HomeworkTab()
+                case .messages:
+                    MessagesTab()
+                case .me:
+                    MeTab()
+                }
             }
         }
         .environment(\.hostTab, source)
-        // A page open on top gets the field too (searchableInBackdrop):
-        // the one RootView attaches reaches only the first page, and on a
-        // homework, a lesson or Find a schedule there was no field at all.
-        .environment(\.backdropSearch, BackdropSearch(
-            text: $query, isPresented: $presented, prompt: context.prompt,
-            submit: { if context == .page { find.next() } }))
         // Only here: the real tabs' pages draw their text as always.
         .environment(find)
         // The keyboard comes up over it instead of squeezing it: the
@@ -227,9 +247,10 @@ extension View {
 /// someone's schedule are in the Me tab, but searching there is for a
 /// schedule, not for Me (it said "Search Me").
 ///
-/// A screen says whose it is with `.searchedAs(_:)`. One that doesn't
-/// say is part of the one it was opened from (a lesson in someone's
-/// schedule, a page under Me), so it keeps that one's.
+/// A tab's first page says whose it is with `.searchedAs(_:)`, and a page
+/// pushed onto a tab with `.searchPage(_:page:)` where it's pushed, which
+/// also says how to draw it again behind the search field. One that says
+/// nothing (Settings' own pages) keeps the search of the one below it.
 ///
 /// Kept from the screens' own appearing and disappearing, which can come
 /// in either order as one screen replaces another, and half-way for a swipe
@@ -246,7 +267,16 @@ extension View {
 final class SearchContexts {
     static let shared = SearchContexts()
 
+    /// Draws a page again, for the search tab (see SearchTab.backdrop).
+    typealias Page = () -> AnyView
+
     private struct Shown {
+        let id: UUID
+        let context: SearchKind
+        let page: Page?
+    }
+
+    private struct Latest: Equatable {
         let id: UUID
         let context: SearchKind
     }
@@ -254,72 +284,52 @@ final class SearchContexts {
     /// Per tab, its screens on show that said whose they are, in the order
     /// they appeared.
     @ObservationIgnored private var shown: [AppTab: [Shown]] = [:]
-    /// Per tab, the search of the last of them. Only written when it
-    /// changes, so a screen appearing doesn't redraw the tabs for nothing.
-    private var latest: [AppTab: SearchKind] = [:]
+    /// Per tab, the last of them. Only written when it's another screen or
+    /// another search, so a screen coming back doesn't redraw for nothing.
+    private var latest: [AppTab: Latest] = [:]
+    /// Per tab, how to draw the last of them, when it's a page opened in
+    /// the tab rather than the tab's first page.
+    @ObservationIgnored private var pages: [AppTab: Page] = [:]
 
     /// What the search button searches from `tab`.
     func context(for tab: AppTab) -> SearchKind {
-        latest[tab] ?? SearchKind(tab)
+        latest[tab]?.context ?? SearchKind(tab)
     }
 
-    func appeared(_ id: UUID, context: SearchKind, in tab: AppTab) {
+    /// The page open in `tab`, to show behind the search field; nil on the
+    /// tab's first page.
+    func page(for tab: AppTab) -> Page? {
+        _ = latest[tab]     // read, so the search tab follows it
+        return pages[tab]
+    }
+
+    func appeared(_ id: UUID, context: SearchKind, page: Page? = nil, in tab: AppTab) {
         shown[tab, default: []].removeAll { $0.id == id }
-        shown[tab, default: []].append(Shown(id: id, context: context))
-        settle(tab, on: context)
+        let entry = Shown(id: id, context: context, page: page)
+        shown[tab, default: []].append(entry)
+        settle(tab, on: entry)
     }
 
     func disappeared(_ id: UUID, in tab: AppTab) {
         shown[tab, default: []].removeAll { $0.id == id }
-        if let top = shown[tab]?.last { settle(tab, on: top.context) }
+        if let top = shown[tab]?.last { settle(tab, on: top) }
     }
 
-    private func settle(_ tab: AppTab, on context: SearchKind) {
-        if latest[tab] != context { latest[tab] = context }
+    private func settle(_ tab: AppTab, on entry: Shown) {
+        pages[tab] = entry.page
+        let now = Latest(id: entry.id, context: entry.context)
+        if latest[tab] != now { latest[tab] = now }
     }
 }
 
 extension EnvironmentValues {
     /// The tab a screen is in; nil in the search tab and outside the tabs.
     @Entry var hostTab: AppTab? = nil
-    /// The search field, for a page open on top in the copy of the tab
-    /// behind it (SearchTab); nil everywhere else.
-    @Entry var backdropSearch: BackdropSearch? = nil
-}
-
-/// The search field as a page open in the copy behind it needs it.
-struct BackdropSearch {
-    var text: Binding<String>
-    var isPresented: Binding<Bool>
-    var prompt: String
-    /// The Search key: the next match, when finding on the page.
-    var submit: () -> Void
-}
-
-/// A pushed page's own search field, in the copy of the tab behind the
-/// search field only.
-///
-/// `.searchable` on a navigation stack gives its first page a field, not
-/// the pages pushed onto it, and the search tab shows the field of the
-/// page on top. So in the copy, a homework, a lesson or Find a schedule
-/// open on top had none, and the search never opened there (Dan, 29 Sep).
-/// Each such page adds one, bound to the same text.
-private struct BackdropSearchable: ViewModifier {
-    @Environment(\.backdropSearch) private var search
-
-    func body(content: Content) -> some View {
-        if let search {
-            content
-                .searchable(text: search.text, isPresented: search.isPresented, prompt: search.prompt)
-                .onSubmit(of: .search) { search.submit() }
-        } else {
-            content
-        }
-    }
 }
 
 private struct SearchContextMark: ViewModifier {
     let context: SearchKind
+    var page: SearchContexts.Page? = nil
     @Environment(\.hostTab) private var hostTab
     @State private var id = UUID()
 
@@ -327,7 +337,7 @@ private struct SearchContextMark: ViewModifier {
         content
             .onAppear {
                 guard let hostTab else { return }
-                SearchContexts.shared.appeared(id, context: context, in: hostTab)
+                SearchContexts.shared.appeared(id, context: context, page: page, in: hostTab)
             }
             .onDisappear {
                 guard let hostTab else { return }
@@ -344,11 +354,23 @@ extension View {
         modifier(SearchContextMark(context: context))
     }
 
-    /// Gives a pushed page the search field when it's in the copy of the
-    /// tab behind the search (see BackdropSearchable). Every page that can
-    /// be pushed onto a tab needs it; a tab's first page must not have it.
-    func searchableInBackdrop() -> some View {
-        modifier(BackdropSearchable())
+    /// A page pushed onto a tab: which search it has, and how to draw it
+    /// again as the first page of the search tab's stack (see
+    /// SearchTab.backdrop). Goes where the page is pushed, on the view the
+    /// navigation destination returns, so it's drawn just as it was.
+    func searchPage<Page: View>(_ context: SearchKind,
+                                @ViewBuilder page: @escaping () -> Page) -> some View {
+        modifier(SearchContextMark(context: context, page: { AnyView(page()) }))
+    }
+}
+
+/// Timestamped lines in Xcode's console about the search field, in Debug
+/// builds only, to see what happens when it misbehaves on a phone.
+enum SearchLog {
+    static func note(_ line: @autoclosure () -> String) {
+        #if DEBUG
+        print("[Search \(Date().formatted(.dateTime.hour().minute().second()))] \(line())")
+        #endif
     }
 }
 

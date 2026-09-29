@@ -207,14 +207,14 @@ private struct FindScroller: ViewModifier {
     }
 }
 
-/// The count and the arrows in the page's bar while finding.
+/// The count and the arrows in the page's bar while finding. That the page
+/// is searched by finding on it is said where it's pushed
+/// (`.searchPage(.page)`), with how to draw it behind the search field.
 private struct FindsOnPage: ViewModifier {
     @Environment(PageFind.self) private var find: PageFind?
 
     func body(content: Content) -> some View {
         content
-            .searchedAs(.page)
-            .searchableInBackdrop()
             .toolbar {
                 if let find, !find.query.isEmpty {
                     ToolbarItem(placement: .principal) {
@@ -243,7 +243,7 @@ private struct FindsOnPage: ViewModifier {
 }
 
 extension View {
-    /// This page is searched by finding on it (see PageFind).
+    /// The count and arrows for finding on this page (see PageFind).
     func findsOnPage() -> some View {
         modifier(FindsOnPage())
     }

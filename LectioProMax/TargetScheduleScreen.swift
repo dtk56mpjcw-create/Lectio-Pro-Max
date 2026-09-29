@@ -136,6 +136,7 @@ struct TargetScheduleScreen: View {
         }
         .navigationDestination(item: $openLesson) { route in
             LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
+                .searchPage(.page) { LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO) }
         }
         .onChange(of: dayPage) { _, page in
             // A swipe landed on another day.
@@ -153,9 +154,6 @@ struct TargetScheduleScreen: View {
         .task(id: LectioDates.weekCode(iso: selectedDate)) {
             await loadAround(selectedDate)
         }
-        // From someone's schedule, search finds another one's.
-        .searchedAs(.findSchedule)
-        .searchableInBackdrop()
         .onAppear {
             here.appeared()
             memory.noteOpened(target)

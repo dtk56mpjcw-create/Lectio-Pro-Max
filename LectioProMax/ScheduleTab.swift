@@ -143,6 +143,8 @@ struct ScheduleTab: View {
                 .searchedAs(.schedule)
             .navigationDestination(for: LessonRoute.self) { route in
                 LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
+                    // Search here finds on the lesson's page.
+                    .searchPage(.page) { LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO) }
             }
         }
         .onChange(of: dayPage) { _, page in

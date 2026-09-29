@@ -115,7 +115,7 @@ problem.
 | Area | Files |
 |---|---|
 | App entry, sign-in gate | `LectioProMaxApp.swift`, `ContentView.swift` (`LoginScreen`), `LoginWebView.swift` (the only web view: UNI-Login / MitID) |
-| Tabs | `RootView.swift`: a native `TabView` with Schedule, Homework, Messages, Me, and Search (`Tab(role: .search)`). The search button searches **the tab you were on** (`SearchTab.swift`, `SearchKind`): Schedule → your own lessons only, Homework → homework and assignments, Messages → messages, Me → absence, grades, study plan and the Me pages. A screen can have its own: Me › Find a schedule and someone's schedule search anyone's schedule, "Find a Schedule" (`.searchedAs(.findSchedule)`, `SearchContexts`, read the moment search is pressed). Dan wants these two apart: from his own day and week, people in the results didn't belong. Until you type, the search tab shows **a working copy of the tab you came from, where you left it** (`SearchTab.backdrop`); see "The search backdrop" below. Where each tab is lives in `TabPlaces.swift` (`SchedulePlace`, `HomeworkPlace`, `MessagesPlace`, `MePlace`, owned by RootView; `TargetPlace`, one per someone's schedule), shared by the tab and its copy. On an **open page** (lesson, homework, assignment, message, absence, grades, study plan, Settings pages) the search is **find on page** (`PageFind.swift`): matches marked yellow, the count and ↑↓ in the bar, the Search key goes to the next. A new page takes part with `.findsOnPage()`, `.findScroller()` on its scroll content and `FindableText` instead of `Text`. No other screen has a search bar (Dan's call: they flashed on push and stuck half-way) |
+| Tabs | `RootView.swift`: a native `TabView` with Schedule, Homework, Messages, Me, and Search (`Tab(role: .search)`). The search button searches **the tab you were on** (`SearchTab.swift`, `SearchKind`): Schedule → your own lessons only, Homework → homework and assignments, Messages → messages, Me → absence, grades, study plan and the Me pages. A screen can have its own: Me › Find a schedule and someone's schedule search anyone's schedule, "Find a Schedule" (`.searchPage(.findSchedule)` where they're pushed, `SearchContexts`, read the moment search is pressed). Dan wants these two apart: from his own day and week, people in the results didn't belong. Until you type, the search tab shows **a working copy of the tab you came from, where you left it** (`SearchTab.backdrop`); see "The search backdrop" below. Where each tab is lives in `TabPlaces.swift` (`SchedulePlace`, `HomeworkPlace`, `MessagesPlace`, `MePlace`, owned by RootView; `TargetPlace`, one per someone's schedule), shared by the tab and its copy. On an **open page** (lesson, homework, assignment, message, absence, grades, study plan, Settings pages) the search is **find on page** (`PageFind.swift`): matches marked yellow, the count and ↑↓ in the bar, the Search key goes to the next. A new page takes part with `.searchPage(.page) { … }` where it's pushed, `.findsOnPage()`, `.findScroller()` on its scroll content and `FindableText` instead of `Text`. No other screen has a search bar (Dan's call: they flashed on push and stuck half-way) |
 | State | `LectioSession.swift`: `@MainActor @Observable`, holds `snapshot`; `SnapshotCache` is the offline copy |
 | Network | `LectioHTTP.swift` (URLSession plus the cookie jar), `CookieVault.swift` (Keychain, this device only), `LectioForms.swift` (ASP.NET postbacks) |
 | Services | `LectioService`, `LectioStudyService`, `LectioMessagesService`, `LectioMeService`, `LectioFeedbackService`, `LectioHandInService`, `LectioEventService` |
@@ -387,16 +387,28 @@ SwiftUI scroll facts learned the hard way:
   `SearchContexts` live (it's `@Observable`).
 - Not shared: a lesson opened from someone's schedule (it's an item
   destination, not in a path).
-- `.searchable` on the search tab reaches only the **first page** of the
-  navigation stack in it, and the search tab shows the field of the page
-  on top. With a homework, a lesson or Find a schedule open in the copy,
-  there was no field and search "didn't open" there. Every page that can
-  be pushed onto a tab calls `.searchableInBackdrop()` (it's in
-  `findsOnPage()`; Find a schedule, its lists and someone's schedule call
-  it themselves), which adds a field bound to the same text only inside
-  the copy. A tab's first page must not: it has RootView's.
-- One tap on search opens the field ready to type: `searchable(isPresented:)`
-  is set true as the search tab appears (before, iOS 26 needed a second tap).
+- `.searchable` on the search tab gives the field (at the bottom) only to
+  the **first page** of the navigation stack in it. With a homework, a
+  lesson or Find a schedule pushed on top of the copy, there was no field
+  and search "didn't open" there.
+  - **Tried and wrong:** giving each pushed page its own `.searchable`.
+    Those fields went to the top bar, so the field jumped between top and
+    bottom (Dan, 29 Sep). Don't do it again.
+  - **Now:** a page open in a tab is drawn again as the *first* page of
+    the search tab's stack. Each place a tab pushes a page says so with
+    `.searchPage(kind) { the same page }`; `SearchContexts.page(for:)`
+    hands the last one to `SearchTab.backdrop`. Only a tab's first page
+    shows the copy of the tab. A new pushed page needs `.searchPage` where
+    it's pushed, or search on it shows the tab copy with it on top again.
+- One tap: `searchable(isPresented:)` and `searchFocused` are set a moment
+  after the search tab comes on (`RootView.activateSearch`). Set as it
+  appeared, it was ignored and still needed a second tap. Not confirmed on
+  a phone yet.
+- Closing the field leaves search, back to where you were
+  (`RootView.leaveSearch`); before, the search tab stayed on with a field
+  you couldn't type in.
+- `SearchLog` prints timestamped lines about the field and tabs in Debug
+  builds (Xcode's console). Take them out once search is settled.
 - Find on page (Dan: "if u open like homework ... theres a long text in
   it u should be able to search it", "it should work for all") happens
   only in the copy: `PageFind` is in the environment there and nowhere
