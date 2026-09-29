@@ -77,8 +77,8 @@ problem.
 
 ### Signing
 
-- Dan uses free Personal Teams: `L78DTW7MMS` (first Apple ID, "Ivan Surov")
-  and `7X3U94Z6DH` (second, "Ivan S"). Free teams can only register about 3
+- Dan uses free Personal Teams: `L78DTW7MMS` (first Apple ID, "Ivan Surov"),
+  `7X3U94Z6DH` (second, "Ivan S") and `DGKB47XJB8` (third). Free teams can only register about 3
   iPhones each; devices can't be deleted (registrations expire after about a
   week), and there's no TestFlight. Friends' phones are spread across the
   teams.
@@ -87,7 +87,8 @@ problem.
   through project-level build settings:
   - `APP_ID_ROOT = $(APP_ID_ROOT_$(DEVELOPMENT_TEAM))`, with
     `APP_ID_ROOT_L78DTW7MMS = com.ivan.lectiopromax` and
-    `APP_ID_ROOT_7X3U94Z6DH = com.ivan.lectiopro`;
+    `APP_ID_ROOT_7X3U94Z6DH = com.ivan.lectiopro`,
+    `APP_ID_ROOT_DGKB47XJB8 = com.ivan.lectiopro3`;
   - app `$(APP_ID_ROOT)`, widgets `$(APP_ID_ROOT).LectioWidgets`, tests
     `$(APP_ID_ROOT).tests`;
   - app group `APP_GROUP_ID = group.$(APP_ID_ROOT)`, used in both
