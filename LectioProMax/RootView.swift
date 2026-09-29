@@ -11,26 +11,44 @@ struct RootView: View {
     @Environment(LectioSession.self) private var session
     @State private var tab: AppTab = .schedule
     @State private var query = ""
-    /// The tab the search button searches: the one you were on.
+    /// The search the search button opens: the tab you were on, or the one
+    /// the screen you were on belongs to (see SearchContexts). Only read in
+    /// the search tab; set the moment search is pressed.
     @State private var searchContext: AppTab = .schedule
 
+    /// The tab bar's selection. Pressing search goes through here, so the
+    /// search is picked from where you were in the same moment, before the
+    /// search tab draws: its title can't show the last search's first.
+    private var selection: Binding<AppTab> {
+        Binding {
+            tab
+        } set: { new in
+            if new == .search, tab != .search { openSearch(from: tab) }
+            tab = new
+        }
+    }
+
     var body: some View {
-        TabView(selection: $tab) {
+        TabView(selection: selection) {
             Tab("Schedule", systemImage: "calendar", value: AppTab.schedule) {
                 // Its own navigation stack draws the background.
                 ScheduleTab()
+                    .environment(\.hostTab, .schedule)
             }
             // Each tab is its own navigation stack and draws its own background.
             Tab("Homework", systemImage: "checklist", value: AppTab.homework) {
                 HomeworkTab()
                     .badge(session.snapshot.outstandingCount)
+                    .environment(\.hostTab, .homework)
             }
             Tab("Messages", systemImage: "envelope", value: AppTab.messages) {
                 MessagesTab()
                     .badge(session.snapshot.unreadMessages)
+                    .environment(\.hostTab, .messages)
             }
             Tab("Me", systemImage: "person.crop.circle", value: AppTab.me) {
                 MeTab()
+                    .environment(\.hostTab, .me)
             }
             // Search is a tab of its own at the trailing end of the bar, as
             // iOS 26 lays it out (iOS 27 puts it back in the bar), and it
@@ -44,12 +62,6 @@ struct RootView: View {
                 SearchTab(query: query, context: searchContext)
                     .searchable(text: $query, prompt: searchContext.searchPrompt)
             }
-        }
-        .onChange(of: tab) { _, new in
-            // Another tab's search starts empty.
-            guard new != .search, new != searchContext else { return }
-            searchContext = new
-            query = ""
         }
         .tabBarMinimizeBehavior(.onScrollDown)
         // A widget or a notification: go to what it showed (see AppLink).
@@ -69,5 +81,19 @@ struct RootView: View {
                 AppRouter.shared.request = nil
             }
         }
+    }
+
+    /// Search was pressed on `old`: it searches what you were looking at.
+    ///
+    /// Read now, from the screen on show, rather than kept up to date as
+    /// tabs change. Me › Find a schedule and someone's schedule are in the
+    /// Me tab but are Schedule's, and pressing search there said "Search
+    /// Me" (Dan, 29 Sep). A widget or a notification can also change tabs
+    /// without the tab bar; that no longer matters either.
+    private func openSearch(from old: AppTab) {
+        let context = SearchContexts.shared.context(for: old)
+        guard context != searchContext else { return }
+        searchContext = context
+        query = ""      // another tab's search starts empty
     }
 }

@@ -108,6 +108,98 @@ extension AppTab {
     }
 }
 
+extension View {
+    /// The tabs' own gray (AppBackground, behind SearchTab) shows through
+    /// a search's list, instead of whatever the list draws. Search Me was
+    /// plain white before you typed. Most likely because its list then has
+    /// no section at all: Homework's and Messages' always have one, even
+    /// empty, and were gray; Schedule's has none only with nothing pinned
+    /// or recent.
+    fileprivate func searchListBackground() -> some View {
+        scrollContentBackground(.hidden)
+    }
+}
+
+// MARK: - Which search
+
+/// Which search the search button opens from a tab: the tab's own, unless
+/// the screen on show belongs to another. Me › Find a schedule, its lists
+/// and someone's schedule are in the Me tab but are Schedule's; to Dan
+/// they *are* the schedule, and searching there said "Search Me".
+///
+/// A screen says whose it is with `.searchContext(_:)`. One that doesn't
+/// say is part of the one it was opened from (a lesson in someone's
+/// schedule, a page under Me), so it keeps that one's.
+///
+/// Kept from the screens' own appearing and disappearing, which can come
+/// in either order as one screen replaces another, and half-way for a swipe
+/// back that's let go. So it's the last screen to appear that's still on
+/// show. Leaving the tab takes all of them off; then it's the one that was
+/// on show last, which is where you were.
+@MainActor
+final class SearchContexts {
+    static let shared = SearchContexts()
+
+    private struct Shown {
+        let id: UUID
+        let context: AppTab
+    }
+
+    /// Per tab, its screens on show that said whose they are, in the order
+    /// they appeared.
+    private var shown: [AppTab: [Shown]] = [:]
+    /// Per tab, the search of the last of them.
+    private var latest: [AppTab: AppTab] = [:]
+
+    /// What the search button searches from `tab`.
+    func context(for tab: AppTab) -> AppTab {
+        latest[tab] ?? tab
+    }
+
+    func appeared(_ id: UUID, context: AppTab, in tab: AppTab) {
+        shown[tab, default: []].removeAll { $0.id == id }
+        shown[tab, default: []].append(Shown(id: id, context: context))
+        latest[tab] = context
+    }
+
+    func disappeared(_ id: UUID, in tab: AppTab) {
+        shown[tab, default: []].removeAll { $0.id == id }
+        if let top = shown[tab]?.last { latest[tab] = top.context }
+    }
+}
+
+extension EnvironmentValues {
+    /// The tab a screen is in; nil in the search tab and outside the tabs.
+    @Entry var hostTab: AppTab? = nil
+}
+
+private struct SearchContextMark: ViewModifier {
+    let context: AppTab
+    @Environment(\.hostTab) private var hostTab
+    @State private var id = UUID()
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                guard let hostTab else { return }
+                SearchContexts.shared.appeared(id, context: context, in: hostTab)
+            }
+            .onDisappear {
+                guard let hostTab else { return }
+                SearchContexts.shared.disappeared(id, in: hostTab)
+            }
+    }
+}
+
+extension View {
+    /// The search button searches `context` from this screen, whichever
+    /// tab it's in (see SearchContexts). Goes on a screen's content, inside
+    /// its navigation stack, so it hears the screen come back into view.
+    func searchContext(_ context: AppTab) -> some View {
+        modifier(SearchContextMark(context: context))
+    }
+}
+
 /// Whether `text` has `needle` in it, whatever the case or accents ("e"
 /// finds "é"; ø, æ and å stay letters of their own, as in Danish).
 private func textHas(_ text: String, _ needle: String) -> Bool {
@@ -184,6 +276,7 @@ private struct ScheduleSearch: View {
             }
         }
         .listStyle(.insetGrouped)
+        .searchListBackground()
         .overlay {
             if query.isEmpty {
                 if memory.pinned.isEmpty && memory.recent.isEmpty {
@@ -281,6 +374,7 @@ private struct HomeworkSearch: View {
             }
         }
         .listStyle(.insetGrouped)
+        .searchListBackground()
         .overlay {
             if query.isEmpty {
                 ContentUnavailableView("Search Homework", systemImage: "checklist",
@@ -329,6 +423,7 @@ private struct MessageSearch: View {
             }
         }
         .listStyle(.insetGrouped)
+        .searchListBackground()
         .overlay {
             if query.isEmpty {
                 ContentUnavailableView("Search Messages", systemImage: "envelope",
@@ -459,6 +554,7 @@ private struct MeSearch: View {
             }
         }
         .listStyle(.insetGrouped)
+        .searchListBackground()
         .overlay {
             if query.isEmpty {
                 ContentUnavailableView("Search Me", systemImage: "person.crop.circle",

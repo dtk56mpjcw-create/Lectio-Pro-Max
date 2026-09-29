@@ -1,0 +1,87 @@
+import Foundation
+import Testing
+@testable import LectioProMax
+
+/// Which search the search button opens (see SearchContexts): the tab
+/// you're on, except where the screen on show is another tab's — Me › Find
+/// a schedule and someone's schedule search Schedule. Screens appear and
+/// disappear in either order, and leaving a tab takes them all off, so each
+/// case is played out in both orders.
+@MainActor
+struct SearchContextTests {
+    let meRoot = UUID()
+    let find = UUID()
+    let theirs = UUID()
+
+    @Test func eachTabSearchesItselfByDefault() {
+        let contexts = SearchContexts()
+        #expect(contexts.context(for: .schedule) == .schedule)
+        #expect(contexts.context(for: .homework) == .homework)
+        #expect(contexts.context(for: .messages) == .messages)
+        #expect(contexts.context(for: .me) == .me)
+    }
+
+    @Test func findAScheduleSearchesSchedule() {
+        for newFirst in [true, false] {
+            let contexts = SearchContexts()
+            contexts.appeared(meRoot, context: .me, in: .me)
+            #expect(contexts.context(for: .me) == .me)
+
+            // Me › Find a schedule.
+            replace(meRoot, with: find, as: .schedule, newFirst: newFirst, contexts)
+            #expect(contexts.context(for: .me) == .schedule)
+
+            // Then someone's schedule, and a lesson in it (says nothing).
+            replace(find, with: theirs, as: .schedule, newFirst: newFirst, contexts)
+            contexts.disappeared(theirs, in: .me)
+            #expect(contexts.context(for: .me) == .schedule)
+        }
+    }
+
+    @Test func pressingSearchTakesTheScreenOff() {
+        // Switching to the search tab makes the screen on show disappear,
+        // perhaps before the search is picked: it's still where you were.
+        let contexts = SearchContexts()
+        contexts.appeared(meRoot, context: .me, in: .me)
+        replace(meRoot, with: find, as: .schedule, newFirst: true, contexts)
+        contexts.disappeared(find, in: .me)
+        #expect(contexts.context(for: .me) == .schedule)
+
+        // Back in Me, and back to its first page.
+        contexts.appeared(find, context: .schedule, in: .me)
+        replace(find, with: meRoot, as: .me, newFirst: false, contexts)
+        #expect(contexts.context(for: .me) == .me)
+        contexts.disappeared(meRoot, in: .me)
+        #expect(contexts.context(for: .me) == .me)
+    }
+
+    @Test func aSwipeBackLetGoStaysPut() {
+        // The page under shows during the swipe, then goes again.
+        let contexts = SearchContexts()
+        contexts.appeared(meRoot, context: .me, in: .me)
+        replace(meRoot, with: find, as: .schedule, newFirst: true, contexts)
+        contexts.appeared(meRoot, context: .me, in: .me)
+        contexts.disappeared(meRoot, in: .me)
+        #expect(contexts.context(for: .me) == .schedule)
+    }
+
+    @Test func tabsDontMix() {
+        let contexts = SearchContexts()
+        contexts.appeared(find, context: .schedule, in: .me)
+        #expect(contexts.context(for: .messages) == .messages)
+        #expect(contexts.context(for: .schedule) == .schedule)
+    }
+
+    /// `new` takes `old`'s place on screen (a push or a pop), appearing
+    /// before or after `old` disappears.
+    private func replace(_ old: UUID, with new: UUID, as context: AppTab, newFirst: Bool,
+                         _ contexts: SearchContexts) {
+        if newFirst {
+            contexts.appeared(new, context: context, in: .me)
+            contexts.disappeared(old, in: .me)
+        } else {
+            contexts.disappeared(old, in: .me)
+            contexts.appeared(new, context: context, in: .me)
+        }
+    }
+}

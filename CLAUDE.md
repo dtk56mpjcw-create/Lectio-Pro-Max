@@ -115,7 +115,7 @@ problem.
 | Area | Files |
 |---|---|
 | App entry, sign-in gate | `LectioProMaxApp.swift`, `ContentView.swift` (`LoginScreen`), `LoginWebView.swift` (the only web view: UNI-Login / MitID) |
-| Tabs | `RootView.swift`: a native `TabView` with Schedule, Homework, Messages, Me, and Search (`Tab(role: .search)`). The search button searches **the tab you were on** (`SearchTab.swift`): Schedule → anyone's schedule and your lessons, Homework → homework and assignments, Messages → messages, Me → absence, grades, study plan and the Me pages. No other screen has a search bar (Dan's call: they flashed on push and stuck half-way) |
+| Tabs | `RootView.swift`: a native `TabView` with Schedule, Homework, Messages, Me, and Search (`Tab(role: .search)`). The search button searches **the tab you were on** (`SearchTab.swift`): Schedule → anyone's schedule and your lessons, Homework → homework and assignments, Messages → messages, Me → absence, grades, study plan and the Me pages. A screen can belong to another tab's search: Me › Find a schedule and someone's schedule search Schedule (`.searchContext(.schedule)`, `SearchContexts`, read the moment search is pressed). No other screen has a search bar (Dan's call: they flashed on push and stuck half-way) |
 | State | `LectioSession.swift`: `@MainActor @Observable`, holds `snapshot`; `SnapshotCache` is the offline copy |
 | Network | `LectioHTTP.swift` (URLSession plus the cookie jar), `CookieVault.swift` (Keychain, this device only), `LectioForms.swift` (ASP.NET postbacks) |
 | Services | `LectioService`, `LectioStudyService`, `LectioMessagesService`, `LectioMeService`, `LectioFeedbackService`, `LectioHandInService`, `LectioEventService` |

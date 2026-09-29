@@ -46,6 +46,9 @@ struct FindScheduleScreen: View {
         .listStyle(.insetGrouped)
         .navigationTitle("Find a schedule")
         .toolbarTitleDisplayMode(.large)
+        // It's in Me, but it's the schedule: the search button searches
+        // Schedule from here, and from the lists and schedules it opens.
+        .searchContext(.schedule)
         .task { await session.loadScheduleTargets() }
         .onAppear { memory.prepare() }
         // Everything this screen leads to, however deep: someone's schedule,

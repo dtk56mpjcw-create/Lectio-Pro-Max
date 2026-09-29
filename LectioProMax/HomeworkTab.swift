@@ -33,6 +33,7 @@ struct HomeworkTab: View {
             list
                 .navigationTitle("Homework")
                 .navigationSubtitle(subtitle)
+                .searchContext(.homework)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         WorkFilterMenu(subjects: subjects, filter: $filter)
