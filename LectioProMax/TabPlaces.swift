@@ -87,8 +87,8 @@ final class MePlace {
 /// Someone's schedule (TargetScheduleScreen), where you left it and the
 /// weeks already fetched. The same one whether it's open in the Me tab or
 /// in its copy behind the search field, so that copy is on the same day
-/// and fetches nothing again. Opened again within a few minutes, it's
-/// still there; after that it starts afresh from today.
+/// and fetches nothing again. Back after ten minutes away, it starts
+/// afresh from today.
 @MainActor
 @Observable
 final class TargetPlace {
@@ -98,7 +98,8 @@ final class TargetPlace {
     var dayPage: String?
     var weekPage: String?
     var weekMode = false
-    @ObservationIgnored private var touched = Date()
+    /// When it was last on screen.
+    @ObservationIgnored private var seen = Date()
 
     private init() {
         let today = LectioDates.isoString(from: Date())
@@ -107,17 +108,36 @@ final class TargetPlace {
         weekPage = ScheduleTab.monday(of: today)
     }
 
+    /// One per schedule for as long as you're signed in, so every copy of
+    /// it gets the same one. A time limit here could hand a copy a new one
+    /// while the old one is still on screen; `appeared()` does the
+    /// starting afresh instead.
     private static var all: [String: TargetPlace] = [:]
 
-    /// Where `target`'s schedule is: the one already open, or a fresh one.
     static func of(_ target: ScheduleTarget) -> TargetPlace {
-        if let place = all[target.id], Date().timeIntervalSince(place.touched) < 600 {
-            place.touched = Date()
-            return place
-        }
+        if let place = all[target.id] { return place }
         let place = TargetPlace()
         all[target.id] = place
         return place
+    }
+
+    /// On screen again. After ten minutes away: today, fetched afresh,
+    /// as if opened for the first time.
+    func appeared() {
+        if Date().timeIntervalSince(seen) > 600 {
+            let today = LectioDates.isoString(from: Date())
+            loadedWeeks = [:]
+            failedWeeks = []
+            selectedDate = today
+            dayPage = today
+            weekPage = ScheduleTab.monday(of: today)
+            weekMode = false
+        }
+        seen = Date()
+    }
+
+    func disappeared() {
+        seen = Date()
     }
 
     /// Signing out: nobody's schedule is kept.

@@ -155,10 +155,16 @@ struct TargetScheduleScreen: View {
         }
         // From someone's schedule, search finds another one's.
         .searchedAs(.findSchedule)
-        .onAppear { memory.noteOpened(target) }
+        .onAppear {
+            here.appeared()
+            memory.noteOpened(target)
+        }
         // Their class was the one the cards were read by (see DayPlan);
         // everything else in the app goes by yours.
-        .onDisappear { ClassNames.use(session.snapshot.profile) }
+        .onDisappear {
+            here.disappeared()
+            ClassNames.use(session.snapshot.profile)
+        }
     }
 
     // MARK: Toolbar
