@@ -113,8 +113,7 @@ extension View {
     /// a search's list, instead of whatever the list draws. Search Me was
     /// plain white before you typed. Most likely because its list then has
     /// no section at all: Homework's and Messages' always have one, even
-    /// empty, and were gray; Schedule's has none only with nothing pinned
-    /// or recent.
+    /// empty, and were gray.
     fileprivate func searchListBackground() -> some View {
         scrollContentBackground(.hidden)
     }
@@ -208,12 +207,14 @@ private func textHas(_ text: String, _ needle: String) -> Bool {
 
 // MARK: - Schedule
 
-/// Anyone's schedule, then your own lessons. Before you type: the ones you
-/// pinned and the last few you opened.
+/// Anyone's schedule, then your own lessons.
+///
+/// Nothing before you type. Find a schedule's Pinned and Recent used to
+/// show here, and from your own schedule they looked like they didn't
+/// belong (Dan, 29 Sep); they're on the Find a schedule page itself.
 private struct ScheduleSearch: View {
     let query: String
     @Environment(LectioSession.self) private var session
-    private var memory: FindMemory { .shared }
     private var directory: TeamDirectory { .shared }
 
     /// Everyone and everything with a schedule — every team at school once
@@ -251,26 +252,22 @@ private struct ScheduleSearch: View {
         let lessons = query.count >= 2 ? self.lessons : []
 
         List {
-            if query.isEmpty {
-                PinnedAndRecent()
-            } else {
-                ForEach(sections) { section in
-                    Section(section.title) {
-                        ForEach(section.targets.prefix(TargetSection.perKind)) { target in
-                            NavigationLink(value: target) { TargetRow(target: target, highlight: query) }
-                        }
-                        if section.targets.count > TargetSection.perKind {
-                            Text("\(section.targets.count - TargetSection.perKind) more — type more of the name")
-                                .scaledFont(size: 14)
-                                .foregroundStyle(.secondary)
-                        }
+            ForEach(sections) { section in
+                Section(section.title) {
+                    ForEach(section.targets.prefix(TargetSection.perKind)) { target in
+                        NavigationLink(value: target) { TargetRow(target: target, highlight: query) }
+                    }
+                    if section.targets.count > TargetSection.perKind {
+                        Text("\(section.targets.count - TargetSection.perKind) more — type more of the name")
+                            .scaledFont(size: 14)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                if !lessons.isEmpty {
-                    Section("Your lessons") {
-                        ForEach(lessons.prefix(40), id: \.key) { route in
-                            NavigationLink(value: route) { LessonResultRow(route: route) }
-                        }
+            }
+            if !lessons.isEmpty {
+                Section("Your lessons") {
+                    ForEach(lessons.prefix(40), id: \.key) { route in
+                        NavigationLink(value: route) { LessonResultRow(route: route) }
                     }
                 }
             }
@@ -279,10 +276,8 @@ private struct ScheduleSearch: View {
         .searchListBackground()
         .overlay {
             if query.isEmpty {
-                if memory.pinned.isEmpty && memory.recent.isEmpty {
-                    ContentUnavailableView("Search Schedule", systemImage: "calendar",
-                                           description: Text("Anyone's schedule — students, teachers, classes, teams, rooms — and your own lessons."))
-                }
+                ContentUnavailableView("Search Schedule", systemImage: "calendar",
+                                       description: Text("Anyone's schedule — students, teachers, classes, teams, rooms — and your own lessons."))
             } else if sections.isEmpty && lessons.isEmpty {
                 if session.scheduleTargets.isEmpty {
                     ProgressView()
@@ -292,7 +287,6 @@ private struct ScheduleSearch: View {
             }
         }
         .task { await session.loadScheduleTargets() }
-        .onAppear { memory.prepare() }
         .onChange(of: query.isEmpty, initial: true) { _, empty in
             // Every team at school, fetched the first time you type (and
             // kept for a week; see TeamDirectory).

@@ -62,8 +62,7 @@ struct FindScheduleScreen: View {
     }
 }
 
-/// The pinned schedules, then the last few opened — on the Find page, and
-/// in the search from Schedule before you type.
+/// The pinned schedules, then the last few opened, on the Find page.
 struct PinnedAndRecent: View {
     private var memory: FindMemory { .shared }
 
