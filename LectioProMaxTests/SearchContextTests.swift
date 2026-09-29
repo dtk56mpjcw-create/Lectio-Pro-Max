@@ -3,8 +3,8 @@ import Testing
 @testable import LectioProMax
 
 /// Which search the search button opens (see SearchContexts): the tab
-/// you're on, except where the screen on show is another tab's — Me › Find
-/// a schedule and someone's schedule search Schedule. Screens appear and
+/// you're on's, except where the screen on show has its own — Me › Find a
+/// schedule and someone's schedule search for a schedule. Screens appear and
 /// disappear in either order, and leaving a tab takes them all off, so each
 /// case is played out in both orders.
 @MainActor
@@ -21,20 +21,20 @@ struct SearchContextTests {
         #expect(contexts.context(for: .me) == .me)
     }
 
-    @Test func findAScheduleSearchesSchedule() {
+    @Test func findAScheduleHasItsOwnSearch() {
         for newFirst in [true, false] {
             let contexts = SearchContexts()
             contexts.appeared(meRoot, context: .me, in: .me)
             #expect(contexts.context(for: .me) == .me)
 
             // Me › Find a schedule.
-            replace(meRoot, with: find, as: .schedule, newFirst: newFirst, contexts)
-            #expect(contexts.context(for: .me) == .schedule)
+            replace(meRoot, with: find, as: .findSchedule, newFirst: newFirst, contexts)
+            #expect(contexts.context(for: .me) == .findSchedule)
 
             // Then someone's schedule, and a lesson in it (says nothing).
-            replace(find, with: theirs, as: .schedule, newFirst: newFirst, contexts)
+            replace(find, with: theirs, as: .findSchedule, newFirst: newFirst, contexts)
             contexts.disappeared(theirs, in: .me)
-            #expect(contexts.context(for: .me) == .schedule)
+            #expect(contexts.context(for: .me) == .findSchedule)
         }
     }
 
@@ -43,12 +43,12 @@ struct SearchContextTests {
         // perhaps before the search is picked: it's still where you were.
         let contexts = SearchContexts()
         contexts.appeared(meRoot, context: .me, in: .me)
-        replace(meRoot, with: find, as: .schedule, newFirst: true, contexts)
+        replace(meRoot, with: find, as: .findSchedule, newFirst: true, contexts)
         contexts.disappeared(find, in: .me)
-        #expect(contexts.context(for: .me) == .schedule)
+        #expect(contexts.context(for: .me) == .findSchedule)
 
         // Back in Me, and back to its first page.
-        contexts.appeared(find, context: .schedule, in: .me)
+        contexts.appeared(find, context: .findSchedule, in: .me)
         replace(find, with: meRoot, as: .me, newFirst: false, contexts)
         #expect(contexts.context(for: .me) == .me)
         contexts.disappeared(meRoot, in: .me)
@@ -59,15 +59,15 @@ struct SearchContextTests {
         // The page under shows during the swipe, then goes again.
         let contexts = SearchContexts()
         contexts.appeared(meRoot, context: .me, in: .me)
-        replace(meRoot, with: find, as: .schedule, newFirst: true, contexts)
+        replace(meRoot, with: find, as: .findSchedule, newFirst: true, contexts)
         contexts.appeared(meRoot, context: .me, in: .me)
         contexts.disappeared(meRoot, in: .me)
-        #expect(contexts.context(for: .me) == .schedule)
+        #expect(contexts.context(for: .me) == .findSchedule)
     }
 
     @Test func tabsDontMix() {
         let contexts = SearchContexts()
-        contexts.appeared(find, context: .schedule, in: .me)
+        contexts.appeared(find, context: .findSchedule, in: .me)
         #expect(contexts.context(for: .messages) == .messages)
         #expect(contexts.context(for: .schedule) == .schedule)
     }

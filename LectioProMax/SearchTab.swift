@@ -3,9 +3,10 @@ import SwiftUI
 /// The search button at the end of the tab bar, searching the tab you came
 /// from:
 ///
-/// - Schedule: everything schedule — anyone's schedule (students,
-///   teachers, classes, teams, rooms) and your own lessons, their topics,
-///   homework and notes, in the weeks the app has loaded;
+/// - Schedule: your own lessons, their topics, teachers, rooms, homework
+///   and notes, in the weeks the app has loaded;
+/// - Me › Find a schedule (and the lists and schedules it opens): anyone's
+///   schedule — students, teachers, classes, teams, rooms;
 /// - Homework: your homework and assignments;
 /// - Messages: your messages;
 /// - Me: your absence, grades and study plan, and the Me pages.
@@ -19,11 +20,11 @@ import SwiftUI
 /// RootView (on the TabView it reached every tab's navigation bar). It
 /// searches what the app already holds, so it's instant and works offline;
 /// only the list of every team at school is fetched, the first time you
-/// search schedules (TeamDirectory).
+/// search for a schedule (TeamDirectory).
 struct SearchTab: View {
     let query: String
-    /// The tab the search is for.
-    let context: AppTab
+    /// What's searched.
+    let context: SearchKind
 
     @Environment(LectioSession.self) private var session
     @State private var path = NavigationPath()
@@ -35,7 +36,7 @@ struct SearchTab: View {
         NavigationStack(path: $path) {
             results
                 .background { AppBackground() }
-                .navigationTitle(context.searchTitle)
+                .navigationTitle(context.title)
                 .navigationDestination(for: ScheduleTarget.self) { target in
                     TargetScheduleScreen(target: target)
                 }
@@ -74,8 +75,10 @@ struct SearchTab: View {
     @ViewBuilder
     private var results: some View {
         switch context {
-        case .schedule, .search:
-            ScheduleSearch(query: trimmed)
+        case .schedule:
+            LessonSearch(query: trimmed)
+        case .findSchedule:
+            FindScheduleSearch(query: trimmed)
         case .homework:
             HomeworkSearch(query: trimmed) { openWork = $0 }
         case .messages:
@@ -86,21 +89,42 @@ struct SearchTab: View {
     }
 }
 
-extension AppTab {
-    /// What the search field says, from this tab.
-    var searchPrompt: String {
+/// What the search button searches: a tab's own things, or, from Me ›
+/// Find a schedule, anyone's schedule.
+///
+/// Your own schedule and Find a schedule are two searches. From your day
+/// and week the search used to be Find a schedule's (people, classes,
+/// rooms, with your lessons last), which had nothing to do with your own
+/// schedule (Dan, 29 Sep).
+enum SearchKind: Hashable {
+    case schedule, findSchedule, homework, messages, me
+
+    /// A tab's own search.
+    init(_ tab: AppTab) {
+        switch tab {
+        case .schedule, .search: self = .schedule
+        case .homework: self = .homework
+        case .messages: self = .messages
+        case .me: self = .me
+        }
+    }
+
+    /// What the search field says.
+    var prompt: String {
         switch self {
-        case .schedule, .search: return "People, classes, rooms, lessons"
+        case .schedule: return "Lessons, teachers, rooms, homework"
+        case .findSchedule: return "Students, teachers, classes, rooms"
         case .homework: return "Homework and assignments"
         case .messages: return "Messages"
         case .me: return "Absence, grades, study plan"
         }
     }
 
-    /// The search screen's title, from this tab.
-    var searchTitle: String {
+    /// The search screen's title.
+    var title: String {
         switch self {
-        case .schedule, .search: return "Search Schedule"
+        case .schedule: return "Search Schedule"
+        case .findSchedule: return "Find a Schedule"
         case .homework: return "Search Homework"
         case .messages: return "Search Messages"
         case .me: return "Search Me"
@@ -122,9 +146,9 @@ extension View {
 // MARK: - Which search
 
 /// Which search the search button opens from a tab: the tab's own, unless
-/// the screen on show belongs to another. Me › Find a schedule, its lists
-/// and someone's schedule are in the Me tab but are Schedule's; to Dan
-/// they *are* the schedule, and searching there said "Search Me".
+/// the screen on show has its own. Me › Find a schedule, its lists and
+/// someone's schedule are in the Me tab, but searching there is for a
+/// schedule, not for Me (it said "Search Me").
 ///
 /// A screen says whose it is with `.searchedAs(_:)`. One that doesn't
 /// say is part of the one it was opened from (a lesson in someone's
@@ -141,21 +165,21 @@ final class SearchContexts {
 
     private struct Shown {
         let id: UUID
-        let context: AppTab
+        let context: SearchKind
     }
 
     /// Per tab, its screens on show that said whose they are, in the order
     /// they appeared.
     private var shown: [AppTab: [Shown]] = [:]
     /// Per tab, the search of the last of them.
-    private var latest: [AppTab: AppTab] = [:]
+    private var latest: [AppTab: SearchKind] = [:]
 
     /// What the search button searches from `tab`.
-    func context(for tab: AppTab) -> AppTab {
-        latest[tab] ?? tab
+    func context(for tab: AppTab) -> SearchKind {
+        latest[tab] ?? SearchKind(tab)
     }
 
-    func appeared(_ id: UUID, context: AppTab, in tab: AppTab) {
+    func appeared(_ id: UUID, context: SearchKind, in tab: AppTab) {
         shown[tab, default: []].removeAll { $0.id == id }
         shown[tab, default: []].append(Shown(id: id, context: context))
         latest[tab] = context
@@ -173,7 +197,7 @@ extension EnvironmentValues {
 }
 
 private struct SearchContextMark: ViewModifier {
-    let context: AppTab
+    let context: SearchKind
     @Environment(\.hostTab) private var hostTab
     @State private var id = UUID()
 
@@ -194,7 +218,7 @@ extension View {
     /// The search button searches `context` from this screen, whichever
     /// tab it's in (see SearchContexts). Goes on a screen's content, inside
     /// its navigation stack, so it hears the screen come back into view.
-    func searchedAs(_ context: AppTab) -> some View {
+    func searchedAs(_ context: SearchKind) -> some View {
         modifier(SearchContextMark(context: context))
     }
 }
@@ -207,12 +231,76 @@ private func textHas(_ text: String, _ needle: String) -> Bool {
 
 // MARK: - Schedule
 
-/// Anyone's schedule, then your own lessons.
+/// Your own lessons, in the weeks the app has loaded: by subject, topic,
+/// teacher, room, homework or note. From today on first, soonest first;
+/// then the ones before, latest first.
 ///
-/// Nothing before you type. Find a schedule's Pinned and Recent used to
-/// show here, and from your own schedule they looked like they didn't
-/// belong (Dan, 29 Sep); they're on the Find a schedule page itself.
-private struct ScheduleSearch: View {
+/// Only yours: anyone else's schedule is found from Me › Find a schedule
+/// (FindScheduleSearch). Nothing before you type.
+private struct LessonSearch: View {
+    let query: String
+    @Environment(LectioSession.self) private var session
+
+    private var found: [LessonRoute] {
+        var hits: [LessonRoute] = []
+        for week in session.snapshot.weeks.values {
+            for day in week.days {
+                for lesson in day.lessons {
+                    let haystack = [lesson.title, lesson.code, lesson.topic ?? "", lesson.teacher,
+                                    lesson.room, lesson.homework, lesson.note, lesson.subjectName ?? ""]
+                        .joined(separator: " ")
+                    if textHas(haystack, query) {
+                        hits.append(LessonRoute(lesson: lesson, dayISO: day.date))
+                    }
+                }
+            }
+        }
+        return hits
+    }
+
+    var body: some View {
+        let found = query.isEmpty ? [] : self.found
+        let today = LectioDates.isoString(from: Date())
+        let upcoming = found.filter { $0.dayISO >= today }
+            .sorted { ($0.dayISO, $0.lesson.start) < ($1.dayISO, $1.lesson.start) }
+        let earlier = found.filter { $0.dayISO < today }
+            .sorted { $0.dayISO != $1.dayISO ? $0.dayISO > $1.dayISO : $0.lesson.start < $1.lesson.start }
+
+        List {
+            if !upcoming.isEmpty {
+                Section("From today") {
+                    ForEach(upcoming.prefix(40), id: \.key) { route in
+                        NavigationLink(value: route) { LessonResultRow(route: route) }
+                    }
+                }
+            }
+            if !earlier.isEmpty {
+                Section("Earlier") {
+                    ForEach(earlier.prefix(40), id: \.key) { route in
+                        NavigationLink(value: route) { LessonResultRow(route: route) }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .searchListBackground()
+        .overlay {
+            if query.isEmpty {
+                ContentUnavailableView("Search Schedule", systemImage: "calendar",
+                                       description: Text("Your lessons, by subject, topic, teacher, room, homework or note."))
+            } else if found.isEmpty {
+                ContentUnavailableView.search(text: query)
+            }
+        }
+    }
+}
+
+// MARK: - Find a schedule
+
+/// Anyone's schedule — students, teachers, classes, teams, rooms — from
+/// Me › Find a schedule and the lists and schedules it opens. Nothing
+/// before you type: Pinned and Recent are on the Find a schedule page.
+private struct FindScheduleSearch: View {
     let query: String
     @Environment(LectioSession.self) private var session
     private var directory: TeamDirectory { .shared }
@@ -225,31 +313,8 @@ private struct ScheduleSearch: View {
         return targets + directory.allTeams.filter { !known.contains($0.id) }
     }
 
-    /// Your lessons that have it in their name, topic, teacher, room,
-    /// homework or note: from today on first, then the ones before.
-    private var lessons: [LessonRoute] {
-        var hits: [LessonRoute] = []
-        for week in session.snapshot.weeks.values {
-            for day in week.days {
-                for lesson in day.lessons {
-                    let haystack = [lesson.title, lesson.code, lesson.topic ?? "", lesson.teacher,
-                                    lesson.room, lesson.homework, lesson.note]
-                        .joined(separator: " ")
-                    if textHas(haystack, query) {
-                        hits.append(LessonRoute(lesson: lesson, dayISO: day.date))
-                    }
-                }
-            }
-        }
-        let today = LectioDates.isoString(from: Date())
-        let ahead = hits.filter { $0.dayISO >= today }.sorted { $0.dayISO < $1.dayISO }
-        let before = hits.filter { $0.dayISO < today }.sorted { $0.dayISO > $1.dayISO }
-        return ahead + before
-    }
-
     var body: some View {
         let sections = query.isEmpty ? [] : TargetSection.search(query, in: pool)
-        let lessons = query.count >= 2 ? self.lessons : []
 
         List {
             ForEach(sections) { section in
@@ -264,21 +329,14 @@ private struct ScheduleSearch: View {
                     }
                 }
             }
-            if !lessons.isEmpty {
-                Section("Your lessons") {
-                    ForEach(lessons.prefix(40), id: \.key) { route in
-                        NavigationLink(value: route) { LessonResultRow(route: route) }
-                    }
-                }
-            }
         }
         .listStyle(.insetGrouped)
         .searchListBackground()
         .overlay {
             if query.isEmpty {
-                ContentUnavailableView("Search Schedule", systemImage: "calendar",
-                                       description: Text("Anyone's schedule — students, teachers, classes, teams, rooms — and your own lessons."))
-            } else if sections.isEmpty && lessons.isEmpty {
+                ContentUnavailableView("Find a Schedule", systemImage: "person.crop.rectangle.stack",
+                                       description: Text("Anyone's schedule — students, teachers, classes, teams, rooms."))
+            } else if sections.isEmpty {
                 if session.scheduleTargets.isEmpty {
                     ProgressView()
                 } else {

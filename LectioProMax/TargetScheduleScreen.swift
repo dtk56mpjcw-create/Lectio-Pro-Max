@@ -126,8 +126,8 @@ struct TargetScheduleScreen: View {
         .task(id: LectioDates.weekCode(iso: selectedDate)) {
             await loadAround(selectedDate)
         }
-        // Someone's schedule is searched as Schedule, wherever it's opened.
-        .searchedAs(.schedule)
+        // From someone's schedule, search finds another one's.
+        .searchedAs(.findSchedule)
         .onAppear { memory.noteOpened(target) }
         // Their class was the one the cards were read by (see DayPlan);
         // everything else in the app goes by yours.
