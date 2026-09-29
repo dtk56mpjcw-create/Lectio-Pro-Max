@@ -9,7 +9,11 @@ import Foundation
 struct WidgetFeed: Codable, Equatable {
 
     /// Shared by the app and its widgets (Signing & Capabilities → App Groups).
-    static let appGroup = "group.com.ivan.lectiopro"
+    /// Which group it is depends on the Apple ID the app is signed with
+    /// (APP_GROUP_ID in the build settings, passed on through each Info.plist
+    /// as LectioAppGroup), so it's read from the bundle, not written here.
+    static let appGroup = Bundle.main.object(forInfoDictionaryKey: "LectioAppGroup") as? String
+        ?? "group.com.ivan.lectiopromax"
     private static let fileName = "widget-feed.json"
 
     struct Item: Codable, Equatable, Hashable {

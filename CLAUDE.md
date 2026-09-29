@@ -77,20 +77,28 @@ problem.
 
 ### Signing
 
-- Dan uses a free Personal Team, currently `7X3U94Z6DH`, his second Apple ID.
-  Free teams can only register a few devices, the devices can't be deleted
-  (registrations expire after about a week), and there's no TestFlight.
-- All three targets must use the same team.
-- IDs:
-  - app `com.ivan.lectiopro`;
-  - widgets `com.ivan.lectiopro.LectioWidgets`;
-  - tests `com.ivan.lectiopro.tests`;
-  - app group `group.com.ivan.lectiopro` (`WidgetFeed.appGroup` and both
-    `.entitlements` files);
-  - background task `com.ivan.lectiopro.refresh` (`Info.plist` and
-    `BackgroundCheck.taskID`).
-- The old `com.ivan.lectiopromax` IDs belong to the first team (`L78DTW7MMS`,
-  device slots full) and can't be reused.
+- Dan uses free Personal Teams: `L78DTW7MMS` (first Apple ID, "Ivan Surov")
+  and `7X3U94Z6DH` (second, "Ivan S"). Free teams can only register about 3
+  iPhones each; devices can't be deleted (registrations expire after about a
+  week), and there's no TestFlight. Friends' phones are spread across the
+  teams.
+- **The IDs follow the team.** Pick the Team in Signing & Capabilities for
+  **all three targets** (app, widgets, tests) and everything else follows,
+  through project-level build settings:
+  - `APP_ID_ROOT = $(APP_ID_ROOT_$(DEVELOPMENT_TEAM))`, with
+    `APP_ID_ROOT_L78DTW7MMS = com.ivan.lectiopromax` and
+    `APP_ID_ROOT_7X3U94Z6DH = com.ivan.lectiopro`;
+  - app `$(APP_ID_ROOT)`, widgets `$(APP_ID_ROOT).LectioWidgets`, tests
+    `$(APP_ID_ROOT).tests`;
+  - app group `APP_GROUP_ID = group.$(APP_ID_ROOT)`, used in both
+    `.entitlements` files and passed to Swift through the `LectioAppGroup`
+    key in both Info.plists (`WidgetFeed.appGroup` reads it).
+  - **A new Apple ID** needs one more project-level line,
+    `APP_ID_ROOT_<its team ID> = <a new, unused ID>` (for example
+    `com.ivan.lectiopro3`). Without it the bundle ID comes out empty and
+    the build fails.
+- The background task is `com.ivan.lectiopro.refresh` whatever the team
+  (`Info.plist` and `BackgroundCheck.taskID`); it isn't registered with Apple.
 - The deep-link scheme is still `lectiopromax://` (see `Shared/AppLink.swift`).
 - **Friends' phones** are installed by cable from Xcode, as a **Release**
   build (Edit Scheme → Run → Build Configuration → Release). A Debug build
