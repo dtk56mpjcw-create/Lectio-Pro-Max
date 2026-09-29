@@ -64,7 +64,7 @@ struct MessagesTab: View {
             list
                 .navigationTitle(folder.title)
                 .navigationSubtitle(subtitle)
-                .searchContext(.messages)
+                .searchedAs(.messages)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Menu {

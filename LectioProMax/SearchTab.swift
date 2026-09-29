@@ -127,7 +127,7 @@ extension View {
 /// and someone's schedule are in the Me tab but are Schedule's; to Dan
 /// they *are* the schedule, and searching there said "Search Me".
 ///
-/// A screen says whose it is with `.searchContext(_:)`. One that doesn't
+/// A screen says whose it is with `.searchedAs(_:)`. One that doesn't
 /// say is part of the one it was opened from (a lesson in someone's
 /// schedule, a page under Me), so it keeps that one's.
 ///
@@ -195,7 +195,7 @@ extension View {
     /// The search button searches `context` from this screen, whichever
     /// tab it's in (see SearchContexts). Goes on a screen's content, inside
     /// its navigation stack, so it hears the screen come back into view.
-    func searchContext(_ context: AppTab) -> some View {
+    func searchedAs(_ context: AppTab) -> some View {
         modifier(SearchContextMark(context: context))
     }
 }

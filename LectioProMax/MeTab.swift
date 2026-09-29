@@ -23,7 +23,7 @@ struct MeTab: View {
                 .navigationSubtitle(subtitle)
                 // Find a schedule, pushed from here, searches Schedule;
                 // back here it's Me's again.
-                .searchContext(.me)
+                .searchedAs(.me)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         NavigationLink(value: MeRoute.settings) {

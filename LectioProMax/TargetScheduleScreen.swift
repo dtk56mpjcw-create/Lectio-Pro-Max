@@ -127,7 +127,7 @@ struct TargetScheduleScreen: View {
             await loadAround(selectedDate)
         }
         // Someone's schedule is searched as Schedule, wherever it's opened.
-        .searchContext(.schedule)
+        .searchedAs(.schedule)
         .onAppear { memory.noteOpened(target) }
         // Their class was the one the cards were read by (see DayPlan);
         // everything else in the app goes by yours.
