@@ -577,7 +577,7 @@ extension View {
 /// bottom of the screen — the pager makes it as tall as the screen and then
 /// sets it below the navigation bar — and a fixed allowance for the bar
 /// alone left the last lesson or event half under it on long days.
-fileprivate func barClearance(pageBottom: CGFloat, barLine: CGFloat, atLeast floor: CGFloat) -> CGFloat {
+func barClearance(pageBottom: CGFloat, barLine: CGFloat, atLeast floor: CGFloat) -> CGFloat {
     guard pageBottom > 0, barLine > 0 else { return floor }
     // A frame caught mid-transition can read oddly; never less than the
     // bar itself, never absurdly more.
@@ -590,6 +590,10 @@ fileprivate func barClearance(pageBottom: CGFloat, barLine: CGFloat, atLeast flo
 struct PageHeading: View {
     let title: String
     let subtitle: String
+    /// Down from the top of the page: where the other tabs' large titles
+    /// are. Somebody else's schedule has its own navigation bar to clear,
+    /// and less (TargetScheduleScreen).
+    var top: CGFloat = 35.5
 
     var body: some View {
         VStack(alignment: .leading, spacing: -3) {
@@ -611,7 +615,7 @@ struct PageHeading: View {
         // Measured against Homework, Messages and Me: 28 pt lower than the
         // first try put the title's top and the date exactly where theirs
         // are — and clear of the bar's fade, which had greyed it.
-        .padding(.top, 35.5)
+        .padding(.top, top)
         .padding(.bottom, 4)
     }
 }

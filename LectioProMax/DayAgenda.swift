@@ -52,6 +52,7 @@ private struct DayContent: View {
     let plan: DayPlan
     let dayISO: String
     let now: Date?
+    @Environment(\.scheduleOwner) private var owner
 
     private var nowMinutes: Int? { now.map { DayList.minutes(of: $0) } }
 
@@ -77,7 +78,11 @@ private struct DayContent: View {
                 if let line = nowLine(before: index) {
                     NowLine(text: line)
                 }
-                ModuleRow(slot: slot, dayISO: dayISO, now: now)
+                // A team or a room has nothing to be free from: only
+                // its lessons (and a cancelled one) are shown.
+                if owner.showsFreeModules || slot.hasAnything {
+                    ModuleRow(slot: slot, dayISO: dayISO, now: now)
+                }
                 ForEach(slot.breakAfter) { item in
                     OutsideRow(lesson: item, dayISO: dayISO)
                 }
@@ -540,7 +545,7 @@ private struct LessonBlock: View {
             return lesson.classesLabel
         case .room:
             return [lesson.classesLabel, teacher].filter { !$0.isEmpty }.joined(separator: " · ")
-        case .me, .others:
+        case .me, .others, .team:
             return teacher
         }
     }

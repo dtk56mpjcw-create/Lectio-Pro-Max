@@ -41,7 +41,8 @@ struct FindScheduleScreen: View {
         .navigationTitle("Find a schedule")
         .toolbarTitleDisplayMode(.large)
         .searchable(text: $query,
-                    placement: .navigationBarDrawer(displayMode: .always),
+                    // Tucked away as you scroll down, as in Messages.
+                    placement: .navigationBarDrawer(displayMode: .automatic),
                     prompt: "Students, teachers, classes, rooms")
         .searchScopes($scope, activation: .onSearchPresentation) {
             ForEach(FindScope.allCases) { option in
@@ -363,7 +364,7 @@ struct TargetListScreen: View {
         .navigationTitle(title)
         .toolbarTitleDisplayMode(.inline)
         .searchable(text: $query,
-                    placement: .navigationBarDrawer(displayMode: .always),
+                    placement: .navigationBarDrawer(displayMode: .automatic),
                     prompt: "Search")
         .autocorrectionDisabled()
         .textInputAutocapitalization(.never)

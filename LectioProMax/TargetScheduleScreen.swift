@@ -25,6 +25,15 @@ struct TargetScheduleScreen: View {
     @State private var opener = LessonOpener()
     @State private var openLesson: LessonRoute?
 
+    /// The bars over the pages, measured as your schedule measures them:
+    /// where the navigation bar ends and where the tab bar starts. The pages
+    /// run under both, and each keeps its heading below the one and its
+    /// last lesson clear of the other (see barClearance).
+    @State private var barTop: CGFloat = 0
+    @State private var barLine: CGFloat = 0
+    @State private var safeBottom: CGFloat = 0
+    private var bottomInset: CGFloat { max(safeBottom, 84) }
+
     private var memory: FindMemory { .shared }
 
     /// Four months either side of today; the pages are lazy.
@@ -45,7 +54,8 @@ struct TargetScheduleScreen: View {
         switch target.kind {
         case .teacher: return .teacher
         case .room: return .room
-        default: return .others
+        case .subject: return .team
+        case .student, .klasse: return .others
         }
     }
 
@@ -67,6 +77,21 @@ struct TargetScheduleScreen: View {
             }
         }
         .animation(.smooth(duration: 0.25), value: weekMode)
+        .ignoresSafeArea(.container, edges: [.top, .bottom])
+        // This frame is the one inside the bars: its top is the bottom of
+        // the navigation bar, its bottom the top of the tab bar.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onGeometryChange(for: CGRect.self) { geometry in
+            geometry.frame(in: .global)
+        } action: { frame in
+            barTop = frame.minY.rounded()
+            barLine = frame.maxY.rounded()
+        }
+        .onGeometryChange(for: CGFloat.self) { geometry in
+            geometry.safeAreaInsets.bottom
+        } action: { inset in
+            safeBottom = inset
+        }
         .background { AppBackground() }
         .navigationTitle(target.displayName)
         .navigationSubtitle(target.kindLine)
@@ -139,6 +164,10 @@ struct TargetScheduleScreen: View {
 
     // MARK: Pagers
 
+    private var bars: TargetBars {
+        TargetBars(top: barTop, line: barLine, bottomInset: bottomInset)
+    }
+
     private func dayPager(_ proxy: ScrollViewProxy) -> some View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
@@ -148,6 +177,7 @@ struct TargetScheduleScreen: View {
                                   week: loadedWeeks[code],
                                   failed: failedWeeks.contains(code),
                                   className: target.scheduleClass,
+                                  bars: bars,
                                   retry: { retry(code) },
                                   reload: { await load(code) })
                         .containerRelativeFrame([.horizontal, .vertical])
@@ -173,6 +203,7 @@ struct TargetScheduleScreen: View {
                                    week: loadedWeeks[code],
                                    failed: failedWeeks.contains(code),
                                    className: target.scheduleClass,
+                                   bars: bars,
                                    retry: { retry(code) },
                                    reload: { await load(code) }) { date in
                         pick(date)
@@ -262,7 +293,33 @@ struct TargetScheduleScreen: View {
 /// on every one; a room's name the class and the teacher, and leave the
 /// room out.
 enum ScheduleOwner {
-    case me, others, teacher, room
+    case me, others, teacher, room, team
+
+    /// A person or a class has free modules; a team or a room only has
+    /// lessons, and "Free" before and between them said nothing.
+    var showsFreeModules: Bool { self != .team && self != .room }
+}
+
+/// The bars over somebody else's schedule, for its pages to clear.
+struct TargetBars: Equatable {
+    /// Where the navigation bar ends, from the top of the screen.
+    var top: CGFloat
+    /// Where the tab bar starts.
+    var line: CGFloat
+    /// The least room to leave at the foot (see ScheduleTab.bottomInset).
+    var bottomInset: CGFloat
+
+    /// How far a page's heading has to come down to clear the navigation
+    /// bar: however much of the page the bar covers.
+    func topClearance(pageTop: CGFloat) -> CGFloat {
+        guard top > 0 else { return 0 }
+        return min(max(top - pageTop, 0), 200)
+    }
+
+    /// How far its last lesson has to stay above the page's bottom edge.
+    func bottomClearance(pageBottom: CGFloat) -> CGFloat {
+        barClearance(pageBottom: pageBottom, barLine: line, atLeast: bottomInset)
+    }
 }
 
 extension EnvironmentValues {
@@ -293,14 +350,20 @@ private struct TargetDayPage: View {
     let week: ScheduleWeek?
     let failed: Bool
     let className: String
+    let bars: TargetBars
     var retry: @MainActor () -> Void
     var reload: @MainActor () async -> Void
+    /// Where this page's scroll view starts and ends, from the top of the
+    /// screen.
+    @State private var pageTop: CGFloat = 0
+    @State private var pageBottom: CGFloat = 0
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 PageHeading(title: ScheduleTab.dayTitle(date),
-                            subtitle: ScheduleTab.daySubtitle(date))
+                            subtitle: ScheduleTab.daySubtitle(date),
+                            top: 4)
                 if let week {
                     DayList(day: week.days.first { $0.date == date },
                             // Their week's modules, without making their
@@ -314,11 +377,17 @@ private struct TargetDayPage: View {
                 }
             }
             .padding(.horizontal, Metrics.margin)
-            .padding(.top, 8)
-            .padding(.bottom, 32)
+            .padding(.top, bars.topClearance(pageTop: pageTop) + 8)
+            .padding(.bottom, bars.bottomClearance(pageBottom: pageBottom) + 24)
             // No row may make the page wider than the screen: the pager
             // would take the drag (see pageWide, SCROLL_BUG.md).
             .pageWide()
+        }
+        .onGeometryChange(for: CGRect.self) { geometry in
+            geometry.frame(in: .global)
+        } action: { frame in
+            pageTop = frame.minY.rounded()
+            pageBottom = frame.maxY.rounded()
         }
         .scrollIndicators(.hidden)
         .refreshable { await reload() }
@@ -332,9 +401,12 @@ private struct TargetWeekPage: View {
     let week: ScheduleWeek?
     let failed: Bool
     let className: String
+    let bars: TargetBars
     var retry: @MainActor () -> Void
     var reload: @MainActor () async -> Void
     var onPick: (String) -> Void
+    @State private var pageTop: CGFloat = 0
+    @State private var pageBottom: CGFloat = 0
 
     var body: some View {
         ScrollView {
@@ -342,7 +414,8 @@ private struct TargetWeekPage: View {
                 PageHeading(title: ScheduleTab.weekTitle(monday),
                             subtitle: WeekAgenda.subtitle(week: week, monday: monday,
                                                           className: className, remembering: false)
-                                ?? ScheduleTab.weekSubtitle(monday))
+                                ?? ScheduleTab.weekSubtitle(monday),
+                            top: 4)
                 if let week {
                     WeekAgenda(week: week,
                                monday: monday,
@@ -355,9 +428,15 @@ private struct TargetWeekPage: View {
                 }
             }
             .padding(.horizontal, Metrics.margin)
-            .padding(.top, 8)
-            .padding(.bottom, 32)
+            .padding(.top, bars.topClearance(pageTop: pageTop) + 8)
+            .padding(.bottom, bars.bottomClearance(pageBottom: pageBottom) + 24)
             .pageWide()
+        }
+        .onGeometryChange(for: CGRect.self) { geometry in
+            geometry.frame(in: .global)
+        } action: { frame in
+            pageTop = frame.minY.rounded()
+            pageBottom = frame.maxY.rounded()
         }
         .scrollIndicators(.hidden)
         .refreshable { await reload() }

@@ -351,7 +351,13 @@ SwiftUI scroll facts learned the hard way:
   `TargetScheduleScreen` puts yours back on disappear. Their weeks use
   `schoolDayModules(remembering: false)` so their late modules don't
   become the end of *your* day (`rememberedDayEnd`).
-- The day pages keep `.pageWide()` (the scroll-jerk fix).
+- The day pages keep `.pageWide()` (the scroll-jerk fix). The pages run
+  under both bars (`ignoresSafeArea` top and bottom) and clear them with
+  measured insets (`TargetBars`: the navigation bar's bottom and the tab
+  bar's top, as ScheduleTab's `barClearance`); their back button and title
+  used to cover the heading, and the tab bar the last rows.
+- `ScheduleOwner.team`/`.room` hide empty modules ("Free" said nothing for
+  a team or a room) in the day (`DayContent`) and the week (`WeekDayCard`).
 
 ## Open items
 

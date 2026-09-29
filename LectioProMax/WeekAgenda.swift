@@ -299,12 +299,17 @@ private struct WeekDayCard: View {
 
     @State private var unfolded = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.scheduleOwner) private var owner
 
     private var folded: Bool { startsFolded && !unfolded }
     private var nowMinutes: Int? { now.map { DayList.minutes(of: $0) } }
 
     var body: some View {
-        let rows = WeekRow.rows(plan, date: date)
+        let rows = WeekRow.rows(plan, date: date).filter { row in
+            // A team's or a room's week: no Free lines (see ScheduleOwner).
+            if case .free = row.kind { return owner.showsFreeModules }
+            return true
+        }
         VStack(spacing: 0) {
             header(rows)
             if !rows.isEmpty {
