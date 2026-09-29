@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Find a schedule
 
@@ -37,6 +38,7 @@ struct FindScheduleScreen: View {
             }
         }
         .listStyle(.insetGrouped)
+        .quietSearchBarWhilePushing()
         .overlay { searchState }
         .navigationTitle("Find a schedule")
         .toolbarTitleDisplayMode(.large)
@@ -349,6 +351,7 @@ struct TargetListScreen: View {
             }
         }
         .listStyle(.insetGrouped)
+        .quietSearchBarWhilePushing()
         .listSectionIndexVisibility(showsIndex ? .visible : .hidden)
         .overlay {
             if session.scheduleTargets.isEmpty {
@@ -931,5 +934,92 @@ extension LectioParser {
             subjects.append(TeamSubject(id: id, code: code, name: name))
         }
         return subjects
+    }
+}
+
+// MARK: - The search field while a screen slides in
+
+extension View {
+    /// Keeps a pushed screen's search field — hidden until you pull the
+    /// list down — from showing through while the screen slides in.
+    ///
+    /// iOS starts the field open on a pushed screen and folds it away just
+    /// after the push; for that moment its "Students, teachers…" lay over
+    /// the first rows (seen frame by frame in a screen recording). Nothing
+    /// in SwiftUI sets where it starts, so the field is made see-through
+    /// for the length of the push and shown again once it's folded away.
+    /// Only while a push is under way: a pull down afterwards, and every
+    /// other screen, are as they were.
+    func quietSearchBarWhilePushing() -> some View {
+        background {
+            PushSearchQuieter()
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+/// A zero-size view inside the pushed screen that finds the screen's
+/// search field (through the controllers above it) while the push runs.
+private struct PushSearchQuieter: UIViewRepresentable {
+    func makeUIView(context: Context) -> Probe { Probe() }
+    func updateUIView(_ uiView: Probe, context: Context) {}
+
+    final class Probe: UIView {
+        private var handled = false
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            isUserInteractionEnabled = false
+        }
+
+        required init?(coder: NSCoder) {
+            super.init(coder: coder)
+        }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            guard window != nil, !handled else { return }
+            // SwiftUI may put the field on the screen a moment later.
+            if !quiet() {
+                DispatchQueue.main.async { [weak self] in self?.quiet() }
+            }
+        }
+
+        @discardableResult
+        private func quiet() -> Bool {
+            guard !handled,
+                  let controller = controllerWithSearch(),
+                  let bar = controller.navigationItem.searchController?.searchBar,
+                  let push = controller.transitionCoordinator
+                      ?? controller.navigationController?.transitionCoordinator
+            else { return false }
+            handled = true
+            bar.alpha = 0
+            push.animate(alongsideTransition: nil) { _ in
+                // iOS folds the field away just after the push ends.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak bar] in
+                    UIView.animate(withDuration: 0.15) { bar?.alpha = 1 }
+                }
+            }
+            // Never left invisible, whatever the push does.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak bar] in
+                bar?.alpha = 1
+            }
+            return true
+        }
+
+        /// The nearest controller above this view that has a search field.
+        private func controllerWithSearch() -> UIViewController? {
+            var responder: UIResponder? = self
+            while let current = responder {
+                if let controller = current as? UIViewController,
+                   controller.navigationItem.searchController != nil {
+                    return controller
+                }
+                responder = current.next
+            }
+            return nil
+        }
     }
 }

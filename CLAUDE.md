@@ -356,6 +356,9 @@ SwiftUI scroll facts learned the hard way:
   measured insets (`TargetBars`: the navigation bar's bottom and the tab
   bar's top, as ScheduleTab's `barClearance`); their back button and title
   used to cover the heading, and the tab bar the last rows.
+- A pushed screen's search field (hidden until pulled down) showed through
+  for a moment while the screen slid in: iOS starts it open, then folds it.
+  `quietSearchBarWhilePushing()` makes it see-through for the push only.
 - `ScheduleOwner.team`/`.room` hide empty modules ("Free" said nothing for
   a team or a room) in the day (`DayContent`) and the week (`WeekDayCard`).
 
