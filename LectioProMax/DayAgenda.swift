@@ -341,6 +341,7 @@ private struct LessonBlock: View {
 
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.scheduleOwner) private var owner
 
     private var mark: Lesson.Kind? { lesson.markKind }
     private var isLesson: Bool { lesson.isClassLesson && mark == nil }
@@ -405,7 +406,7 @@ private struct LessonBlock: View {
                     Spacer(minLength: 6)
                     if let mark {
                         KindTag(kind: mark)
-                    } else if isLesson, !lesson.room.isEmpty {
+                    } else if isLesson, !lesson.room.isEmpty, owner != .room {
                         Text(LessonText.abbreviated(lesson.room))
                             .scaledFont(size: 15, weight: .semibold)
                             .monospacedDigit()
@@ -496,7 +497,7 @@ private struct LessonBlock: View {
         let hasHomework = !lesson.homework.isEmpty
         let hasNoteIcon = !lesson.note.isEmpty && !tall
         let isChanged = lesson.changed && isLesson
-        let teacher = isLesson ? LessonText.abbreviated(lesson.teacher) : ""
+        let teacher = isLesson ? who : ""
         if times != nil || hasHomework || hasNoteIcon || isChanged || !teacher.isEmpty {
             HStack(spacing: 9) {
                 if !teacher.isEmpty { Text(teacher).lineLimit(1) }
@@ -526,6 +527,21 @@ private struct LessonBlock: View {
             .scaledFont(size: 13.5, weight: .medium)
             .foregroundStyle(.secondary)
             .lineLimit(1)
+        }
+    }
+
+    /// Who's in it, at the foot of a lesson: the teacher on your own
+    /// cards; on a teacher's (always the same teacher) the class; on a
+    /// room's both (see ScheduleOwner).
+    private var who: String {
+        let teacher = LessonText.abbreviated(lesson.teacher)
+        switch owner {
+        case .teacher:
+            return lesson.classesLabel
+        case .room:
+            return [lesson.classesLabel, teacher].filter { !$0.isEmpty }.joined(separator: " · ")
+        case .me, .others:
+            return teacher
         }
     }
 

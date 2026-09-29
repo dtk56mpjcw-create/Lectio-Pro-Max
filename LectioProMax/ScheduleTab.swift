@@ -585,8 +585,9 @@ fileprivate func barClearance(pageBottom: CGFloat, barLine: CGFloat, atLeast flo
 }
 
 /// A page's title, where the other tabs have their large titles: 34 pt
-/// bold, 16 pt in, the date under it.
-private struct PageHeading: View {
+/// bold, 16 pt in, the date under it. Also somebody else's schedule's
+/// (TargetScheduleScreen).
+struct PageHeading: View {
     let title: String
     let subtitle: String
 

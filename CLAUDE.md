@@ -121,6 +121,7 @@ problem.
 | Parsing | `LectioParser.swift`, `HTMLDocument.swift`, `HTMLNode.swift`: Lectio's HTML scraped; selectors reverse-engineered from real pages; Danish text |
 | Schedule logic | `DayPlan.swift` (what an item is, `ClassNames`), `DayAgenda.swift`, `WeekAgenda.swift`, `LectioDates.swift` (always Danish time: `LectioDates.calendar`) |
 | Schedule UI | `ScheduleTab.swift`: day and week pagers, `DayPage`/`WeekPage`, `ScreenZoom` day↔week switch, `PageHeading` |
+| Find a schedule | `FindScheduleScreen.swift` (Me › Find a schedule: a native `List`, `.searchable` with `.searchScopes`, Pinned and Recent (`FindMemory`), Browse lists with the iOS 26 section index, Teams via `TeamDirectory`), `TargetScheduleScreen.swift` (their schedule with the same pagers, `DayList` and `WeekAgenda` as yours; `ScheduleOwner` in the environment changes what the cards show). `IndexedTargetList.swift` is only the group hand-in picker now |
 | Lesson page | `LessonDetailSheet.swift` (`LessonDetailScreen`: Overview and Content, a segmented control on a glass capsule plus paging; Overview is lesson info, the note and Elevfeedback, Content the homework and other content, by Dan's choice), `LessonContentView.swift`, `LessonContentReader.swift` (Lectio's editor HTML into paragraphs, links, pictures), `LessonBlocksView.swift` |
 | Widgets | `Shared/WidgetFeed.swift` (JSON in the app group), `WidgetFeedBuilder.swift`, `LectioWidgets/` |
 | Background and notifications | `BackgroundCheck.swift`, `ScheduleWatch.swift`, `NotificationService.swift`, `Reminder*.swift` |
@@ -335,6 +336,21 @@ SwiftUI scroll facts learned the hard way:
   - remove the logging once done.
 
 ---
+
+### Find a schedule (29 Sep)
+
+- Lectio lists teams per subject: `FindSkema.aspx?type=hold` lists the
+  subjects (`fag=<id>`), and `FindSkema.aspx?type=hold&fag=<id>` that
+  subject's teams, each `SkemaNy.aspx?type=holdelement&holdelementid=…`
+  (checked read-only in Lectio). `TeamDirectory` loads a subject when it's
+  opened, and all of them (four at a time) the first time you search; kept
+  a week in Caches.
+- Someone else's schedule is read with **their** class (`scheduleClass`):
+  `DayPlan.build` sets the global `ClassNames.use(className)`, so
+  `TargetScheduleScreen` puts yours back on disappear. Their weeks use
+  `schoolDayModules(remembering: false)` so their late modules don't
+  become the end of *your* day (`rememberedDayEnd`).
+- The day pages keep `.pageWide()` (the scroll-jerk fix).
 
 ## Open items
 

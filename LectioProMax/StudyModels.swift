@@ -115,7 +115,7 @@ struct ScheduleTarget: Identifiable, Hashable, Codable {
             case .student: return "Students"
             case .teacher: return "Teachers"
             case .klasse:  return "Classes"
-            case .subject: return "Subjects"
+            case .subject: return "Teams"
             case .room:    return "Rooms"
             }
         }

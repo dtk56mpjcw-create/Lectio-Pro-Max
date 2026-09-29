@@ -48,7 +48,7 @@ struct MeTab: View {
         case .absence: AbsenceSheet().asPushedScreen()
         case .grades: GradesScreen().toolbarTitleDisplayMode(.inline)
         case .studyPlan: StudyPlanSheet().asPushedScreen()
-        case .findSchedule: FindScheduleSheet().asPushedScreen()
+        case .findSchedule: FindScheduleScreen()
         case .settings: SettingsScreen().toolbarTitleDisplayMode(.inline)
         case .subjectColors: SubjectColorsScreen().toolbarTitleDisplayMode(.inline)
         case .signature: SignatureScreen().toolbarTitleDisplayMode(.inline)

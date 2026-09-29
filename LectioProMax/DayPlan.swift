@@ -348,7 +348,13 @@ extension ScheduleWeek {
     /// A week with too few lessons to tell (exams, holidays, a timetable not
     /// out yet) goes by the last ordinary week, or failing that by the
     /// clock: modules starting at 15:00 or later.
-    var dayModules: [ScheduleModule] {
+    var dayModules: [ScheduleModule] { schoolDayModules(remembering: true) }
+
+    /// `dayModules`, worked out for a week that isn't necessarily yours.
+    /// `remembering` false for somebody else's week (Find a schedule): a
+    /// teacher's or another year's late modules mustn't become the end of
+    /// your school day (see rememberedDayEnd).
+    func schoolDayModules(remembering: Bool) -> [ScheduleModule] {
         let modules = resolvedModules
         guard modules.count > 1 else { return modules }
 
@@ -363,7 +369,7 @@ extension ScheduleWeek {
         }
         let busiest = daysIn.values.map(\.count).max() ?? 0
         if busiest >= 3, let last = modules.last(where: { (daysIn[$0.number]?.count ?? 0) >= 2 }) {
-            ScheduleWeek.rememberDayEnd(last.number)
+            if remembering { ScheduleWeek.rememberDayEnd(last.number) }
             return modules.filter { $0.number <= last.number }
         }
         if let remembered = ScheduleWeek.rememberedDayEnd,

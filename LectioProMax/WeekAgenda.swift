@@ -23,6 +23,8 @@ struct WeekAgenda: View, Equatable {
     var today: String = LectioDates.isoString(from: Date())
     /// See ScheduleWeek.rememberedDayEnd.
     var dayEnd: Int? = ScheduleWeek.rememberedDayEnd
+    /// False for somebody else's week (see ScheduleWeek.schoolDayModules).
+    var remembersDayEnd = true
     var onPick: (String) -> Void
 
     static func == (a: WeekAgenda, b: WeekAgenda) -> Bool {
@@ -35,7 +37,7 @@ struct WeekAgenda: View, Equatable {
 
     var body: some View {
         let dates = Self.dates(in: week, monday: monday)
-        let modules = week.dayModules
+        let modules = week.schoolDayModules(remembering: remembersDayEnd)
         let rolling = week.rollingNotes(className: className)
         let plans = dates.map {
             Self.plan(for: $0, in: week, modules: modules, className: className, rolling: rolling)
@@ -97,11 +99,12 @@ struct WeekAgenda: View, Equatable {
     }
 
     /// Under the week's title: "21 – 25 Sep · 19 lessons · 6 with homework".
-    static func subtitle(week: ScheduleWeek?, monday: String, className: String) -> String? {
+    static func subtitle(week: ScheduleWeek?, monday: String, className: String,
+                         remembering: Bool = true) -> String? {
         guard let week else { return nil }
         let days = Self.dates(in: week, monday: monday)
         guard let first = days.first, let last = days.last else { return nil }
-        let modules = week.dayModules
+        let modules = week.schoolDayModules(remembering: remembering)
         let lessons = days
             .flatMap { Self.plan(for: $0, in: week, modules: modules, className: className).slots }
             .flatMap(\.main)
@@ -536,6 +539,7 @@ private struct WeekLine: View {
 private struct WeekLineMain: View {
     let row: WeekRow
     let over: Bool
+    @Environment(\.scheduleOwner) private var owner
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -566,8 +570,8 @@ private struct WeekLineMain: View {
                         .scaledFont(size: 14)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                } else if lesson.markKind == nil, let topic = topic(lesson) {
-                    Text(topic)
+                } else if lesson.markKind == nil, let aside = aside(lesson) {
+                    Text(aside)
                         .scaledFont(size: 14)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -605,6 +609,16 @@ private struct WeekLineMain: View {
         }
     }
 
+    /// After a lesson's name: its topic — or, in a teacher's or a room's
+    /// week, the class, which is what tells their lessons apart.
+    private func aside(_ lesson: Lesson) -> String? {
+        if owner == .teacher || owner == .room {
+            let classes = lesson.classesLabel
+            if !classes.isEmpty { return classes }
+        }
+        return topic(lesson)
+    }
+
     /// The first line of the topic, if it says anything the name doesn't.
     private func topic(_ lesson: Lesson) -> String? {
         guard let raw = lesson.topic else { return nil }
@@ -619,6 +633,7 @@ private struct WeekLineMain: View {
 private struct WeekLineTrailing: View {
     let row: WeekRow
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.scheduleOwner) private var owner
 
     var body: some View {
         HStack(spacing: 7) {
@@ -637,7 +652,8 @@ private struct WeekLineTrailing: View {
                     Circle().fill(Palette.warning).frame(width: 7, height: 7)
                         .accessibilityLabel("Changed")
                 }
-                room(lesson)
+                // A room's own week: every lesson is in it.
+                if owner != .room { room(lesson) }
             case .outside(let item):
                 if !item.start.isEmpty {
                     Text(item.end.isEmpty ? short(item.start) : short(item.start) + "–" + short(item.end))
