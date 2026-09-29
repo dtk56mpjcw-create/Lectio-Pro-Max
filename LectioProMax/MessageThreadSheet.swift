@@ -1,27 +1,5 @@
 import SwiftUI
 
-/// Threads fetched in the last minute. Finding on a thread draws it again
-/// in the search tab (SearchTab), and it loads as it comes on screen; this
-/// way it doesn't fetch it a second time.
-@MainActor
-enum RecentThreads {
-    private static var kept: [String: (thread: MessageThread, at: Date)] = [:]
-
-    static func fresh(_ id: String) -> MessageThread? {
-        guard let entry = kept[id], Date().timeIntervalSince(entry.at) < 60 else { return nil }
-        return entry.thread
-    }
-
-    static func keep(_ thread: MessageThread, id: String) {
-        kept[id] = (thread, Date())
-    }
-
-    /// Signing out: nobody's messages are kept.
-    static func forgetAll() {
-        kept = [:]
-    }
-}
-
 struct MessageThreadSheet: View {
     let summary: MessageThreadSummary
 
@@ -37,11 +15,6 @@ struct MessageThreadSheet: View {
     @State private var sendError: String?
     @State private var preview: PreviewDocument?
     @State private var downloading: String?
-
-    init(summary: MessageThreadSummary) {
-        self.summary = summary
-        _thread = State(initialValue: RecentThreads.fresh(summary.id))
-    }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -67,7 +40,6 @@ struct MessageThreadSheet: View {
                         }
                     }
                 }
-                .findScroller()
                 .padding(.horizontal, Metrics.margin)
                 .padding(.top, 24)
                 .padding(.bottom, 36)
@@ -83,18 +55,16 @@ struct MessageThreadSheet: View {
         .sheet(item: $preview) { document in
             DocumentPreview(url: document.url).ignoresSafeArea()
         }
-        // Its words can be found with the search field (see PageFind).
-        .findsOnPage()
     }
 
     private var headline: some View {
         VStack(alignment: .leading, spacing: 7) {
-            FindableText(thread?.subject.isEmpty == false ? thread!.subject : summary.subject)
+            Text(thread?.subject.isEmpty == false ? thread!.subject : summary.subject)
                 .scaledFont(size: 25, weight: .bold)
                 .fixedSize(horizontal: false, vertical: true)
                 .sheetTitleSpacing()
             if let recipients = thread?.recipients, !recipients.isEmpty {
-                FindableText(recipients)
+                Text(recipients)
                     .scaledFont(size: 13.5)
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
@@ -106,7 +76,7 @@ struct MessageThreadSheet: View {
     private func messageCard(_ message: ThreadMessage) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 7) {
-                FindableText(message.sender)
+                Text(message.sender)
                     .scaledFont(size: 15, weight: .semibold)
                 Spacer(minLength: 0)
                 Text(message.date)
@@ -117,7 +87,7 @@ struct MessageThreadSheet: View {
                 // Links tappable, pictures shown, as the sender wrote it.
                 LessonBlocksView(blocks: blocks)
             } else if !message.body.isEmpty {
-                FindableText(message.body)
+                Text(message.body)
                     .scaledFont(size: 16)
                     .lineSpacing(3.5)
                     .fixedSize(horizontal: false, vertical: true)
@@ -134,7 +104,7 @@ struct MessageThreadSheet: View {
                                 .scaledFont(size: 12.5, weight: .semibold)
                                 .foregroundStyle(Palette.accent)
                         }
-                        FindableText(attachment.name)
+                        Text(attachment.name)
                             .scaledFont(size: 14.5, weight: .semibold)
                             .multilineTextAlignment(.leading)
                         Spacer(minLength: 0)
@@ -197,15 +167,9 @@ struct MessageThreadSheet: View {
     private func load() async {
         loadError = nil
         session.markThreadOpened(summary.id)
-        if let fresh = RecentThreads.fresh(summary.id) {
-            thread = fresh
-            return
-        }
         let cookies = await session.requestCookies()
         do {
-            let loaded = try await LectioMessagesService.loadThread(id: summary.id, cookies: cookies)
-            thread = loaded
-            RecentThreads.keep(loaded, id: summary.id)
+            thread = try await LectioMessagesService.loadThread(id: summary.id, cookies: cookies)
         } catch {
             loadError = error.localizedDescription
         }
@@ -225,13 +189,11 @@ struct MessageThreadSheet: View {
         sendError = nil
         let cookies = await session.requestCookies()
         do {
-            let replied = try await LectioMessagesService.reply(
+            thread = try await LectioMessagesService.reply(
                 to: current,
                 body: MessageSignature.apply(to: text, include: includeSignature),
                 attachments: attachments,
                 cookies: cookies)
-            thread = replied
-            RecentThreads.keep(replied, id: summary.id)
             reply = ""
             attachments = []
             includeSignature = true

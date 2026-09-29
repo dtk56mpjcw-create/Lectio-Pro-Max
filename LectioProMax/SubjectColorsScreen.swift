@@ -62,7 +62,6 @@ struct SubjectColorsScreen: View {
                     .contentCard()
                 }
             }
-            .findScroller()
             .padding(.horizontal, Metrics.margin)
             .padding(.top, 8)
             .padding(.bottom, 36)
@@ -70,8 +69,6 @@ struct SubjectColorsScreen: View {
         .scrollIndicators(.hidden)
         .background { AppBackground() }
         .sensoryFeedback(.selection, trigger: SubjectColors.shared.picked)
-        // Its words can be found with the search field (see PageFind).
-        .findsOnPage()
     }
 
     private func row(_ subject: Subject) -> some View {
@@ -86,9 +83,9 @@ struct SubjectColorsScreen: View {
                         .fill(current.color)
                         .frame(width: 22, height: 22)
                     VStack(alignment: .leading, spacing: 1) {
-                        FindableText(SubjectNames.name(forKey: subject.key))
+                        Text(SubjectNames.name(forKey: subject.key))
                             .scaledFont(size: 16.5, weight: .medium)
-                        FindableText(subject.sample.uppercased())
+                        Text(subject.sample.uppercased())
                             .scaledFont(size: 13, weight: .medium)
                             .foregroundStyle(.secondary)
                     }

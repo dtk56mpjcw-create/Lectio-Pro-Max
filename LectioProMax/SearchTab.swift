@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// The search button at the end of the tab bar, searching the tab you came
 /// from:
@@ -10,19 +9,7 @@ import UIKit
 ///   schedule — students, teachers, classes, teams, rooms;
 /// - Homework: your homework and assignments;
 /// - Messages: your messages;
-/// - Me: your absence, grades and study plan, and the Me pages;
-/// - an open page (a lesson, a homework, a message…): its own words, found
-///   on the page (see PageFind).
-///
-/// Until you type, the tab you were on stays behind the field: the tab
-/// itself, working, exactly where you left it (LiveTab), so pressing search
-/// doesn't feel like going to another tab (Dan, 29 Sep). On a tab's first
-/// page typing brings the results over it; on an open page the words are
-/// marked on the page itself. Closing the field goes back.
-///
-/// Tried before and dropped: a second copy of the tab drawn in here (slow
-/// to open, not quite where you were, and pages pushed in it lost the
-/// field), then a still picture (not what's actually in the app).
+/// - Me: your absence, grades and study plan, and the Me pages.
 ///
 /// One search field, in the tab bar where iOS 26 puts it, and no other
 /// search bars in the app: the ones in Messages and Find a schedule flashed
@@ -35,19 +22,9 @@ import UIKit
 /// only the list of every team at school is fetched, the first time you
 /// search for a schedule (TeamDirectory).
 struct SearchTab: View {
-    @Binding var query: String
-    /// The search field is out and typing.
-    @Binding var presented: Bool
+    let query: String
     /// What's searched.
     let context: SearchKind
-    /// The tab search was pressed on, to keep behind the field (LiveTab).
-    let source: UIViewController?
-    /// The search tab is on screen: only then is the tab's view borrowed.
-    let active: Bool
-    /// Find on the open page (see PageFind).
-    let find: PageFind
-    /// Back to where search was pressed.
-    var leave: () -> Void = {}
 
     @Environment(LectioSession.self) private var session
     @State private var path = NavigationPath()
@@ -55,61 +32,29 @@ struct SearchTab: View {
 
     private var trimmed: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    /// Results once you type on a tab's first page; on an open page the
-    /// words are found on the page, and the tab stays on show.
-    private var showsResults: Bool { !trimmed.isEmpty && context != .page }
-
-    /// What to find on the open page, if that's the search.
-    private var pageQuery: String { context == .page ? trimmed : "" }
-
     var body: some View {
         NavigationStack(path: $path) {
-            ZStack {
-                LiveTab(controller: source, active: active)
-                    .ignoresSafeArea()
-                    // Kept under the results, not taken away: clearing the
-                    // field shows it again at once.
-                    .opacity(showsResults ? 0 : 1)
-                    .allowsHitTesting(!showsResults)
-                    .accessibilityHidden(showsResults)
-                if showsResults {
-                    results
-                        .background { AppBackground() }
+            results
+                .background { AppBackground() }
+                .navigationTitle(context.title)
+                .navigationDestination(for: ScheduleTarget.self) { target in
+                    TargetScheduleScreen(target: target)
                 }
-            }
-            .navigationTitle(showsResults ? context.title : "")
-            // The tab has its own bar, back button and all; this one would
-            // sit over it and take its taps.
-            .toolbar(showsResults ? .visible : .hidden, for: .navigationBar)
-            .navigationDestination(for: ScheduleTarget.self) { target in
-                TargetScheduleScreen(target: target)
-            }
-            .navigationDestination(for: FindBrowse.self) { browse in
-                FindBrowseScreen(browse: browse)
-            }
-            .navigationDestination(for: LessonRoute.self) { route in
-                LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
-            }
-            .navigationDestination(for: MessageThreadSummary.self) { thread in
-                MessageThreadSheet(summary: thread).asPushedScreen()
-            }
-            .navigationDestination(for: MeRoute.self) { route in
-                MeSearchDestination(route: route)
-            }
+                .navigationDestination(for: FindBrowse.self) { browse in
+                    FindBrowseScreen(browse: browse)
+                }
+                .navigationDestination(for: LessonRoute.self) { route in
+                    LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
+                }
+                .navigationDestination(for: MessageThreadSummary.self) { thread in
+                    MessageThreadSheet(summary: thread).asPushedScreen()
+                }
+                .navigationDestination(for: MeRoute.self) { route in
+                    MeSearchDestination(route: route)
+                }
         }
-        // Another search, or the field cleared: the results start from the
-        // top next time.
+        // Another tab's search starts from the top.
         .onChange(of: context) { path = NavigationPath() }
-        .onChange(of: showsResults) { if !showsResults { path = NavigationPath() } }
-        .onChange(of: pageQuery, initial: true) { _, words in find.look(for: words) }
-        // Closing the field closes the search: back where you were. Before,
-        // the search tab stayed on with a field you couldn't type in (Dan,
-        // 29 Sep). Not while a result is open: that's the field folding
-        // away as the result slides in.
-        .onChange(of: presented) { was, now in
-            SearchLog.note("field out \(was) → \(now), a result open: \(!path.isEmpty)")
-            if was, !now, path.isEmpty { leave() }
-        }
         .sheet(item: $openWork) { item in
             // As the Homework tab opens it: an assignment on its hand-in
             // page, homework on its own.
@@ -140,15 +85,12 @@ struct SearchTab: View {
             MessageSearch(query: trimmed)
         case .me:
             MeSearch(query: trimmed)
-        case .page:
-            // Found on the page itself, never listed.
-            EmptyView()
         }
     }
 }
 
-/// What the search button searches: a tab's own things, anyone's schedule
-/// (from Me › Find a schedule), or the page you have open (see PageFind).
+/// What the search button searches: a tab's own things, or, from Me ›
+/// Find a schedule, anyone's schedule.
 ///
 /// Your own schedule and Find a schedule are two searches. From your day
 /// and week the search used to be Find a schedule's (people, classes,
@@ -156,8 +98,6 @@ struct SearchTab: View {
 /// schedule (Dan, 29 Sep).
 enum SearchKind: Hashable {
     case schedule, findSchedule, homework, messages, me
-    /// Find on the page you have open: a lesson, a homework, a message…
-    case page
 
     /// A tab's own search.
     init(_ tab: AppTab) {
@@ -177,7 +117,6 @@ enum SearchKind: Hashable {
         case .homework: return "Homework and assignments"
         case .messages: return "Messages"
         case .me: return "Absence, grades, study plan"
-        case .page: return "Find on this page"
         }
     }
 
@@ -189,7 +128,6 @@ enum SearchKind: Hashable {
         case .homework: return "Search Homework"
         case .messages: return "Search Messages"
         case .me: return "Search Me"
-        case .page: return "Find on Page"
         }
     }
 }
@@ -212,23 +150,16 @@ extension View {
 /// someone's schedule are in the Me tab, but searching there is for a
 /// schedule, not for Me (it said "Search Me").
 ///
-/// A tab's first page says whose it is with `.searchedAs(_:)`, and a page
-/// pushed onto a tab with `.searchPage(_:)` where it's pushed. One that
-/// says nothing (Settings' own pages) keeps the search of the one below it.
+/// A screen says whose it is with `.searchedAs(_:)`. One that doesn't
+/// say is part of the one it was opened from (a lesson in someone's
+/// schedule, a page under Me), so it keeps that one's.
 ///
 /// Kept from the screens' own appearing and disappearing, which can come
 /// in either order as one screen replaces another, and half-way for a swipe
 /// back that's let go. So it's the last screen to appear that's still on
 /// show. Leaving the tab takes all of them off; then it's the one that was
 /// on show last, which is where you were.
-///
-/// Observed, so a page opened in the tab while search is on (the tab is
-/// right there behind the field) switches the search to it. RootView reads
-/// it only while search is on: outside search, a screen opening or closing
-/// doesn't redraw the tabs. (Read all the time for a while, every push and
-/// pop anywhere redrew the whole TabView.)
 @MainActor
-@Observable
 final class SearchContexts {
     static let shared = SearchContexts()
 
@@ -239,9 +170,8 @@ final class SearchContexts {
 
     /// Per tab, its screens on show that said whose they are, in the order
     /// they appeared.
-    @ObservationIgnored private var shown: [AppTab: [Shown]] = [:]
-    /// Per tab, the search of the last of them; written only when it
-    /// changes.
+    private var shown: [AppTab: [Shown]] = [:]
+    /// Per tab, the search of the last of them.
     private var latest: [AppTab: SearchKind] = [:]
 
     /// What the search button searches from `tab`.
@@ -252,16 +182,12 @@ final class SearchContexts {
     func appeared(_ id: UUID, context: SearchKind, in tab: AppTab) {
         shown[tab, default: []].removeAll { $0.id == id }
         shown[tab, default: []].append(Shown(id: id, context: context))
-        settle(tab, on: context)
+        latest[tab] = context
     }
 
     func disappeared(_ id: UUID, in tab: AppTab) {
         shown[tab, default: []].removeAll { $0.id == id }
-        if let top = shown[tab]?.last { settle(tab, on: top.context) }
-    }
-
-    private func settle(_ tab: AppTab, on context: SearchKind) {
-        if latest[tab] != context { latest[tab] = context }
+        if let top = shown[tab]?.last { latest[tab] = top.context }
     }
 }
 
@@ -294,22 +220,6 @@ extension View {
     /// its navigation stack, so it hears the screen come back into view.
     func searchedAs(_ context: SearchKind) -> some View {
         modifier(SearchContextMark(context: context))
-    }
-
-    /// A page pushed onto a tab: which search it has. Goes where the page
-    /// is pushed, on the view the navigation destination returns.
-    func searchPage(_ context: SearchKind) -> some View {
-        modifier(SearchContextMark(context: context))
-    }
-}
-
-/// Timestamped lines in Xcode's console about the search field, in Debug
-/// builds only, to see what happens when it misbehaves on a phone.
-enum SearchLog {
-    static func note(_ line: @autoclosure () -> String) {
-        #if DEBUG
-        print("[Search \(Date().formatted(.dateTime.hour().minute().second()))] \(line())")
-        #endif
     }
 }
 

@@ -2,18 +2,10 @@ import SwiftUI
 
 struct HomeworkTab: View {
     @Environment(LectioSession.self) private var session
-    /// The filter and the open homework (see TabPlaces).
-    @Environment(HomeworkPlace.self) private var place
 
     /// Not @AppStorage on purpose — see WorkFilter.
-    private var filter: WorkFilter {
-        get { place.filter }
-        nonmutating set { place.filter = newValue }
-    }
-    private var path: [WorkItem] {
-        get { place.path }
-        nonmutating set { place.path = newValue }
-    }
+    @State private var filter = WorkFilter()
+    @State private var path: [WorkItem] = []
     /// What a swipe asked to be reminded about, while its time is chosen.
     @State private var remindAbout: WorkItem?
     @State private var notificationsOff = false
@@ -37,22 +29,20 @@ struct HomeworkTab: View {
     }
 
     var body: some View {
-        NavigationStack(path: Bindable(place).path) {
+        NavigationStack(path: $path) {
             list
                 .navigationTitle("Homework")
                 .navigationSubtitle(subtitle)
                 .searchedAs(.homework)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        WorkFilterMenu(subjects: subjects, filter: Bindable(place).filter)
+                        WorkFilterMenu(subjects: subjects, filter: $filter)
                     }
                 }
                 // A piece of homework or an assignment opens as a page of its
                 // own, with the system back button — not a sheet over the list.
                 .navigationDestination(for: WorkItem.self) { item in
                     workScreen(item)
-                        // Search here finds on the page.
-                        .searchPage(.page)
                 }
         }
         .task { await session.loadAbsence() }
@@ -491,7 +481,7 @@ struct WorkDetailSheet: View {
                             .foregroundStyle(.secondary)
                         Spacer()
                     }
-                    FindableText(item.displayTitle)
+                    Text(item.displayTitle)
                         .scaledFont(size: 25.5, weight: .bold)
                         .fixedSize(horizontal: false, vertical: true)
                     if let due = item.due {
@@ -526,7 +516,7 @@ struct WorkDetailSheet: View {
                     LessonContentView(link: link, placeholder: item.text)
                         .environment(session)
                 } else if !item.text.isEmpty {
-                    FindableText(LectioDates.tidy(item.text))
+                    Text(LectioDates.tidy(item.text))
                         .scaledFont(size: 16.5)
                         .lineSpacing(3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -552,7 +542,5 @@ struct WorkDetailSheet: View {
                 }
             }
         }
-        // Its words can be found with the search field (see PageFind).
-        .findsOnPage()
     }
 }

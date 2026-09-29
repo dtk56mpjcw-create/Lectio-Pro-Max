@@ -10,9 +10,6 @@ struct StudyPlanSheet: View {
     @State private var loading = true
     @State private var failed = false
     @State private var expanded: Set<String> = []
-    /// Find on page (see PageFind): a unit whose summary has the words
-    /// opens by itself.
-    @Environment(PageFind.self) private var find: PageFind?
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -37,7 +34,6 @@ struct StudyPlanSheet: View {
                         }
                     }
                 }
-                .findScroller()
                 .padding(.horizontal, Metrics.margin)
                 .padding(.top, 24)
                 .padding(.bottom, 36)
@@ -50,8 +46,6 @@ struct StudyPlanSheet: View {
         .presentationDragIndicator(.visible)
         .presentationBackground(.clear)
         .task { await load() }
-        // Its words can be found with the search field (see PageFind).
-        .findsOnPage()
     }
 
     // MARK: Totals
@@ -84,7 +78,7 @@ struct StudyPlanSheet: View {
         return VStack(alignment: .leading, spacing: 11) {
             HStack(spacing: 8) {
                 SubjectDot(code: subject.code, size: 9)
-                FindableText(subject.name.uppercased())
+                Text(subject.name.uppercased())
                     .scaledFont(size: 13.5, weight: .heavy)
                     .tracking(0.5)
                     .foregroundStyle(.secondary)
@@ -120,7 +114,7 @@ struct StudyPlanSheet: View {
     private func phaseRow(_ phase: StudyPhase) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                FindableText(phase.title)
+                Text(phase.title)
                     .scaledFont(size: 15.5, weight: .semibold)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -133,12 +127,12 @@ struct StudyPlanSheet: View {
                 }
             }
             if !phase.period.isEmpty {
-                FindableText(LectioDates.englishPeriod(phase.period))
+                Text(LectioDates.englishPeriod(phase.period))
                     .scaledFont(size: 12.5)
                     .foregroundStyle(.secondary)
             }
-            if expanded.contains(phase.id) || found(in: phase), !phase.summary.isEmpty {
-                FindableText(LectioDates.tidy(phase.summary))
+            if expanded.contains(phase.id), !phase.summary.isEmpty {
+                Text(LectioDates.tidy(phase.summary))
                     .scaledFont(size: 14.5)
                     .lineSpacing(2)
                     .foregroundStyle(.primary)
@@ -160,12 +154,6 @@ struct StudyPlanSheet: View {
 
     // MARK: Helpers
 
-    /// The words being found on the page are in this unit's summary.
-    private func found(in phase: StudyPhase) -> Bool {
-        guard let query = find?.query, !query.isEmpty else { return false }
-        return phase.summary.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
-    }
-
     private func modules(_ estimate: String) -> String {
         let trimmed = estimate.replacingOccurrences(of: ",00", with: "")
         return trimmed + (trimmed == "1" ? " module" : " modules")
@@ -176,15 +164,12 @@ struct StudyPlanSheet: View {
         return String(format: "%.1f", value)
     }
 
-    /// Through the session, which keeps it a while: the Me tab has usually
-    /// fetched it already, and the page drawn again to find on it
-    /// (SearchTab) doesn't fetch it again.
     private func load() async {
         guard loading else { return }
-        await session.loadStudyPlan()
-        if let plan = session.studyPlan {
-            subjects = plan
-        } else {
+        let cookies = await session.requestCookies()
+        do {
+            subjects = try await LectioStudyService.loadStudyPlan(cookies: cookies)
+        } catch {
             failed = true
         }
         loading = false

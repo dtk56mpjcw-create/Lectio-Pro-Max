@@ -10,8 +10,6 @@ enum MeRoute: Hashable {
 
 struct MeTab: View {
     @Environment(LectioSession.self) private var session
-    /// The pages open on top (see TabPlaces).
-    @Environment(MePlace.self) private var place
     @State private var showingCard = false
 
     private var profile: Profile { session.snapshot.profile }
@@ -19,7 +17,7 @@ struct MeTab: View {
     private var school: String { profile.schoolName ?? LectioConfig.schoolName }
 
     var body: some View {
-        NavigationStack(path: Bindable(place).path) {
+        NavigationStack {
             content
                 .navigationTitle(profile.name.isEmpty ? "Me" : profile.name)
                 .navigationSubtitle(subtitle)
@@ -35,9 +33,6 @@ struct MeTab: View {
                 }
                 .navigationDestination(for: MeRoute.self) { route in
                     destination(route)
-                        // Find a schedule searches for a schedule; the other
-                        // pages find on the page.
-                        .searchPage(route == .findSchedule ? .findSchedule : .page)
                 }
         }
         .fullScreenCover(isPresented: $showingCard) {

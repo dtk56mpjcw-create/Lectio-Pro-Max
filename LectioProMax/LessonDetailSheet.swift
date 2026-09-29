@@ -60,7 +60,7 @@ struct LessonDetailContent: View {
                     }
                     Spacer()
                 }
-                FindableText(bigTitle)
+                Text(bigTitle)
                     .scaledFont(size: 31, weight: .bold)
                     .strikethrough(lesson.cancelled, color: Palette.negative)
                     .fixedSize(horizontal: false, vertical: true)
@@ -82,7 +82,7 @@ struct LessonDetailContent: View {
                         .scaledFont(size: 12, weight: .heavy)
                         .tracking(0.7)
                         .foregroundStyle(.secondary)
-                    FindableText(LectioDates.tidy(note))
+                    Text(LectioDates.tidy(note))
                         .scaledFont(size: 16.5)
                         .lineSpacing(3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -177,7 +177,7 @@ struct LessonDetailContent: View {
                     .tracking(0.5)
             }
             .foregroundStyle(.secondary)
-            FindableText(value).scaledFont(size: 18.5, weight: .semibold)
+            Text(value).scaledFont(size: 18.5, weight: .semibold)
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -205,18 +205,16 @@ struct LessonDetailScreen: View {
     let dayISO: String
 
     @State private var page: LessonPage = .overview
-    /// Find on page, when it's drawn in the search tab (PageFind).
-    @Environment(PageFind.self) private var find: PageFind?
 
     var body: some View {
         Group {
             if let link = lesson.link {
                 TabView(selection: $page) {
-                    scrolling(area: 0) {
+                    scrolling {
                         LessonDetailContent(lesson: lesson, dayISO: dayISO)
                     }
                     .tag(LessonPage.overview)
-                    scrolling(area: 1) {
+                    scrolling {
                         // The note is on the Overview side.
                         LessonContentView(link: link, placeholder: lesson.homework, showsNote: false)
                     }
@@ -228,23 +226,12 @@ struct LessonDetailScreen: View {
                 // classmate's iPhone 15 runs iOS 27.
                 .safeAreaInset(edge: .top, spacing: 0) { chooser }
             } else {
-                scrolling(area: 0) {
+                scrolling {
                     LessonDetailContent(lesson: lesson, dayISO: dayISO)
                 }
             }
         }
         .background { AppBackground() }
-        // Finding on the page starts on the side on show: on Content, the
-        // first match there, not the title on Overview (Dan, 29 Sep).
-        .onAppear { find?.startArea = page == .content ? 1 : 0 }
-        .onChange(of: page) { _, side in find?.startArea = side == .content ? 1 : 0 }
-        // Finding on the page: to the side the current match is on.
-        .onChange(of: find?.currentHit?.area) { _, area in
-            guard let area else { return }
-            let side: LessonPage = area == 0 ? .overview : .content
-            if side != page { withAnimation(.snappy) { page = side } }
-        }
-        .findsOnPage()
         // A small title in the bar, as Calendar's "Event Details" has, so the
         // back button isn't floating on its own; the lesson's own name stays
         // large in the page. The editor role keeps the back button to its
@@ -272,10 +259,9 @@ struct LessonDetailScreen: View {
     /// One side of the page, scrolling on its own. Never wider than the page
     /// (see pageWide): a side that could move sideways would let the paging
     /// take a drag from it, the Schedule's old long-day jerk.
-    private func scrolling<Content: View>(area: Int, @ViewBuilder _ content: () -> Content) -> some View {
+    private func scrolling<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         ScrollView {
             content()
-                .findScroller(area: area)
                 .padding(.horizontal, Metrics.margin)
                 .padding(.top, 8)
                 .padding(.bottom, 36)
@@ -296,7 +282,6 @@ struct DetailSheetScaffold<Content: View>: View {
             AppBackground()
             ScrollView {
                 content
-                    .findScroller()
                     .padding(.horizontal, Metrics.margin)
                     // Starts below the close button rather than beside it: the
                     // button had to move down to get off the tab header's own

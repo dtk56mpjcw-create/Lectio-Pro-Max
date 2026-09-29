@@ -81,7 +81,7 @@ struct LessonContentView: View {
                 .scaledFont(size: 12, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
-            FindableText(LectioDates.tidy(body))
+            Text(LectioDates.tidy(body))
                 .scaledFont(size: 16.5)
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -125,7 +125,7 @@ struct LessonContentView: View {
                         .scaledFont(size: 13, weight: .semibold)
                         .foregroundStyle(Palette.accent)
                 }
-                FindableText(file.name)
+                Text(file.name)
                     .scaledFont(size: 15.5, weight: .semibold)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
@@ -205,7 +205,7 @@ struct LessonFeedbackCard: View {
                         .scaledFont(size: 16)
                         .foregroundStyle(.secondary)
                 } else {
-                    FindableText(feedback.plainText)
+                    Text(feedback.plainText)
                         .scaledFont(size: 16)
                         .lineSpacing(3)
                         .lineLimit(4)

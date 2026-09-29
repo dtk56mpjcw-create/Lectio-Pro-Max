@@ -104,7 +104,6 @@ struct SettingsScreen: View {
 
                 footer
             }
-            .findScroller()
             .padding(.horizontal, Metrics.margin)
             .padding(.top, 8)
             .padding(.bottom, 36)
@@ -131,8 +130,6 @@ struct SettingsScreen: View {
         } message: {
             Text("You can change school when you sign in again.")
         }
-        // Its words can be found with the search field (see PageFind).
-        .findsOnPage()
     }
 
     // MARK: Pieces
@@ -140,7 +137,7 @@ struct SettingsScreen: View {
     private func section<Content: View>(_ title: String, footer: String? = nil,
                                         @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 7) {
-            FindableText(title.uppercased())
+            Text(title.uppercased())
                 .scaledFont(size: 12.5, weight: .heavy)
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
@@ -148,7 +145,7 @@ struct SettingsScreen: View {
             VStack(spacing: 0) { content() }
                 .contentCard()
             if let footer {
-                FindableText(footer)
+                Text(footer)
                     .scaledFont(size: 13)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -163,7 +160,7 @@ struct SettingsScreen: View {
         Toggle(isOn: isOn) {
             HStack(spacing: 13) {
                 icon(symbol, tint)
-                FindableText(title)
+                Text(title)
                     .scaledFont(size: 16.5, weight: .medium)
             }
         }
@@ -217,11 +214,11 @@ struct SettingsScreen: View {
                      value: String?, chevron: String?) -> some View {
         HStack(spacing: 13) {
             icon(symbol, tint)
-            FindableText(title)
+            Text(title)
                 .scaledFont(size: 16.5, weight: .medium)
             Spacer(minLength: 8)
             if let value {
-                FindableText(value)
+                Text(value)
                     .scaledFont(size: 15.5)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

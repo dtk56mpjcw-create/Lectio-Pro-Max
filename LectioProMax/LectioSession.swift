@@ -427,8 +427,6 @@ final class LectioSession {
         LessonCache.shared.clear()
         PersonPhotos.shared.clear()
         FindMemory.shared.forgetAll()
-        TargetPlace.forgetAll()
-        RecentThreads.forgetAll()
         loadingWeeks.removeAll()
         failedWeeks.removeAll()
         weekErrors.removeAll()

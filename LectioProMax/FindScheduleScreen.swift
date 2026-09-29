@@ -46,19 +46,19 @@ struct FindScheduleScreen: View {
         .listStyle(.insetGrouped)
         .navigationTitle("Find a schedule")
         .toolbarTitleDisplayMode(.large)
+        // It's in Me, but searching here is for a schedule: the search
+        // button finds anyone's, from here and from the lists and
+        // schedules it opens.
+        .searchedAs(.findSchedule)
         .task { await session.loadScheduleTargets() }
         .onAppear { memory.prepare() }
         // Everything this screen leads to, however deep: someone's schedule,
-        // and the lists to browse. It's in Me, but searching here is for a
-        // schedule: the search button finds anyone's, from here (see
-        // MeTab) and from the lists and schedules it opens.
+        // and the lists to browse.
         .navigationDestination(for: ScheduleTarget.self) { target in
             TargetScheduleScreen(target: target)
-                .searchPage(.findSchedule)
         }
         .navigationDestination(for: FindBrowse.self) { browse in
             FindBrowseScreen(browse: browse)
-                .searchPage(.findSchedule)
         }
     }
 }
