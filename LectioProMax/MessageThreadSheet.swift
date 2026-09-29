@@ -1,5 +1,28 @@
 import SwiftUI
 
+/// Threads fetched in the last minute. A thread open in Messages is open in
+/// the copy of the tab behind the search field too (TabPlaces), and each
+/// loads as it comes on screen; this way the second one doesn't fetch it
+/// again.
+@MainActor
+enum RecentThreads {
+    private static var kept: [String: (thread: MessageThread, at: Date)] = [:]
+
+    static func fresh(_ id: String) -> MessageThread? {
+        guard let entry = kept[id], Date().timeIntervalSince(entry.at) < 60 else { return nil }
+        return entry.thread
+    }
+
+    static func keep(_ thread: MessageThread, id: String) {
+        kept[id] = (thread, Date())
+    }
+
+    /// Signing out: nobody's messages are kept.
+    static func forgetAll() {
+        kept = [:]
+    }
+}
+
 struct MessageThreadSheet: View {
     let summary: MessageThreadSummary
 
@@ -15,6 +38,11 @@ struct MessageThreadSheet: View {
     @State private var sendError: String?
     @State private var preview: PreviewDocument?
     @State private var downloading: String?
+
+    init(summary: MessageThreadSummary) {
+        self.summary = summary
+        _thread = State(initialValue: RecentThreads.fresh(summary.id))
+    }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -167,9 +195,15 @@ struct MessageThreadSheet: View {
     private func load() async {
         loadError = nil
         session.markThreadOpened(summary.id)
+        if let fresh = RecentThreads.fresh(summary.id) {
+            thread = fresh
+            return
+        }
         let cookies = await session.requestCookies()
         do {
-            thread = try await LectioMessagesService.loadThread(id: summary.id, cookies: cookies)
+            let loaded = try await LectioMessagesService.loadThread(id: summary.id, cookies: cookies)
+            thread = loaded
+            RecentThreads.keep(loaded, id: summary.id)
         } catch {
             loadError = error.localizedDescription
         }
@@ -189,11 +223,13 @@ struct MessageThreadSheet: View {
         sendError = nil
         let cookies = await session.requestCookies()
         do {
-            thread = try await LectioMessagesService.reply(
+            let replied = try await LectioMessagesService.reply(
                 to: current,
                 body: MessageSignature.apply(to: text, include: includeSignature),
                 attachments: attachments,
                 cookies: cookies)
+            thread = replied
+            RecentThreads.keep(replied, id: summary.id)
             reply = ""
             attachments = []
             includeSignature = true

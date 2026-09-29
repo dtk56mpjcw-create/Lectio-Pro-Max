@@ -8,14 +8,26 @@ import SwiftUI
 /// threads out of its own Deleted list.
 struct MessagesTab: View {
     @Environment(LectioSession.self) private var session
+    /// The folder, its threads and the open thread, shared with the copy
+    /// behind the search (see TabPlaces).
+    @Environment(MessagesPlace.self) private var place
     @State private var composing = false
-    @State private var path: [MessageThreadSummary] = []
 
-    @State private var folder: MessageFolder = .newest
+    private var path: [MessageThreadSummary] {
+        get { place.path }
+        nonmutating set { place.path = newValue }
+    }
+    private var folder: MessageFolder { place.folder }
     /// Threads of any folder but Newest, which lives on the session (the
     /// unread badge and Search read it too).
-    @State private var folderThreads: [MessageThreadSummary] = []
-    @State private var folderLoading = false
+    private var folderThreads: [MessageThreadSummary] {
+        get { place.folderThreads }
+        nonmutating set { place.folderThreads = newValue }
+    }
+    private var folderLoading: Bool {
+        get { place.folderLoading }
+        nonmutating set { place.folderLoading = newValue }
+    }
 
     /// The thread just deleted, while its Undo is on screen.
     @State private var undoable: MessageThreadSummary?
@@ -60,7 +72,7 @@ struct MessagesTab: View {
     }
 
     var body: some View {
-        NavigationStack(path: $path) {
+        NavigationStack(path: Bindable(place).path) {
             list
                 .navigationTitle(folder.title)
                 .navigationSubtitle(subtitle)
@@ -68,7 +80,7 @@ struct MessagesTab: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Menu {
-                            Picker("Folder", selection: $folder) {
+                            Picker("Folder", selection: Binding { place.folder } set: { place.open($0) }) {
                                 ForEach(MessageFolder.allCases) { option in
                                     Label(option.menuTitle, systemImage: option.icon).tag(option)
                                 }
@@ -106,10 +118,11 @@ struct MessagesTab: View {
         } message: {
             Text("Lectio doesn't let anyone delete messages for good; it empties Deleted by itself after 3 months. This hides them in the app. You can still see them on lectio.dk.")
         }
-        .task(id: folder) { await loadFolder() }
+        // As the tab appears, and for another folder. Not again if the copy
+        // of the tab behind the search fetched it a moment ago.
+        .task(id: folder) { await loadFolder(force: false) }
         .onChange(of: folder) {
-            // Don't show the last folder's threads under the new title.
-            folderThreads = []
+            // The last folder's threads go in MessagesPlace.open.
             undoTask?.cancel()
             undoable = nil
         }
@@ -287,8 +300,9 @@ struct MessagesTab: View {
 
     // MARK: Work
 
-    private func loadFolder() async {
+    private func loadFolder(force: Bool = true) async {
         guard folder != .newest else { return }
+        if !force, place.isFresh(folder) { return }
         folderLoading = true
         defer { folderLoading = false }
         let cookies = await session.requestCookies()
@@ -296,6 +310,7 @@ struct MessagesTab: View {
         if let loaded = try? await LectioMessagesService.loadFolder(showing, cookies: cookies),
            showing == folder {
             folderThreads = loaded
+            place.folderLoaded = (showing, Date())
         }
     }
 
@@ -305,6 +320,7 @@ struct MessagesTab: View {
             session.applyThreads(updated)
         } else if origin == folder {
             folderThreads = updated
+            place.folderLoaded = (origin, Date())
         }
     }
 

@@ -10,6 +10,9 @@ enum MeRoute: Hashable {
 
 struct MeTab: View {
     @Environment(LectioSession.self) private var session
+    /// The pages open on top, shared with the copy behind the search (see
+    /// TabPlaces).
+    @Environment(MePlace.self) private var place
     @State private var showingCard = false
 
     private var profile: Profile { session.snapshot.profile }
@@ -17,7 +20,7 @@ struct MeTab: View {
     private var school: String { profile.schoolName ?? LectioConfig.schoolName }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: Bindable(place).path) {
             content
                 .navigationTitle(profile.name.isEmpty ? "Me" : profile.name)
                 .navigationSubtitle(subtitle)

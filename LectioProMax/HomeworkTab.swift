@@ -2,10 +2,19 @@ import SwiftUI
 
 struct HomeworkTab: View {
     @Environment(LectioSession.self) private var session
+    /// The filter and the open homework, shared with the copy behind the
+    /// search (see TabPlaces).
+    @Environment(HomeworkPlace.self) private var place
 
     /// Not @AppStorage on purpose — see WorkFilter.
-    @State private var filter = WorkFilter()
-    @State private var path: [WorkItem] = []
+    private var filter: WorkFilter {
+        get { place.filter }
+        nonmutating set { place.filter = newValue }
+    }
+    private var path: [WorkItem] {
+        get { place.path }
+        nonmutating set { place.path = newValue }
+    }
     /// What a swipe asked to be reminded about, while its time is chosen.
     @State private var remindAbout: WorkItem?
     @State private var notificationsOff = false
@@ -29,14 +38,14 @@ struct HomeworkTab: View {
     }
 
     var body: some View {
-        NavigationStack(path: $path) {
+        NavigationStack(path: Bindable(place).path) {
             list
                 .navigationTitle("Homework")
                 .navigationSubtitle(subtitle)
                 .searchedAs(.homework)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        WorkFilterMenu(subjects: subjects, filter: $filter)
+                        WorkFilterMenu(subjects: subjects, filter: Bindable(place).filter)
                     }
                 }
                 // A piece of homework or an assignment opens as a page of its

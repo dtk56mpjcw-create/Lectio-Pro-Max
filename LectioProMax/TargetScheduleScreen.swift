@@ -15,13 +15,9 @@ struct TargetScheduleScreen: View {
 
     @Environment(LectioSession.self) private var session
 
-    @State private var loadedWeeks: [String: ScheduleWeek] = [:]
-    @State private var failedWeeks: Set<String> = []
-    @State private var selectedDate: String = LectioDates.isoString(from: Date())
-    /// Where each pager rests: a swipe writes it, and writing it jumps.
-    @State private var dayPage: String? = LectioDates.isoString(from: Date())
-    @State private var weekPage: String? = ScheduleTab.monday(of: LectioDates.isoString(from: Date()))
-    @State private var weekMode = false
+    /// Where their schedule is and what's fetched, shared with its copy
+    /// behind the search field (see TargetPlace).
+    @State private var here: TargetPlace
     @State private var opener = LessonOpener()
     @State private var openLesson: LessonRoute?
 
@@ -35,6 +31,37 @@ struct TargetScheduleScreen: View {
     private var bottomInset: CGFloat { max(safeBottom, 84) }
 
     private var memory: FindMemory { .shared }
+
+    init(target: ScheduleTarget) {
+        self.target = target
+        _here = State(initialValue: TargetPlace.of(target))
+    }
+
+    private var loadedWeeks: [String: ScheduleWeek] {
+        get { here.loadedWeeks }
+        nonmutating set { here.loadedWeeks = newValue }
+    }
+    private var failedWeeks: Set<String> {
+        get { here.failedWeeks }
+        nonmutating set { here.failedWeeks = newValue }
+    }
+    private var selectedDate: String {
+        get { here.selectedDate }
+        nonmutating set { here.selectedDate = newValue }
+    }
+    /// Where each pager rests: a swipe writes it, and writing it jumps.
+    private var dayPage: String? {
+        get { here.dayPage }
+        nonmutating set { here.dayPage = newValue }
+    }
+    private var weekPage: String? {
+        get { here.weekPage }
+        nonmutating set { here.weekPage = newValue }
+    }
+    private var weekMode: Bool {
+        get { here.weekMode }
+        nonmutating set { here.weekMode = newValue }
+    }
 
     /// Four months either side of today; the pages are lazy.
     private static let pageDays: [String] = {
@@ -188,7 +215,7 @@ struct TargetScheduleScreen: View {
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.paging)
-        .scrollPosition(id: $dayPage, anchor: .center)
+        .scrollPosition(id: Bindable(here).dayPage, anchor: .center)
         .scrollIndicators(.hidden)
         .onAppear { align(proxy, on: selectedDate) }
         .onScrollPhaseChange { _, phase, _ in
@@ -216,7 +243,7 @@ struct TargetScheduleScreen: View {
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.paging)
-        .scrollPosition(id: $weekPage, anchor: .center)
+        .scrollPosition(id: Bindable(here).weekPage, anchor: .center)
         .scrollIndicators(.hidden)
         .onAppear { align(proxy, on: ScheduleTab.monday(of: selectedDate)) }
         .onScrollPhaseChange { _, phase, _ in

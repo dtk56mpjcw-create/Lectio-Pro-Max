@@ -115,7 +115,7 @@ problem.
 | Area | Files |
 |---|---|
 | App entry, sign-in gate | `LectioProMaxApp.swift`, `ContentView.swift` (`LoginScreen`), `LoginWebView.swift` (the only web view: UNI-Login / MitID) |
-| Tabs | `RootView.swift`: a native `TabView` with Schedule, Homework, Messages, Me, and Search (`Tab(role: .search)`). The search button searches **the tab you were on** (`SearchTab.swift`, `SearchKind`): Schedule → your own lessons only, Homework → homework and assignments, Messages → messages, Me → absence, grades, study plan and the Me pages. A screen can have its own: Me › Find a schedule and someone's schedule search anyone's schedule, "Find a Schedule" (`.searchedAs(.findSchedule)`, `SearchContexts`, read the moment search is pressed). Dan wants these two apart: from his own day and week, people in the results didn't belong. No other screen has a search bar (Dan's call: they flashed on push and stuck half-way) |
+| Tabs | `RootView.swift`: a native `TabView` with Schedule, Homework, Messages, Me, and Search (`Tab(role: .search)`). The search button searches **the tab you were on** (`SearchTab.swift`, `SearchKind`): Schedule → your own lessons only, Homework → homework and assignments, Messages → messages, Me → absence, grades, study plan and the Me pages. A screen can have its own: Me › Find a schedule and someone's schedule search anyone's schedule, "Find a Schedule" (`.searchedAs(.findSchedule)`, `SearchContexts`, read the moment search is pressed). Dan wants these two apart: from his own day and week, people in the results didn't belong. Until you type, the search tab shows **a working copy of the tab you came from, where you left it** (`SearchTab.backdrop`); see "The search backdrop" below. Where each tab is lives in `TabPlaces.swift` (`SchedulePlace`, `HomeworkPlace`, `MessagesPlace`, `MePlace`, `TargetPlace`), owned by RootView and shared by the tab and its copy No other screen has a search bar (Dan's call: they flashed on push and stuck half-way) |
 | State | `LectioSession.swift`: `@MainActor @Observable`, holds `snapshot`; `SnapshotCache` is the offline copy |
 | Network | `LectioHTTP.swift` (URLSession plus the cookie jar), `CookieVault.swift` (Keychain, this device only), `LectioForms.swift` (ASP.NET postbacks) |
 | Services | `LectioService`, `LectioStudyService`, `LectioMessagesService`, `LectioMeService`, `LectioFeedbackService`, `LectioHandInService`, `LectioEventService` |
@@ -362,6 +362,30 @@ SwiftUI scroll facts learned the hard way:
   screens any more: the tab bar's search button searches the tab you're on.
 - `ScheduleOwner.team`/`.room` hide empty modules ("Free" said nothing for
   a team or a room) in the day (`DayContent`) and the week (`WeekDayCard`).
+
+### The search backdrop (29 Sep)
+
+- Dan: pressing search mustn't feel like a new tab. The tab stays behind
+  the field exactly where he was (same day, week, folder, open page) until
+  he types; typing shows results over it; clearing brings it back.
+- A view can't be in two tabs, so the search tab draws a second copy of
+  the tab you came from. Both copies read and write the same place
+  objects (`TabPlaces.swift`) instead of their own `@State`, so paging a
+  day in the copy moves the real Schedule too. Only the view's own
+  scroll offset (how far down a day you were) isn't shared.
+- Only one copy is ever on screen, and loads start when a view appears,
+  so nothing loads twice: the session's loads skip fresh data, Messages'
+  folders are kept a minute (`MessagesPlace.isFresh`), a thread a minute
+  (`RecentThreads`), someone's weeks and position for ten (`TargetPlace`).
+- The copy leaves one-shot work to the real tab: `ScheduleTab(backdrop:)`
+  ignores widget and notification routes. Folder changes clear threads in
+  `MessagesPlace.open`, not in the tab's `onChange`, so the copy that
+  wasn't on screen can't wipe what the other fetched.
+- The copy counts as the tab for which search is on (`hostTab`), so going
+  back a page in it changes the search; RootView follows
+  `SearchContexts` live (it's `@Observable`).
+- Not shared: a lesson opened from someone's schedule (it's an item
+  destination, not in a path).
 
 ## Open items
 

@@ -59,16 +59,16 @@ final class LessonOpener {
 /// it measured its height once and cut the day off. Here each page is simply
 /// as tall as the screen.
 struct ScheduleTab: View {
+    /// The copy behind the search field (SearchTab). It's in the same place
+    /// as the real tab, and leaves widget and notification taps to it.
+    var backdrop = false
+
     @Environment(LectioSession.self) private var session
+    /// The day, the week, day or week view and the open lessons, shared
+    /// with the copy behind the search (see TabPlaces).
+    @Environment(SchedulePlace.self) private var place
 
-    @State private var selectedDate: String = LectioDates.isoString(from: Date())
-    /// Where each pager rests: a swipe writes it, and writing it jumps.
-    @State private var dayPage: String? = LectioDates.isoString(from: Date())
-    @State private var weekPage: String? = ScheduleTab.monday(of: LectioDates.isoString(from: Date()))
-    @State private var weekMode = false
     @State private var addingEvent = false
-
-    @State private var opener = LessonOpener()
     @State private var switcher = ScreenZoom()
     /// A day the week view should scroll to (Today, in week view).
     @State private var weekFocus: WeekFocus?
@@ -95,6 +95,25 @@ struct ScheduleTab: View {
         return (-34...34).map { LectioDates.shift(iso: monday, byDays: $0 * 7) }
     }()
 
+    private var selectedDate: String {
+        get { place.selectedDate }
+        nonmutating set { place.selectedDate = newValue }
+    }
+    /// Where each pager rests: a swipe writes it, and writing it jumps.
+    private var dayPage: String? {
+        get { place.dayPage }
+        nonmutating set { place.dayPage = newValue }
+    }
+    private var weekPage: String? {
+        get { place.weekPage }
+        nonmutating set { place.weekPage = newValue }
+    }
+    private var weekMode: Bool {
+        get { place.weekMode }
+        nonmutating set { place.weekMode = newValue }
+    }
+    private var opener: LessonOpener { place.opener }
+
     private var today: String { LectioDates.isoString(from: Date()) }
     private var weekCode: String { LectioDates.weekCode(iso: selectedDate) }
     private func lessons(on date: String) -> [Lesson] {
@@ -108,7 +127,7 @@ struct ScheduleTab: View {
     }
 
     var body: some View {
-        NavigationStack(path: $opener.path) {
+        NavigationStack(path: Bindable(opener).path) {
             pagers
                 .background { AppBackground() }
                 // The buttons sit in the system bar, where the other tabs have
@@ -163,9 +182,11 @@ struct ScheduleTab: View {
             LessonCache.shared.prefetch([(selectedDate, today), (next, tomorrow)], cookies: cookies)
         }
         .sensoryFeedback(.selection, trigger: weekMode)
-        // From a widget or a notification: that day, and that lesson.
+        // From a widget or a notification: that day, and that lesson. Only
+        // the real tab: the copy behind the search would race it for the
+        // request.
         .onChange(of: AppRouter.shared.request, initial: true) { _, request in
-            guard let request else { return }
+            guard !backdrop, let request else { return }
             switch request.route {
             case .day(let date):
                 AppRouter.shared.request = nil
@@ -303,7 +324,7 @@ struct ScheduleTab: View {
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.paging)
-        .scrollPosition(id: $dayPage, anchor: .center)
+        .scrollPosition(id: Bindable(place).dayPage, anchor: .center)
         .scrollIndicators(.hidden)
         .onAppear { align(proxy, on: selectedDate) }
         .onScrollPhaseChange { _, phase, _ in
@@ -325,7 +346,7 @@ struct ScheduleTab: View {
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.paging)
-        .scrollPosition(id: $weekPage, anchor: .center)
+        .scrollPosition(id: Bindable(place).weekPage, anchor: .center)
         .scrollIndicators(.hidden)
         .onAppear { align(proxy, on: Self.monday(of: selectedDate)) }
         .onScrollPhaseChange { _, phase, _ in

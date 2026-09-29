@@ -11,10 +11,27 @@ struct RootView: View {
     @Environment(LectioSession.self) private var session
     @State private var tab: AppTab = .schedule
     @State private var query = ""
-    /// The search the search button opens: the tab you were on's, or the
-    /// screen you were on's own (see SearchContexts). Only read in the
-    /// search tab; set the moment search is pressed.
-    @State private var searchContext: SearchKind = .schedule
+    /// The tab search was pressed on. The search tab shows it behind the
+    /// field, where you left it, until you type; set the moment search is
+    /// pressed.
+    @State private var searchSource: AppTab = .schedule
+    /// What was searched the last time search was pressed.
+    @State private var lastContext: SearchKind = .schedule
+
+    /// Where each tab is, shared by the tab and its copy behind the search
+    /// field (see TabPlaces). Here, so signing in again starts afresh.
+    @State private var schedulePlace = SchedulePlace()
+    @State private var homeworkPlace = HomeworkPlace()
+    @State private var messagesPlace = MessagesPlace()
+    @State private var mePlace = MePlace()
+
+    /// What the search searches: the tab's own, or the screen's on top
+    /// (see SearchContexts). Followed as it changes, because the copy of
+    /// the tab behind the field works: go back a page in it, and it's the
+    /// tab's search again.
+    private var searchContext: SearchKind {
+        SearchContexts.shared.context(for: searchSource)
+    }
 
     /// The tab bar's selection. Pressing search goes through here, so the
     /// search is picked from where you were in the same moment, before the
@@ -59,10 +76,14 @@ struct RootView: View {
             // under them, so pulling a page down tugged at a field that
             // wasn't there.
             Tab(value: AppTab.search, role: .search) {
-                SearchTab(query: query, context: searchContext)
+                SearchTab(query: query, source: searchSource, context: searchContext)
                     .searchable(text: $query, prompt: searchContext.prompt)
             }
         }
+        .environment(schedulePlace)
+        .environment(homeworkPlace)
+        .environment(messagesPlace)
+        .environment(mePlace)
         .tabBarMinimizeBehavior(.onScrollDown)
         // A widget or a notification: go to what it showed (see AppLink).
         .onOpenURL { AppRouter.shared.open($0) }
@@ -92,8 +113,9 @@ struct RootView: View {
     /// change tabs without the tab bar; that no longer matters either.
     private func openSearch(from old: AppTab) {
         let context = SearchContexts.shared.context(for: old)
-        guard context != searchContext else { return }
-        searchContext = context
-        query = ""      // another tab's search starts empty
+        // Another tab's or another page's search starts empty.
+        if old != searchSource || context != lastContext { query = "" }
+        searchSource = old
+        lastContext = context
     }
 }
