@@ -12,9 +12,9 @@ import Observation
 /// long text you should be able to search it with this search bar, the
 /// same everywhere.
 ///
-/// It happens in the copy of the tab behind the search field (SearchTab),
-/// the only place with a PageFind in the environment. The real tabs draw
-/// their text as they always have.
+/// It happens in the search tab, on the open page drawn again there
+/// (SearchTab), the only place with a PageFind in the environment. The
+/// pages in the tabs draw their text as they always have.
 ///
 /// A page takes part with three things:
 /// - `.findsOnPage()` on the page: the search is this page's, and the bar
@@ -209,7 +209,7 @@ private struct FindScroller: ViewModifier {
 
 /// The count and the arrows in the page's bar while finding. That the page
 /// is searched by finding on it is said where it's pushed
-/// (`.searchPage(.page)`), with how to draw it behind the search field.
+/// (`.searchPage(.page)`), with how to draw it again in the search tab.
 private struct FindsOnPage: ViewModifier {
     @Environment(PageFind.self) private var find: PageFind?
 

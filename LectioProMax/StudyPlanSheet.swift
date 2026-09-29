@@ -177,8 +177,8 @@ struct StudyPlanSheet: View {
     }
 
     /// Through the session, which keeps it a while: the Me tab has usually
-    /// fetched it already, and this page and its copy behind the search
-    /// (TabPlaces) don't each fetch it again.
+    /// fetched it already, and the page drawn again to find on it
+    /// (SearchTab) doesn't fetch it again.
     private func load() async {
         guard loading else { return }
         await session.loadStudyPlan()

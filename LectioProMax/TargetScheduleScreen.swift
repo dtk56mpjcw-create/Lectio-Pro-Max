@@ -15,8 +15,7 @@ struct TargetScheduleScreen: View {
 
     @Environment(LectioSession.self) private var session
 
-    /// Where their schedule is and what's fetched, shared with its copy
-    /// behind the search field (see TargetPlace).
+    /// Where their schedule is and what's fetched (see TargetPlace).
     @State private var here: TargetPlace
     @State private var opener = LessonOpener()
     @State private var openLesson: LessonRoute?

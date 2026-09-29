@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// Threads fetched in the last minute. A thread open in Messages is open in
-/// the copy of the tab behind the search field too (TabPlaces), and each
-/// loads as it comes on screen; this way the second one doesn't fetch it
-/// again.
+/// Threads fetched in the last minute. Finding on a thread draws it again
+/// in the search tab (SearchTab), and it loads as it comes on screen; this
+/// way it doesn't fetch it a second time.
 @MainActor
 enum RecentThreads {
     private static var kept: [String: (thread: MessageThread, at: Date)] = [:]

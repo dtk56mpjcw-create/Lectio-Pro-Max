@@ -8,8 +8,7 @@ import SwiftUI
 /// threads out of its own Deleted list.
 struct MessagesTab: View {
     @Environment(LectioSession.self) private var session
-    /// The folder, its threads and the open thread, shared with the copy
-    /// behind the search (see TabPlaces).
+    /// The folder, its threads and the open thread (see TabPlaces).
     @Environment(MessagesPlace.self) private var place
     @State private var composing = false
 
@@ -120,8 +119,8 @@ struct MessagesTab: View {
         } message: {
             Text("Lectio doesn't let anyone delete messages for good; it empties Deleted by itself after 3 months. This hides them in the app. You can still see them on lectio.dk.")
         }
-        // As the tab appears, and for another folder. Not again if the copy
-        // of the tab behind the search fetched it a moment ago.
+        // As the tab appears, and for another folder. Not again if it came
+        // a moment ago (MessagesPlace.isFresh).
         .task(id: folder) { await loadFolder(force: false) }
         .onChange(of: folder) {
             // The last folder's threads go in MessagesPlace.open.

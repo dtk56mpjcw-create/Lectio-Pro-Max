@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 enum AppTab: String, Hashable {
     case schedule, homework, messages, me, search
@@ -11,35 +12,31 @@ struct RootView: View {
     @Environment(LectioSession.self) private var session
     @State private var tab: AppTab = .schedule
     @State private var query = ""
-    /// The search field is out, and has the keyboard. Both are asked for as
-    /// the search tab comes on (activateSearch), so one tap on the search
-    /// button is enough: the first tap only opened the field, and a second
-    /// one started typing (Dan, 29 Sep).
+    /// The search field is out, and has the keyboard. One tap on the search
+    /// button should do both (TabBarBridge.searchTabActivatesField); the
+    /// first tap used to only open the field, and a second one started
+    /// typing (Dan, 29 Sep).
     @State private var searchPresented = false
     @FocusState private var searchFocused: Bool
-    /// The tab search was pressed on. The search tab shows it behind the
-    /// field, where you left it, until you type; set the moment search is
-    /// pressed.
-    @State private var searchSource: AppTab = .schedule
-    /// What was searched the last time search was pressed.
-    @State private var lastContext: SearchKind = .schedule
 
-    /// Where each tab is, shared by the tab and its copy behind the search
-    /// field (see TabPlaces). Here, so signing in again starts afresh.
+    // What search was pressed on, all read in that moment (openSearch):
+    /// the tab,
+    @State private var searchSource: AppTab = .schedule
+    /// what's searched there,
+    @State private var searchContext: SearchKind = .schedule
+    /// the open page, to find on (nil on a tab's first page),
+    @State private var searchPage: SearchContexts.Page?
+    /// and a picture of the screen, to keep behind the field.
+    @State private var searchPicture: UIView?
+
+    /// Where each tab is (see TabPlaces). Here, so signing in again starts
+    /// afresh.
     @State private var schedulePlace = SchedulePlace()
     @State private var homeworkPlace = HomeworkPlace()
     @State private var messagesPlace = MessagesPlace()
     @State private var mePlace = MePlace()
-    /// Find on the page open in the copy behind the search (PageFind).
+    /// Find on the open page, in the search tab (PageFind).
     @State private var pageFind = PageFind()
-
-    /// What the search searches: the tab's own, or the screen's on top
-    /// (see SearchContexts). Followed as it changes, because the copy of
-    /// the tab behind the field works: go back a page in it, and it's the
-    /// tab's search again.
-    private var searchContext: SearchKind {
-        SearchContexts.shared.context(for: searchSource)
-    }
 
     /// The tab bar's selection. Pressing search goes through here, so the
     /// search is picked from where you were in the same moment, before the
@@ -85,11 +82,11 @@ struct RootView: View {
             // wasn't there.
             Tab(value: AppTab.search, role: .search) {
                 SearchTab(query: $query, presented: $searchPresented,
-                          source: searchSource, context: searchContext, find: pageFind,
-                          leave: leaveSearch)
+                          context: searchContext, page: searchPage, picture: searchPicture,
+                          find: pageFind, leave: leaveSearch)
                     // The one field, at the bottom, on the first page of the
-                    // search tab's stack; so what you were looking at is
-                    // always drawn as that first page (SearchTab.backdrop).
+                    // search tab's stack: the only page it has, until a
+                    // result is opened.
                     .searchable(text: $query, isPresented: $searchPresented,
                                 prompt: searchContext.prompt)
                     .searchFocused($searchFocused)
@@ -101,8 +98,13 @@ struct RootView: View {
             }
         }
         .onChange(of: tab) { old, new in
-            SearchLog.note("tab \(old) → \(new), searching \(searchContext)")
-            if new == .search { activateSearch() }
+            SearchLog.note("tab \(old) → \(new), searching \(searchContext), picture: \(searchPicture != nil)")
+            if new == .search { makeSureTheFieldIsOut() }
+        }
+        // Before the first tap on search.
+        .task {
+            try? await Task.sleep(for: .milliseconds(300))
+            TabBarBridge.searchTabActivatesField()
         }
         .environment(schedulePlace)
         .environment(homeworkPlace)
@@ -136,24 +138,33 @@ struct RootView: View {
     /// said "Search Me" (Dan, 29 Sep). A widget or a notification can also
     /// change tabs without the tab bar; that no longer matters either.
     private func openSearch(from old: AppTab) {
-        let context = SearchContexts.shared.context(for: old)
+        let contexts = SearchContexts.shared
+        let context = contexts.context(for: old)
         // Another tab's or another page's search starts empty.
-        if old != searchSource || context != lastContext { query = "" }
+        if old != searchSource || context != searchContext { query = "" }
         searchSource = old
-        lastContext = context
+        searchContext = context
+        searchPage = contexts.page(for: old)
+        // Now, before the search tab takes the screen.
+        searchPicture = TabBarBridge.pictureOfSelectedTab()
+        // In case SwiftUI made the tabs again since launch.
+        TabBarBridge.searchTabActivatesField()
     }
 
-    /// One tap on the search button opens the field ready to type. Asked
-    /// for the moment the search tab came on, it didn't happen (still two
-    /// taps): most likely iOS 26 was still turning the tab bar into the
-    /// field. So it's asked a moment later, both ways SwiftUI offers.
-    private func activateSearch() {
+    /// One tap should open the field ready to type, by iOS's own setting
+    /// (TabBarBridge.searchTabActivatesField). Only if it didn't, after the
+    /// tab bar has turned into the field, SwiftUI is asked instead. Asked
+    /// right away that was ignored, and a fixed wait before asking made the
+    /// keyboard come in a second, separate step.
+    private func makeSureTheFieldIsOut() {
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(250))
+            try? await Task.sleep(for: .milliseconds(350))
             guard tab == .search else { return }
+            SearchLog.note("after opening: field out \(searchPresented), keyboard \(searchFocused)")
+            guard !searchPresented else { return }
             searchPresented = true
             searchFocused = true
-            SearchLog.note("asked for the field: out \(searchPresented), keyboard \(searchFocused)")
+            SearchLog.note("had to ask for the field")
         }
     }
 

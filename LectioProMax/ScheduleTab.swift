@@ -59,13 +59,9 @@ final class LessonOpener {
 /// it measured its height once and cut the day off. Here each page is simply
 /// as tall as the screen.
 struct ScheduleTab: View {
-    /// The copy behind the search field (SearchTab). It's in the same place
-    /// as the real tab, and leaves widget and notification taps to it.
-    var backdrop = false
-
     @Environment(LectioSession.self) private var session
-    /// The day, the week, day or week view and the open lessons, shared
-    /// with the copy behind the search (see TabPlaces).
+    /// The day, the week, day or week view and the open lessons (see
+    /// TabPlaces).
     @Environment(SchedulePlace.self) private var place
 
     @State private var addingEvent = false
@@ -184,11 +180,9 @@ struct ScheduleTab: View {
             LessonCache.shared.prefetch([(selectedDate, today), (next, tomorrow)], cookies: cookies)
         }
         .sensoryFeedback(.selection, trigger: weekMode)
-        // From a widget or a notification: that day, and that lesson. Only
-        // the real tab: the copy behind the search would race it for the
-        // request.
+        // From a widget or a notification: that day, and that lesson.
         .onChange(of: AppRouter.shared.request, initial: true) { _, request in
-            guard !backdrop, let request else { return }
+            guard let request else { return }
             switch request.route {
             case .day(let date):
                 AppRouter.shared.request = nil

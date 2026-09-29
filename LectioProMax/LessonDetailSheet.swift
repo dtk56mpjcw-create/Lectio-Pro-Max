@@ -205,7 +205,7 @@ struct LessonDetailScreen: View {
     let dayISO: String
 
     @State private var page: LessonPage = .overview
-    /// Find on page, in the copy of the tab behind the search (PageFind).
+    /// Find on page, when it's drawn in the search tab (PageFind).
     @Environment(PageFind.self) private var find: PageFind?
 
     var body: some View {

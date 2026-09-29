@@ -4,11 +4,10 @@ import Observation
 // MARK: - Where each tab is
 
 // The day, the week, the folder, the filter and the pages pushed are kept
-// here rather than in each tab's own @State, because the search shows a
-// second copy of the tab you came from behind its field (SearchTab), and
-// both copies must be in the same place: the same day, the same folder, the
-// same open homework. Paging a day in the copy moves the real Schedule too,
-// which is what you'd expect.
+// here rather than in each tab's own @State. They were shared with a working
+// copy of the tab behind the search field; that copy is gone (a still
+// picture now, see SearchTab), and they could go back into the tabs' @State.
+// They stay for now, as they work.
 //
 // RootView owns one of each, so signing out and in starts afresh, and hands
 // them down in the environment.
@@ -53,9 +52,9 @@ final class MessagesPlace {
     /// unread badge and Search read it too).
     var folderThreads: [MessageThreadSummary] = []
     var folderLoading = false
-    /// Which folder `folderThreads` is, and when it came. The tab and its
-    /// copy behind the search both ask for the folder as they appear; a
-    /// minute-old answer is used as it is instead of fetched again.
+    /// Which folder `folderThreads` is, and when it came. The tab asks for
+    /// the folder each time it appears; a minute-old answer is used as it
+    /// is instead of fetched again.
     var folderLoaded: (folder: MessageFolder, at: Date)?
     var path: [MessageThreadSummary] = []
 
@@ -65,9 +64,7 @@ final class MessagesPlace {
     }
 
     /// Another folder: nothing of the last one is shown under its title
-    /// while its own threads come. Done here, not in the tab's onChange,
-    /// so the copy of the tab that wasn't on screen can't clear threads
-    /// the other one has since fetched.
+    /// while its own threads come.
     func open(_ folder: MessageFolder) {
         guard folder != self.folder else { return }
         self.folder = folder
@@ -85,9 +82,8 @@ final class MePlace {
 }
 
 /// Someone's schedule (TargetScheduleScreen), where you left it and the
-/// weeks already fetched. The same one whether it's open in the Me tab or
-/// in its copy behind the search field, so that copy is on the same day
-/// and fetches nothing again. Back after ten minutes away, it starts
+/// weeks already fetched. Opened again within ten minutes of leaving it,
+/// it's where you left it and fetches nothing again; after that it starts
 /// afresh from today.
 @MainActor
 @Observable
@@ -108,8 +104,8 @@ final class TargetPlace {
         weekPage = ScheduleTab.monday(of: today)
     }
 
-    /// One per schedule for as long as you're signed in, so every copy of
-    /// it gets the same one. A time limit here could hand a copy a new one
+    /// One per schedule for as long as you're signed in, so every screen
+    /// showing it gets the same one. A time limit here could hand a copy a new one
     /// while the old one is still on screen; `appeared()` does the
     /// starting afresh instead.
     private static var all: [String: TargetPlace] = [:]

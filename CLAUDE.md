@@ -115,7 +115,7 @@ problem.
 | Area | Files |
 |---|---|
 | App entry, sign-in gate | `LectioProMaxApp.swift`, `ContentView.swift` (`LoginScreen`), `LoginWebView.swift` (the only web view: UNI-Login / MitID) |
-| Tabs | `RootView.swift`: a native `TabView` with Schedule, Homework, Messages, Me, and Search (`Tab(role: .search)`). The search button searches **the tab you were on** (`SearchTab.swift`, `SearchKind`): Schedule → your own lessons only, Homework → homework and assignments, Messages → messages, Me → absence, grades, study plan and the Me pages. A screen can have its own: Me › Find a schedule and someone's schedule search anyone's schedule, "Find a Schedule" (`.searchPage(.findSchedule)` where they're pushed, `SearchContexts`, read the moment search is pressed). Dan wants these two apart: from his own day and week, people in the results didn't belong. Until you type, the search tab shows **a working copy of the tab you came from, where you left it** (`SearchTab.backdrop`); see "The search backdrop" below. Where each tab is lives in `TabPlaces.swift` (`SchedulePlace`, `HomeworkPlace`, `MessagesPlace`, `MePlace`, owned by RootView; `TargetPlace`, one per someone's schedule), shared by the tab and its copy. On an **open page** (lesson, homework, assignment, message, absence, grades, study plan, Settings pages) the search is **find on page** (`PageFind.swift`): matches marked yellow, the count and ↑↓ in the bar, the Search key goes to the next. A new page takes part with `.searchPage(.page) { … }` where it's pushed, `.findsOnPage()`, `.findScroller()` on its scroll content and `FindableText` instead of `Text`. No other screen has a search bar (Dan's call: they flashed on push and stuck half-way) |
+| Tabs | `RootView.swift`: a native `TabView` with Schedule, Homework, Messages, Me, and Search (`Tab(role: .search)`). The search button searches **the tab you were on** (`SearchTab.swift`, `SearchKind`): Schedule → your own lessons only, Homework → homework and assignments, Messages → messages, Me → absence, grades, study plan and the Me pages. A screen can have its own: Me › Find a schedule and someone's schedule search anyone's schedule, "Find a Schedule" (`.searchPage(.findSchedule)` where they're pushed, `SearchContexts`, read the moment search is pressed). Dan wants these two apart: from his own day and week, people in the results didn't belong. Until you type, the search tab shows **a still picture of the screen you were on** (`TabBarBridge`, `StillPicture`); see "The search" below. Where each tab is lives in `TabPlaces.swift` (`SchedulePlace`, `HomeworkPlace`, `MessagesPlace`, `MePlace`, owned by RootView; `TargetPlace`, one per someone's schedule). On an **open page** (lesson, homework, assignment, message, absence, grades, study plan, Settings pages) the search is **find on page** (`PageFind.swift`): matches marked yellow, the count and ↑↓ in the bar, the Search key goes to the next. A new page takes part with `.searchPage(.page) { … }` where it's pushed, `.findsOnPage()`, `.findScroller()` on its scroll content and `FindableText` instead of `Text`. No other screen has a search bar (Dan's call: they flashed on push and stuck half-way) |
 | State | `LectioSession.swift`: `@MainActor @Observable`, holds `snapshot`; `SnapshotCache` is the offline copy |
 | Network | `LectioHTTP.swift` (URLSession plus the cookie jar), `CookieVault.swift` (Keychain, this device only), `LectioForms.swift` (ASP.NET postbacks) |
 | Services | `LectioService`, `LectioStudyService`, `LectioMessagesService`, `LectioMeService`, `LectioFeedbackService`, `LectioHandInService`, `LectioEventService` |
@@ -363,63 +363,63 @@ SwiftUI scroll facts learned the hard way:
 - `ScheduleOwner.team`/`.room` hide empty modules ("Free" said nothing for
   a team or a room) in the day (`DayContent`) and the week (`WeekDayCard`).
 
-### The search backdrop (29 Sep)
+### The search: a still picture behind the field (29 Sep)
 
-- Dan: pressing search mustn't feel like a new tab. The tab stays behind
-  the field exactly where he was (same day, week, folder, open page) until
-  he types; typing shows results over it; clearing brings it back.
-- A view can't be in two tabs, so the search tab draws a second copy of
-  the tab you came from. Both copies read and write the same place
-  objects (`TabPlaces.swift`) instead of their own `@State`, so paging a
-  day in the copy moves the real Schedule too. Only the view's own
-  scroll offset (how far down a day you were) isn't shared.
-- Only one copy is ever on screen, and loads start when a view appears,
-  so nothing loads twice: the session's loads skip fresh data, Messages'
-  folders are kept a minute (`MessagesPlace.isFresh`), a thread a minute
-  (`RecentThreads`), and someone's schedule keeps its weeks and day
-  (`TargetPlace`, starting afresh after ten minutes off screen).
-- The copy leaves one-shot work to the real tab: `ScheduleTab(backdrop:)`
-  ignores widget and notification routes. Folder changes clear threads in
-  `MessagesPlace.open`, not in the tab's `onChange`, so the copy that
-  wasn't on screen can't wipe what the other fetched.
-- The copy counts as the tab for which search is on (`hostTab`), so going
-  back a page in it changes the search; RootView follows
-  `SearchContexts` live (it's `@Observable`).
-- Not shared: a lesson opened from someone's schedule (it's an item
-  destination, not in a path).
+- Dan: pressing search mustn't feel like a new tab. What he was looking
+  at stays behind the field until he types; one tap opens the field ready
+  to type; the field is always at the bottom; closing it goes back. On a
+  tab's first page typing lists results; on an open page it finds on the
+  page.
+- **Now:** the moment search is pressed (`RootView.openSearch`, through
+  the tab bar's selection binding) the app takes a still picture of the
+  tab on screen (`TabBarBridge.pictureOfSelectedTab`, a UIKit snapshot
+  view of the tab bar controller's selected tab, without the bar) and the
+  search tab shows it (`StillPicture`) under an empty, clear navigation
+  bar. Instant, exact, nothing to build. Typing replaces it with results,
+  or on an open page with that page drawn again, the words marked.
+- **Tried and dropped: a working copy of the tab** behind the field, with
+  where each tab is moved into shared objects (`TabPlaces.swift`, still
+  there and working, but no longer needed; they could go back to
+  `@State`). Dan: "works really bad, nothing opens clearly, really
+  laggy". It built a whole second tab (for Schedule both pagers) as the
+  tab changed, an open page came back scrolled to its top, and pages
+  pushed in the copy had no search field, or a field at the top when
+  each page was given its own `.searchable` (that went to the top bar).
+  `SearchContexts` was observed then, and every push and pop redrew the
+  TabView. **Don't bring any of that back.**
 - `.searchable` on the search tab gives the field (at the bottom) only to
-  the **first page** of the navigation stack in it. With a homework, a
-  lesson or Find a schedule pushed on top of the copy, there was no field
-  and search "didn't open" there.
-  - **Tried and wrong:** giving each pushed page its own `.searchable`.
-    Those fields went to the top bar, so the field jumped between top and
-    bottom (Dan, 29 Sep). Don't do it again.
-  - **Now:** a page open in a tab is drawn again as the *first* page of
-    the search tab's stack. Each place a tab pushes a page says so with
-    `.searchPage(kind) { the same page }`; `SearchContexts.page(for:)`
-    hands the last one to `SearchTab.backdrop`. Only a tab's first page
-    shows the copy of the tab. A new pushed page needs `.searchPage` where
-    it's pushed, or search on it shows the tab copy with it on top again.
-- One tap: `searchable(isPresented:)` and `searchFocused` are set a moment
-  after the search tab comes on (`RootView.activateSearch`). Set as it
-  appeared, it was ignored and still needed a second tap. Not confirmed on
-  a phone yet.
-- Closing the field leaves search, back to where you were
-  (`RootView.leaveSearch`); before, the search tab stayed on with a field
-  you couldn't type in.
-- `SearchLog` prints timestamped lines about the field and tabs in Debug
-  builds (Xcode's console). Take them out once search is settled.
+  the **first page** of the navigation stack in it. Keep everything shown
+  before a result is opened on that first page.
+- Which search, and which page: `.searchedAs(kind)` on each tab's first
+  page, `.searchPage(kind) { the same page }` where a tab pushes a page
+  (every push site in the tabs; a new pushed page needs it too).
+  `SearchContexts` keeps the last one per tab from the screens appearing
+  and disappearing, and is read only when search is pressed (not
+  observed).
+- One tap: iOS 26's own `UISearchTab.automaticallyActivatesSearch`, set
+  through `TabBarBridge.searchTabActivatesField` (by key, only if this
+  iOS has it). If the field still isn't out 0.35 s after the search tab
+  comes on, `searchable(isPresented:)` and `searchFocused` are set instead
+  (`RootView.makeSureTheFieldIsOut`). Not confirmed on a phone yet.
+- Closing the field (`isPresented` going false with no result open) goes
+  back to where search was pressed (`RootView.leaveSearch`).
+- `SearchLog` prints timestamped `[Search …]` lines in Debug builds
+  (Xcode's console): the tab, whether there's a picture, the field. Take
+  them out once search is settled.
 - Find on page (Dan: "if u open like homework ... theres a long text in
   it u should be able to search it", "it should work for all") happens
-  only in the copy: `PageFind` is in the environment there and nowhere
-  else, so the real tabs draw plain `Text`. Each `FindableText` with a
-  match reports itself through a preference (`FindReportsKey`, in page
-  order); `.findScroller()` collects them and scrolls to the current one
-  (`ScrollViewReader`, ids are the texts' own `UUID`s). Preferences don't
-  leave a `List`, so this only works on pages built on a `ScrollView`,
-  which all of them are. A lesson's two sides are areas 0 and 1; finding
-  switches to the side the match is on (only a side that's been drawn
-  can report).
+  only on the page drawn again in the search tab: `PageFind` is in the
+  environment there and nowhere else, so the tabs draw plain `Text`.
+  Each `FindableText` with a match reports itself through a preference
+  (`FindReportsKey`, in page order); `.findScroller()` collects them and
+  scrolls to the current one (`ScrollViewReader`, ids are the texts' own
+  `UUID`s). Preferences don't leave a `List`, so this only works on pages
+  built on a `ScrollView`, which all of them are. A lesson's two sides
+  are areas 0 and 1; finding switches to the side the match is on (only
+  a side that's been drawn can report).
+- Loads stay single: the session skips what it has fresh, a thread is
+  kept a minute (`RecentThreads`), so drawing a page again to find on it
+  doesn't fetch it again.
 
 ## Open items
 

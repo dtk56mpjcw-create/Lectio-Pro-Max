@@ -2,8 +2,7 @@ import SwiftUI
 
 struct HomeworkTab: View {
     @Environment(LectioSession.self) private var session
-    /// The filter and the open homework, shared with the copy behind the
-    /// search (see TabPlaces).
+    /// The filter and the open homework (see TabPlaces).
     @Environment(HomeworkPlace.self) private var place
 
     /// Not @AppStorage on purpose — see WorkFilter.
