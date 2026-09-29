@@ -11,6 +11,8 @@ struct RootView: View {
     @Environment(LectioSession.self) private var session
     @State private var tab: AppTab = .schedule
     @State private var query = ""
+    /// The tab the search button searches: the one you were on.
+    @State private var searchContext: AppTab = .schedule
 
     var body: some View {
         TabView(selection: $tab) {
@@ -31,16 +33,23 @@ struct RootView: View {
                 MeTab()
             }
             // Search is a tab of its own at the trailing end of the bar, as
-            // iOS 26 lays it out (iOS 27 puts it back in the bar). Its field
-            // is attached here, to this tab alone: on the TabView it reached
+            // iOS 26 lays it out (iOS 27 puts it back in the bar), and it
+            // searches the tab you were on (see SearchTab). Its field is
+            // attached here, to this tab alone: on the TabView it reached
             // every tab's navigation bar too, and on some phones a search
             // field sat over the Schedule and Homework headings — or hid
             // under them, so pulling a page down tugged at a field that
             // wasn't there.
             Tab(value: AppTab.search, role: .search) {
-                SearchTab(query: query)
-                    .searchable(text: $query, prompt: "Homework, messages, lessons")
+                SearchTab(query: query, context: searchContext)
+                    .searchable(text: $query, prompt: searchContext.searchPrompt)
             }
+        }
+        .onChange(of: tab) { _, new in
+            // Another tab's search starts empty.
+            guard new != .search, new != searchContext else { return }
+            searchContext = new
+            query = ""
         }
         .tabBarMinimizeBehavior(.onScrollDown)
         // A widget or a notification: go to what it showed (see AppLink).

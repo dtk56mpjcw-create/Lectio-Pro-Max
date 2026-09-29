@@ -115,14 +115,14 @@ problem.
 | Area | Files |
 |---|---|
 | App entry, sign-in gate | `LectioProMaxApp.swift`, `ContentView.swift` (`LoginScreen`), `LoginWebView.swift` (the only web view: UNI-Login / MitID) |
-| Tabs | `RootView.swift`: a native `TabView` with Schedule, Homework, Messages, Me, and Search (`Tab(role: .search)`) |
+| Tabs | `RootView.swift`: a native `TabView` with Schedule, Homework, Messages, Me, and Search (`Tab(role: .search)`). The search button searches **the tab you were on** (`SearchTab.swift`): Schedule → anyone's schedule and your lessons, Homework → homework and assignments, Messages → messages, Me → absence, grades, study plan and the Me pages. No other screen has a search bar (Dan's call: they flashed on push and stuck half-way) |
 | State | `LectioSession.swift`: `@MainActor @Observable`, holds `snapshot`; `SnapshotCache` is the offline copy |
 | Network | `LectioHTTP.swift` (URLSession plus the cookie jar), `CookieVault.swift` (Keychain, this device only), `LectioForms.swift` (ASP.NET postbacks) |
 | Services | `LectioService`, `LectioStudyService`, `LectioMessagesService`, `LectioMeService`, `LectioFeedbackService`, `LectioHandInService`, `LectioEventService` |
 | Parsing | `LectioParser.swift`, `HTMLDocument.swift`, `HTMLNode.swift`: Lectio's HTML scraped; selectors reverse-engineered from real pages; Danish text |
 | Schedule logic | `DayPlan.swift` (what an item is, `ClassNames`), `DayAgenda.swift`, `WeekAgenda.swift`, `LectioDates.swift` (always Danish time: `LectioDates.calendar`) |
 | Schedule UI | `ScheduleTab.swift`: day and week pagers, `DayPage`/`WeekPage`, `ScreenZoom` day↔week switch, `PageHeading` |
-| Find a schedule | `FindScheduleScreen.swift` (Me › Find a schedule: a native `List`, `.searchable` with `.searchScopes`, Pinned and Recent (`FindMemory`), Browse lists with the iOS 26 section index, Teams via `TeamDirectory`), `TargetScheduleScreen.swift` (their schedule with the same pagers, `DayList` and `WeekAgenda` as yours; `ScheduleOwner` in the environment changes what the cards show). `IndexedTargetList.swift` is only the group hand-in picker now |
+| Find a schedule | `FindScheduleScreen.swift` (Me › Find a schedule: a native `List` with Pinned and the last 3 Recent (`FindMemory`), Browse lists with the iOS 26 section index, Teams via `TeamDirectory`; searching is the tab bar's, from Schedule), `TargetScheduleScreen.swift` (their schedule with the same pagers, `DayList` and `WeekAgenda` as yours; `ScheduleOwner` in the environment changes what the cards show). `IndexedTargetList.swift` is only the group hand-in picker now |
 | Lesson page | `LessonDetailSheet.swift` (`LessonDetailScreen`: Overview and Content, a segmented control on a glass capsule plus paging; Overview is lesson info, the note and Elevfeedback, Content the homework and other content, by Dan's choice), `LessonContentView.swift`, `LessonContentReader.swift` (Lectio's editor HTML into paragraphs, links, pictures), `LessonBlocksView.swift` |
 | Widgets | `Shared/WidgetFeed.swift` (JSON in the app group), `WidgetFeedBuilder.swift`, `LectioWidgets/` |
 | Background and notifications | `BackgroundCheck.swift`, `ScheduleWatch.swift`, `NotificationService.swift`, `Reminder*.swift` |
@@ -357,8 +357,9 @@ SwiftUI scroll facts learned the hard way:
   bar's top, as ScheduleTab's `barClearance`); their back button and title
   used to cover the heading, and the tab bar the last rows.
 - A pushed screen's search field (hidden until pulled down) showed through
-  for a moment while the screen slid in: iOS starts it open, then folds it.
-  `quietSearchBarWhilePushing()` makes it see-through for the push only.
+  for a moment while the screen slid in (iOS starts it open, then folds
+  it), and Messages' could stick half-way. So there are no search bars on
+  screens any more: the tab bar's search button searches the tab you're on.
 - `ScheduleOwner.team`/`.room` hide empty modules ("Free" said nothing for
   a team or a room) in the day (`DayContent`) and the week (`WeekDayCard`).
 

@@ -35,21 +35,6 @@ struct MessagesTab: View {
     /// Who sent what, for photos. Built from the directory New message uses.
     @State private var directory = SenderDirectory()
 
-    /// The pull-down search, as in Music's Library: it filters the folder
-    /// you're in by subject, sender and recipients.
-    @State private var query = ""
-
-    private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
-
-    private var shownThreads: [MessageThreadSummary] {
-        let q = trimmedQuery
-        guard !q.isEmpty else { return threads }
-        return threads.filter { thread in
-            [thread.subject, thread.latestSender, thread.firstSender, thread.recipients]
-                .contains { $0.localizedCaseInsensitiveContains(q) }
-        }
-    }
-
     private var threads: [MessageThreadSummary] {
         guard folder == .newest else {
             return folder == .deleted
@@ -105,10 +90,8 @@ struct MessagesTab: View {
                 .navigationDestination(for: MessageThreadSummary.self) { thread in
                     MessageThreadSheet(summary: thread).asPushedScreen()
                 }
-                // Tucked under the title until you pull the list down.
-                .searchable(text: $query,
-                            placement: .navigationBarDrawer(displayMode: .automatic),
-                            prompt: folder == .newest ? "Search messages" : "Search " + folder.title.lowercased())
+                // No search bar of its own: the search button in the tab
+                // bar searches messages from here (SearchTab).
         }
         .task { await session.loadInbox() }
         // The people directory, for senders' photos. Fetched once a session.
@@ -145,14 +128,9 @@ struct MessagesTab: View {
     /// the system's swipe actions. Rows still look like cards.
     private var list: some View {
         List {
-            if shownThreads.isEmpty {
+            if threads.isEmpty {
                 Group {
-                    if !trimmedQuery.isEmpty {
-                        EmptyNotice(icon: "magnifyingglass",
-                                    text: folder == .newest
-                                        ? "No messages with “\(trimmedQuery)”"
-                                        : "No messages with “\(trimmedQuery)” in \(folder.title)")
-                    } else if loading {
+                    if loading {
                         ProgressView().frame(maxWidth: .infinity).padding(.vertical, 60)
                     } else {
                         EmptyNotice(icon: folder.icon, text: folder.emptyText)
@@ -161,14 +139,14 @@ struct MessagesTab: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             } else {
-                if folder == .deleted && trimmedQuery.isEmpty {
+                if folder == .deleted {
                     deletedNote
                         .listRowInsets(EdgeInsets(top: 2, leading: Metrics.margin,
                                                   bottom: 6, trailing: Metrics.margin))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                 }
-                ForEach(shownThreads) { thread in
+                ForEach(threads) { thread in
                     ThreadRow(thread: thread,
                               personID: directory.id(for: thread.latestSender),
                               onOpen: { path.append(thread) },

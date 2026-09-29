@@ -1,69 +1,53 @@
 import SwiftUI
-import UIKit
 
 // MARK: - Find a schedule
 
-/// Look up somebody else's timetable: a student, a teacher, a class, a team
-/// or a room.
+/// Me › Find a schedule: the schedules you pinned and the ones you looked
+/// at lately, and everything to browse by kind — students, teachers,
+/// classes, teams, rooms. Built from the system's own pieces, as Contacts
+/// and Settings are: a list, and the letter index down the side of a long
+/// one. Their timetable then looks like yours (TargetScheduleScreen).
 ///
-/// Built from the system's own pieces, the way Contacts and Settings are: a
-/// list, the navigation bar's search field with its scope bar under it, and
-/// the letter index down the side of a long list. One search reaches every
-/// kind at once; before you type, the ones you pinned and the ones you
-/// looked at lately are on top, and everything can be browsed by kind.
-/// Their timetable then looks like yours (TargetScheduleScreen).
-///
-/// The earlier version had a title, a five-way switch, a search box and a
-/// letter strip of its own, none of which looked or behaved like the rest
-/// of the app — and you had to pick the kind before you could search.
+/// No search bar of its own: the search button in the tab bar searches the
+/// tab you're on, and from Schedule it finds anyone's schedule
+/// (SearchTab). The search bars on pushed screens flashed as they slid in
+/// and could stick half-way.
 struct FindScheduleScreen: View {
     @Environment(LectioSession.self) private var session
-    @State private var query = ""
-    @State private var scope: FindScope = .all
-
     private var memory: FindMemory { .shared }
-    private var directory: TeamDirectory { .shared }
 
-    private var trimmed: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var ownClass: String {
         session.snapshot.profile.className.trimmingCharacters(in: .whitespaces)
     }
 
     var body: some View {
         List {
-            if trimmed.isEmpty {
-                startSections
-            } else {
-                resultSections
+            PinnedAndRecent()
+
+            Section("Browse") {
+                NavigationLink(value: FindBrowse.kind(.student)) {
+                    BrowseRow(title: "Students", icon: "person.fill", tint: .blue)
+                }
+                NavigationLink(value: FindBrowse.kind(.teacher)) {
+                    BrowseRow(title: "Teachers", icon: "person.crop.rectangle.fill", tint: .orange)
+                }
+                NavigationLink(value: FindBrowse.kind(.klasse)) {
+                    BrowseRow(title: "Classes", icon: "person.3.fill", tint: .green,
+                              detail: ownClass.isEmpty ? nil : "Yours: " + ownClass)
+                }
+                NavigationLink(value: FindBrowse.teams) {
+                    BrowseRow(title: "Teams", icon: "book.closed.fill", tint: .purple, detail: "Yours first")
+                }
+                NavigationLink(value: FindBrowse.kind(.room)) {
+                    BrowseRow(title: "Rooms", icon: "door.left.hand.open", tint: .gray)
+                }
             }
         }
         .listStyle(.insetGrouped)
-        .quietSearchBarWhilePushing()
-        .overlay { searchState }
         .navigationTitle("Find a schedule")
         .toolbarTitleDisplayMode(.large)
-        .searchable(text: $query,
-                    // Tucked away as you scroll down, as in Messages.
-                    placement: .navigationBarDrawer(displayMode: .automatic),
-                    prompt: "Students, teachers, classes, rooms")
-        .searchScopes($scope, activation: .onSearchPresentation) {
-            ForEach(FindScope.allCases) { option in
-                Text(option.label).tag(option)
-            }
-        }
-        .autocorrectionDisabled()
-        .textInputAutocapitalization(.never)
         .task { await session.loadScheduleTargets() }
         .onAppear { memory.prepare() }
-        .onChange(of: trimmed.isEmpty) { _, empty in
-            // A search reaches every team at school, so they're fetched the
-            // first time you type (and kept for a week; see TeamDirectory).
-            guard !empty else { return }
-            Task {
-                let cookies = await session.requestCookies()
-                await directory.loadAll(cookies: cookies)
-            }
-        }
         // Everything this screen leads to, however deep: someone's schedule,
         // and the lists to browse.
         .navigationDestination(for: ScheduleTarget.self) { target in
@@ -73,11 +57,14 @@ struct FindScheduleScreen: View {
             FindBrowseScreen(browse: browse)
         }
     }
+}
 
-    // MARK: Before you type
+/// The pinned schedules, then the last few opened — on the Find page, and
+/// in the search from Schedule before you type.
+struct PinnedAndRecent: View {
+    private var memory: FindMemory { .shared }
 
-    @ViewBuilder
-    private var startSections: some View {
+    var body: some View {
         let pinned = memory.pinned
         if !pinned.isEmpty {
             Section("Pinned") {
@@ -102,42 +89,24 @@ struct FindScheduleScreen: View {
                 }
             }
         }
-
-        Section("Browse") {
-            NavigationLink(value: FindBrowse.kind(.student)) {
-                BrowseRow(title: "Students", icon: "person.fill", tint: .blue)
-            }
-            NavigationLink(value: FindBrowse.kind(.teacher)) {
-                BrowseRow(title: "Teachers", icon: "person.crop.rectangle.fill", tint: .orange)
-            }
-            NavigationLink(value: FindBrowse.kind(.klasse)) {
-                BrowseRow(title: "Classes", icon: "person.3.fill", tint: .green,
-                          detail: ownClass.isEmpty ? nil : "Yours: " + ownClass)
-            }
-            NavigationLink(value: FindBrowse.teams) {
-                BrowseRow(title: "Teams", icon: "book.closed.fill", tint: .purple, detail: "Yours first")
-            }
-            NavigationLink(value: FindBrowse.kind(.room)) {
-                BrowseRow(title: "Rooms", icon: "door.left.hand.open", tint: .gray)
-            }
-        }
     }
+}
 
-    // MARK: Searching
+/// A list section of schedules to open.
+struct TargetSection: Identifiable {
+    let id: String
+    let title: String
+    let targets: [ScheduleTarget]
 
-    /// The matches, grouped by kind in a fixed order, the ones where a word
-    /// starts with what you typed first.
-    private var results: [TargetSection] {
-        let needle = trimmed
+    /// At most this many per kind in a search: "an" matches half the school.
+    static let perKind = 40
+
+    /// A search: the matches grouped by kind in a fixed order, the ones
+    /// where a word starts with what was typed first.
+    static func search(_ needle: String, in pool: [ScheduleTarget]) -> [TargetSection] {
         guard !needle.isEmpty else { return [] }
-        var pool = session.scheduleTargets
-        // Every team at school once fetched; your own are in the pool already.
-        let known = Set(pool.map(\.id))
-        pool += directory.allTeams.filter { !known.contains($0.id) }
-
         let order: [ScheduleTarget.Kind] = [.student, .teacher, .klasse, .subject, .room]
         return order.compactMap { kind -> TargetSection? in
-            guard scope.includes(kind) else { return nil }
             let hits = pool
                 .filter { $0.kind == kind && $0.matches(needle) }
                 .sorted { a, b in
@@ -148,71 +117,6 @@ struct FindScheduleScreen: View {
             return hits.isEmpty ? nil : TargetSection(id: kind.rawValue, title: kind.label, targets: hits)
         }
     }
-
-    /// At most this many per kind: "an" matches half the school.
-    private static let perKind = 40
-
-    @ViewBuilder
-    private var resultSections: some View {
-        ForEach(results) { section in
-            Section(section.title) {
-                ForEach(section.targets.prefix(Self.perKind)) { target in
-                    NavigationLink(value: target) { TargetRow(target: target, highlight: trimmed) }
-                }
-                if section.targets.count > Self.perKind {
-                    Text("\(section.targets.count - Self.perKind) more — type more of the name")
-                        .scaledFont(size: 14)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-    }
-
-    /// Loading, or nothing found.
-    @ViewBuilder
-    private var searchState: some View {
-        if !trimmed.isEmpty {
-            if session.scheduleTargets.isEmpty {
-                ProgressView()
-            } else if results.isEmpty {
-                ContentUnavailableView.search(text: trimmed)
-            }
-        }
-    }
-}
-
-/// What the scope bar under the search field narrows it to.
-enum FindScope: String, CaseIterable, Identifiable, Hashable {
-    case all, people, classes, teams, rooms
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .all: return "All"
-        case .people: return "People"
-        case .classes: return "Classes"
-        case .teams: return "Teams"
-        case .rooms: return "Rooms"
-        }
-    }
-
-    func includes(_ kind: ScheduleTarget.Kind) -> Bool {
-        switch self {
-        case .all: return true
-        case .people: return kind == .student || kind == .teacher
-        case .classes: return kind == .klasse
-        case .teams: return kind == .subject
-        case .rooms: return kind == .room
-        }
-    }
-}
-
-/// A list section of schedules to open.
-struct TargetSection: Identifiable {
-    let id: String
-    let title: String
-    let targets: [ScheduleTarget]
 }
 
 // MARK: - Browsing
@@ -276,8 +180,8 @@ private struct BrowseRow: View {
 }
 
 /// Every student, teacher, class or room — or one class's students — as a
-/// plain list with its own search field. People get the letter index down
-/// the side that Contacts has; classes are grouped by year.
+/// plain list. People get the letter index down the side that Contacts has;
+/// classes are grouped by year. (Searching is the tab bar's, from Schedule.)
 struct TargetListScreen: View {
     let kind: ScheduleTarget.Kind
     let title: String
@@ -285,9 +189,6 @@ struct TargetListScreen: View {
     var onlyClass: String? = nil
 
     @Environment(LectioSession.self) private var session
-    @State private var query = ""
-
-    private var trimmed: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     private var all: [ScheduleTarget] {
         session.scheduleTargets.filter { target in
@@ -298,13 +199,10 @@ struct TargetListScreen: View {
     }
 
     private var shown: [ScheduleTarget] {
-        let list = trimmed.isEmpty ? all : all.filter { $0.matches(trimmed) }
-        return list.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
+        all.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
     }
 
-    private var showsIndex: Bool {
-        (kind == .student || kind == .teacher) && trimmed.isEmpty
-    }
+    private var showsIndex: Bool { kind == .student || kind == .teacher }
 
     private var sections: [TargetSection] {
         let list = shown
@@ -341,7 +239,7 @@ struct TargetListScreen: View {
                 Section {
                     ForEach(section.targets) { target in
                         NavigationLink(value: target) {
-                            TargetRow(target: target, highlight: trimmed, compact: true)
+                            TargetRow(target: target, compact: true)
                         }
                     }
                 } header: {
@@ -351,26 +249,16 @@ struct TargetListScreen: View {
             }
         }
         .listStyle(.insetGrouped)
-        .quietSearchBarWhilePushing()
         .listSectionIndexVisibility(showsIndex ? .visible : .hidden)
         .overlay {
             if session.scheduleTargets.isEmpty {
                 ProgressView()
             } else if shown.isEmpty {
-                if trimmed.isEmpty {
-                    ContentUnavailableView("Nobody here", systemImage: kind.icon)
-                } else {
-                    ContentUnavailableView.search(text: trimmed)
-                }
+                ContentUnavailableView("Nobody here", systemImage: kind.icon)
             }
         }
         .navigationTitle(title)
         .toolbarTitleDisplayMode(.inline)
-        .searchable(text: $query,
-                    placement: .navigationBarDrawer(displayMode: .automatic),
-                    prompt: "Search")
-        .autocorrectionDisabled()
-        .textInputAutocapitalization(.never)
         .task { await session.loadScheduleTargets() }
     }
 }
@@ -934,92 +822,5 @@ extension LectioParser {
             subjects.append(TeamSubject(id: id, code: code, name: name))
         }
         return subjects
-    }
-}
-
-// MARK: - The search field while a screen slides in
-
-extension View {
-    /// Keeps a pushed screen's search field — hidden until you pull the
-    /// list down — from showing through while the screen slides in.
-    ///
-    /// iOS starts the field open on a pushed screen and folds it away just
-    /// after the push; for that moment its "Students, teachers…" lay over
-    /// the first rows (seen frame by frame in a screen recording). Nothing
-    /// in SwiftUI sets where it starts, so the field is made see-through
-    /// for the length of the push and shown again once it's folded away.
-    /// Only while a push is under way: a pull down afterwards, and every
-    /// other screen, are as they were.
-    func quietSearchBarWhilePushing() -> some View {
-        background {
-            PushSearchQuieter()
-                .frame(width: 0, height: 0)
-                .accessibilityHidden(true)
-        }
-    }
-}
-
-/// A zero-size view inside the pushed screen that finds the screen's
-/// search field (through the controllers above it) while the push runs.
-private struct PushSearchQuieter: UIViewRepresentable {
-    func makeUIView(context: Context) -> Probe { Probe() }
-    func updateUIView(_ uiView: Probe, context: Context) {}
-
-    final class Probe: UIView {
-        private var handled = false
-
-        override init(frame: CGRect) {
-            super.init(frame: frame)
-            isUserInteractionEnabled = false
-        }
-
-        required init?(coder: NSCoder) {
-            super.init(coder: coder)
-        }
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            guard window != nil, !handled else { return }
-            // SwiftUI may put the field on the screen a moment later.
-            if !quiet() {
-                DispatchQueue.main.async { [weak self] in self?.quiet() }
-            }
-        }
-
-        @discardableResult
-        private func quiet() -> Bool {
-            guard !handled,
-                  let controller = controllerWithSearch(),
-                  let bar = controller.navigationItem.searchController?.searchBar,
-                  let push = controller.transitionCoordinator
-                      ?? controller.navigationController?.transitionCoordinator
-            else { return false }
-            handled = true
-            bar.alpha = 0
-            push.animate(alongsideTransition: nil) { _ in
-                // iOS folds the field away just after the push ends.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak bar] in
-                    UIView.animate(withDuration: 0.15) { bar?.alpha = 1 }
-                }
-            }
-            // Never left invisible, whatever the push does.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak bar] in
-                bar?.alpha = 1
-            }
-            return true
-        }
-
-        /// The nearest controller above this view that has a search field.
-        private func controllerWithSearch() -> UIViewController? {
-            var responder: UIResponder? = self
-            while let current = responder {
-                if let controller = current as? UIViewController,
-                   controller.navigationItem.searchController != nil {
-                    return controller
-                }
-                responder = current.next
-            }
-            return nil
-        }
     }
 }
