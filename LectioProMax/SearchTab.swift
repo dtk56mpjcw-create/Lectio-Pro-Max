@@ -27,7 +27,9 @@ import SwiftUI
 /// only the list of every team at school is fetched, the first time you
 /// search for a schedule (TeamDirectory).
 struct SearchTab: View {
-    let query: String
+    @Binding var query: String
+    /// The search field is out and typing.
+    @Binding var presented: Bool
     /// The tab search was pressed on.
     let source: AppTab
     /// What's searched.
@@ -85,6 +87,8 @@ struct SearchTab: View {
         .onChange(of: context) { path = NavigationPath() }
         .onChange(of: showsResults) { if !showsResults { path = NavigationPath() } }
         .onChange(of: pageQuery, initial: true) { _, words in find.look(for: words) }
+        // One tap on the search button: the field comes out ready to type.
+        .onAppear { presented = true }
         .sheet(item: $openWork) { item in
             // As the Homework tab opens it: an assignment on its hand-in
             // page, homework on its own.
@@ -125,6 +129,12 @@ struct SearchTab: View {
             }
         }
         .environment(\.hostTab, source)
+        // A page open on top gets the field too (searchableInBackdrop):
+        // the one RootView attaches reaches only the first page, and on a
+        // homework, a lesson or Find a schedule there was no field at all.
+        .environment(\.backdropSearch, BackdropSearch(
+            text: $query, isPresented: $presented, prompt: context.prompt,
+            submit: { if context == .page { find.next() } }))
         // Only here: the real tabs' pages draw their text as always.
         .environment(find)
         // The keyboard comes up over it instead of squeezing it: the
@@ -272,6 +282,40 @@ final class SearchContexts {
 extension EnvironmentValues {
     /// The tab a screen is in; nil in the search tab and outside the tabs.
     @Entry var hostTab: AppTab? = nil
+    /// The search field, for a page open on top in the copy of the tab
+    /// behind it (SearchTab); nil everywhere else.
+    @Entry var backdropSearch: BackdropSearch? = nil
+}
+
+/// The search field as a page open in the copy behind it needs it.
+struct BackdropSearch {
+    var text: Binding<String>
+    var isPresented: Binding<Bool>
+    var prompt: String
+    /// The Search key: the next match, when finding on the page.
+    var submit: () -> Void
+}
+
+/// A pushed page's own search field, in the copy of the tab behind the
+/// search field only.
+///
+/// `.searchable` on a navigation stack gives its first page a field, not
+/// the pages pushed onto it, and the search tab shows the field of the
+/// page on top. So in the copy, a homework, a lesson or Find a schedule
+/// open on top had none, and the search never opened there (Dan, 29 Sep).
+/// Each such page adds one, bound to the same text.
+private struct BackdropSearchable: ViewModifier {
+    @Environment(\.backdropSearch) private var search
+
+    func body(content: Content) -> some View {
+        if let search {
+            content
+                .searchable(text: search.text, isPresented: search.isPresented, prompt: search.prompt)
+                .onSubmit(of: .search) { search.submit() }
+        } else {
+            content
+        }
+    }
 }
 
 private struct SearchContextMark: ViewModifier {
@@ -298,6 +342,13 @@ extension View {
     /// its navigation stack, so it hears the screen come back into view.
     func searchedAs(_ context: SearchKind) -> some View {
         modifier(SearchContextMark(context: context))
+    }
+
+    /// Gives a pushed page the search field when it's in the copy of the
+    /// tab behind the search (see BackdropSearchable). Every page that can
+    /// be pushed onto a tab needs it; a tab's first page must not have it.
+    func searchableInBackdrop() -> some View {
+        modifier(BackdropSearchable())
     }
 }
 

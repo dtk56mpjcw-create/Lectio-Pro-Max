@@ -214,6 +214,7 @@ private struct FindsOnPage: ViewModifier {
     func body(content: Content) -> some View {
         content
             .searchedAs(.page)
+            .searchableInBackdrop()
             .toolbar {
                 if let find, !find.query.isEmpty {
                     ToolbarItem(placement: .principal) {

@@ -387,6 +387,16 @@ SwiftUI scroll facts learned the hard way:
   `SearchContexts` live (it's `@Observable`).
 - Not shared: a lesson opened from someone's schedule (it's an item
   destination, not in a path).
+- `.searchable` on the search tab reaches only the **first page** of the
+  navigation stack in it, and the search tab shows the field of the page
+  on top. With a homework, a lesson or Find a schedule open in the copy,
+  there was no field and search "didn't open" there. Every page that can
+  be pushed onto a tab calls `.searchableInBackdrop()` (it's in
+  `findsOnPage()`; Find a schedule, its lists and someone's schedule call
+  it themselves), which adds a field bound to the same text only inside
+  the copy. A tab's first page must not: it has RootView's.
+- One tap on search opens the field ready to type: `searchable(isPresented:)`
+  is set true as the search tab appears (before, iOS 26 needed a second tap).
 - Find on page (Dan: "if u open like homework ... theres a long text in
   it u should be able to search it", "it should work for all") happens
   only in the copy: `PageFind` is in the environment there and nowhere

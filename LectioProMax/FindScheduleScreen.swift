@@ -50,6 +50,7 @@ struct FindScheduleScreen: View {
         // button finds anyone's, from here and from the lists and
         // schedules it opens.
         .searchedAs(.findSchedule)
+        .searchableInBackdrop()
         .task { await session.loadScheduleTargets() }
         .onAppear { memory.prepare() }
         // Everything this screen leads to, however deep: someone's schedule,
@@ -141,16 +142,19 @@ struct FindBrowseScreen: View {
     @Environment(LectioSession.self) private var session
 
     var body: some View {
-        switch browse {
-        case .kind(let kind):
-            TargetListScreen(kind: kind, title: kind.label)
-        case .teams:
-            TeamsScreen()
-        case .teamSubject(let subject):
-            TeamSubjectScreen(subject: subject)
-        case .classmates(let klasse):
-            TargetListScreen(kind: .student, title: "Students in " + klasse.name, onlyClass: klasse.name)
+        Group {
+            switch browse {
+            case .kind(let kind):
+                TargetListScreen(kind: kind, title: kind.label)
+            case .teams:
+                TeamsScreen()
+            case .teamSubject(let subject):
+                TeamSubjectScreen(subject: subject)
+            case .classmates(let klasse):
+                TargetListScreen(kind: .student, title: "Students in " + klasse.name, onlyClass: klasse.name)
+            }
         }
+        .searchableInBackdrop()
     }
 }
 

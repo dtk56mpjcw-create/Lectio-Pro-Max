@@ -155,6 +155,7 @@ struct TargetScheduleScreen: View {
         }
         // From someone's schedule, search finds another one's.
         .searchedAs(.findSchedule)
+        .searchableInBackdrop()
         .onAppear {
             here.appeared()
             memory.noteOpened(target)

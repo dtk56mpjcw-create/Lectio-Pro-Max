@@ -11,6 +11,10 @@ struct RootView: View {
     @Environment(LectioSession.self) private var session
     @State private var tab: AppTab = .schedule
     @State private var query = ""
+    /// The search field is out and typing. Set as the search tab comes on
+    /// (SearchTab), so one tap on the search button is enough: before, the
+    /// first tap only opened the field and a second one started typing.
+    @State private var searchPresented = false
     /// The tab search was pressed on. The search tab shows it behind the
     /// field, where you left it, until you type; set the moment search is
     /// pressed.
@@ -78,13 +82,13 @@ struct RootView: View {
             // under them, so pulling a page down tugged at a field that
             // wasn't there.
             Tab(value: AppTab.search, role: .search) {
-                SearchTab(query: query, source: searchSource, context: searchContext, find: pageFind)
-                    .searchable(text: $query, prompt: searchContext.prompt)
-                    // The Search key on the keyboard: the next match on the
-                    // page, as in Safari.
-                    .onSubmit(of: .search) {
-                        if searchContext == .page { pageFind.next() }
-                    }
+                SearchTab(query: $query, presented: $searchPresented,
+                          source: searchSource, context: searchContext, find: pageFind)
+                    // For the first page of the tab behind the field and
+                    // for the results. A page open on top has one of its
+                    // own (see SearchTab.backdrop).
+                    .searchable(text: $query, isPresented: $searchPresented,
+                                prompt: searchContext.prompt)
             }
         }
         .environment(schedulePlace)
