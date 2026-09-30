@@ -996,9 +996,9 @@ private struct PushSearchQuieter: UIViewRepresentable {
             else { return false }
             handled = true
             bar.alpha = 0
-            push.animate(alongsideTransition: nil) { _ in
+            push.animate(alongsideTransition: nil) { [weak bar] _ in
                 // iOS folds the field away just after the push ends.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak bar] in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                     UIView.animate(withDuration: 0.15) { bar?.alpha = 1 }
                 }
             }
