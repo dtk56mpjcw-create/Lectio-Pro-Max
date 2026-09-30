@@ -8,7 +8,8 @@ import SwiftUI
 /// in a strip on top; things outside the modules come before or after.
 ///
 /// Equatable so a page rebuilds only when its own day changes; today's
-/// clock ticks inside on its own.
+/// clock ticks inside on its own, and it also decides whether the day is
+/// today (see body).
 struct DayList: View, Equatable {
     let day: ScheduleDay?
     let modules: [ScheduleModule]
@@ -24,9 +25,17 @@ struct DayList: View, Equatable {
     var body: some View {
         if let day, !day.lessons.isEmpty {
             let plan = DayPlan.build(day, modules: modules, className: className, rolling: rolling)
-            if day.date == LectioDates.isoString(from: Date()) {
+            // Today, or a day still to come, which can turn into today
+            // while its page is up: the app stays open past midnight, and
+            // the page isn't built again then (it's Equatable). So the
+            // clock says, each minute, whether this is today. Deciding it
+            // once, when the page was built, left yesterday's page saying
+            // "Next: Science in 1 h 1 min" the morning after (Dan, 30 Sep).
+            if day.date >= LectioDates.isoString(from: Date()) {
                 TimelineView(.everyMinute) { context in
-                    DayContent(plan: plan, dayISO: day.date, now: context.date)
+                    DayContent(plan: plan, dayISO: day.date,
+                               now: LectioDates.isoString(from: context.date) == day.date
+                                   ? context.date : nil)
                 }
             } else {
                 DayContent(plan: plan, dayISO: day.date, now: nil)

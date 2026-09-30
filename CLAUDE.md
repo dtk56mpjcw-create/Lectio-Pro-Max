@@ -328,6 +328,12 @@ SwiftUI scroll facts learned the hard way:
   addresses are read from the page's own address.
 - **Start loading from a view that's always on screen.** `.task` on a
   `Group` whose only child is an `if` that's still false may never run.
+- **"Today" can change while a page is up.** The app stays open past
+  midnight, and an `Equatable` page (`DayOfWeek`, `DayList`, `WeekAgenda`)
+  isn't built again then. Decide "is this today" inside the
+  `TimelineView`, from its clock, not once when the page is built:
+  yesterday's page kept saying "Next: … in 1 h 1 min" the morning after
+  (fixed 30 Sep).
 - **Search the project for a new type's name first.** A `private struct` in
   one file still clashes with a type of the same name elsewhere ("Invalid
   redeclaration"); `LessonBlock` is DayAgenda's lesson card.

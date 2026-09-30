@@ -57,10 +57,15 @@ struct WeekAgenda: View, Equatable {
             VStack(spacing: 12) {
                 ForEach(shown, id: \.0) { date, plan in
                     Group {
-                        if date == today {
+                        // Today and the days still to come: the clock says
+                        // which one is today, so it moves on at midnight
+                        // with the app left open (see DayList).
+                        if date >= today {
                             TimelineView(.everyMinute) { context in
-                                WeekDayCard(date: date, plan: plan, isToday: true,
-                                            startsFolded: false, now: context.date, onPick: onPick)
+                                let isToday = LectioDates.isoString(from: context.date) == date
+                                WeekDayCard(date: date, plan: plan, isToday: isToday,
+                                            startsFolded: false, now: isToday ? context.date : nil,
+                                            onPick: onPick)
                             }
                         } else {
                             WeekDayCard(date: date, plan: plan, isToday: false,
