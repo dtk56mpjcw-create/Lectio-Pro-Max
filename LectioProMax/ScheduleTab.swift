@@ -95,7 +95,7 @@ struct ScheduleTab: View {
         return (-34...34).map { LectioDates.shift(iso: monday, byDays: $0 * 7) }
     }()
 
-    private var today: String { LectioDates.isoString(from: Date()) }
+    private var today: String { DayClock.shared.today }
     private var weekCode: String { LectioDates.weekCode(iso: selectedDate) }
     private func lessons(on date: String) -> [Lesson] {
         session.snapshot.weeks[LectioDates.weekCode(iso: date)]?
@@ -124,6 +124,14 @@ struct ScheduleTab: View {
             .navigationDestination(for: LessonRoute.self) { route in
                 LessonDetailScreen(lesson: route.lesson, dayISO: route.dayISO)
             }
+        }
+        // A new day (DayClock): if you were on today, you're on the new
+        // today, as when you open the app in the morning.
+        .onChange(of: DayClock.shared.today) { yesterday, today in
+            guard selectedDate == yesterday else { return }
+            selectedDate = today
+            dayPage = today
+            weekPage = Self.monday(of: today)
         }
         .onChange(of: dayPage) { _, page in
             // A swipe landed on another day.
@@ -532,6 +540,7 @@ private struct DayPage: View {
                     if let week = session.snapshot.weeks[code] {
                         DayOfWeek(week: week, date: date,
                                   className: session.snapshot.profile.className,
+                                  today: DayClock.shared.today,
                                   dayEnd: ScheduleWeek.rememberedDayEnd)
                             .equatable()
                     } else {
@@ -628,12 +637,15 @@ private struct DayOfWeek: View, Equatable {
     let week: ScheduleWeek
     let date: String
     let className: String
+    /// Today (DayClock): a new day builds the page again.
+    let today: String
     let dayEnd: Int?
 
     var body: some View {
         DayList(day: week.days.first { $0.date == date },
                 modules: week.dayModules,
                 className: className,
+                today: today,
                 rolling: week.rollingNotes(className: className))
             .equatable()
     }
@@ -727,6 +739,7 @@ struct WeekOverview: View {
                 WeekAgenda(week: week,
                            monday: monday,
                            className: session.snapshot.profile.className,
+                           today: DayClock.shared.today,
                            onPick: onPick)
                     .equatable()
             } else {

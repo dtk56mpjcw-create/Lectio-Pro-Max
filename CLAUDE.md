@@ -12,6 +12,32 @@ scrolling, and `SEARCH_NOTES.md` before changing the search.
 
 ---
 
+## The Apple standard (Dan's rule)
+
+**Everything built or fixed here is done the way Apple would do it, so the
+app looks and behaves like a native Apple app.** Dan, 30 Sep 2026: "all we
+do and fix should be Apple standard, so it would be like a native app".
+
+- Before building or fixing anything, check how Apple does it: in its own
+  apps (Calendar, Mail, Reminders, Settings, Messages), in the Human
+  Interface Guidelines, and in Apple's documented APIs and WWDC advice.
+  Then do it that way.
+- Use the system's components, behaviour and signals rather than hand-made
+  copies or workarounds. Example: the date changing at midnight comes from
+  the system (`NSCalendarDayChanged`, via `DayClock`), not from each page
+  working the date out for itself.
+- Fix the cause the way Apple's frameworks mean it to be fixed, not the
+  symptom. If only a local patch is possible (iOS doesn't allow the proper
+  way, or iOS has a bug), say so plainly, say what the Apple way would be,
+  and let Dan choose.
+- If something Dan asks for can't be done the Apple way, tell him before
+  building a workaround. `SEARCH_NOTES.md` shows what five workarounds in a
+  row cost.
+- Newest APIs first: the app targets iOS 26, and must also work on iOS 27.
+- See also "Design language" below; it applies this rule to the look.
+
+---
+
 ## Working with Dan
 
 - Dan isn't a professional iOS developer. Explain things in plain words, keep
@@ -116,6 +142,7 @@ problem.
 |---|---|
 | App entry, sign-in gate | `LectioProMaxApp.swift`, `ContentView.swift` (`LoginScreen`), `LoginWebView.swift` (the only web view: UNI-Login / MitID) |
 | Tabs | `RootView.swift`: a native `TabView` with Schedule, Homework, Messages, Me, and Search (`Tab(role: .search)`) |
+| Today's date | `DayClock.swift`: `DayClock.shared.today`, moved on by the system at midnight (`NSCalendarDayChanged`, `significantTimeChangeNotification`) and on returning to the app. Anything that shows "today" reads it, so it redraws when the day changes |
 | State | `LectioSession.swift`: `@MainActor @Observable`, holds `snapshot`; `SnapshotCache` is the offline copy |
 | Network | `LectioHTTP.swift` (URLSession plus the cookie jar), `CookieVault.swift` (Keychain, this device only), `LectioForms.swift` (ASP.NET postbacks) |
 | Services | `LectioService`, `LectioStudyService`, `LectioMessagesService`, `LectioMeService`, `LectioFeedbackService`, `LectioHandInService`, `LectioEventService` |
@@ -328,12 +355,14 @@ SwiftUI scroll facts learned the hard way:
   addresses are read from the page's own address.
 - **Start loading from a view that's always on screen.** `.task` on a
   `Group` whose only child is an `if` that's still false may never run.
-- **"Today" can change while a page is up.** The app stays open past
-  midnight, and an `Equatable` page (`DayOfWeek`, `DayList`, `WeekAgenda`)
-  isn't built again then. Decide "is this today" inside the
-  `TimelineView`, from its clock, not once when the page is built:
-  yesterday's page kept saying "Next: … in 1 h 1 min" the morning after
-  (fixed 30 Sep).
+- **"Today" comes from `DayClock`, never from `Date()` in a view.** The app
+  stays open past midnight, and an `Equatable` page (`DayOfWeek`,
+  `DayList`, `WeekAgenda`) isn't built again unless one of its values
+  changes. Pages that worked the date out themselves kept yesterday as
+  "today", and yesterday's page said "Next: … in 1 h 1 min" the morning
+  after (fixed 30 Sep). Pass `DayClock.shared.today` into such views as a
+  value, so a new day changes them. Only today's page runs a
+  `TimelineView`, for the minutes.
 - **Search the project for a new type's name first.** A `private struct` in
   one file still clashes with a type of the same name elsewhere ("Invalid
   redeclaration"); `LessonBlock` is DayAgenda's lesson card.

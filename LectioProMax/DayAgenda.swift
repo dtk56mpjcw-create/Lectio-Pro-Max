@@ -7,32 +7,29 @@ import SwiftUI
 /// else going on in a module folded into a line under it. All-day items sit
 /// in a strip on top; things outside the modules come before or after.
 ///
-/// Equatable so a page rebuilds only when its own day changes; today's
-/// clock ticks inside on its own, and it also decides whether the day is
-/// today (see body).
+/// Equatable so a page rebuilds only when its own day changes, or today
+/// does (DayClock); today's clock ticks inside on its own.
 struct DayList: View, Equatable {
     let day: ScheduleDay?
     let modules: [ScheduleModule]
     let className: String
+    /// Today, from DayClock.
+    let today: String
     /// See ScheduleWeek.rollingNotes.
     var rolling: Set<String> = []
 
     static func == (lhs: DayList, rhs: DayList) -> Bool {
         lhs.day == rhs.day && lhs.modules == rhs.modules && lhs.className == rhs.className
-            && lhs.rolling == rhs.rolling
+            && lhs.today == rhs.today && lhs.rolling == rhs.rolling
     }
 
     var body: some View {
         if let day, !day.lessons.isEmpty {
             let plan = DayPlan.build(day, modules: modules, className: className, rolling: rolling)
-            // Today, or a day still to come, which can turn into today
-            // while its page is up: the app stays open past midnight, and
-            // the page isn't built again then (it's Equatable). So the
-            // clock says, each minute, whether this is today. Deciding it
-            // once, when the page was built, left yesterday's page saying
-            // "Next: Science in 1 h 1 min" the morning after (Dan, 30 Sep).
-            if day.date >= LectioDates.isoString(from: Date()) {
+            if day.date == today {
                 TimelineView(.everyMinute) { context in
+                    // The tick at midnight can come just before DayClock
+                    // moves on: then this isn't today any more.
                     DayContent(plan: plan, dayISO: day.date,
                                now: LectioDates.isoString(from: context.date) == day.date
                                    ? context.date : nil)

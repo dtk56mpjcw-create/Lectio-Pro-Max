@@ -47,7 +47,7 @@ struct TargetScheduleScreen: View {
         return (-17...17).map { LectioDates.shift(iso: monday, byDays: $0 * 7) }
     }()
 
-    private var today: String { LectioDates.isoString(from: Date()) }
+    private var today: String { DayClock.shared.today }
 
     /// What the cards leave out or add for whose schedule it is.
     private var owner: ScheduleOwner {
@@ -370,6 +370,7 @@ private struct TargetDayPage: View {
                             // school day yours (see schoolDayModules).
                             modules: week.schoolDayModules(remembering: false),
                             className: className,
+                            today: DayClock.shared.today,
                             rolling: week.rollingNotes(className: className))
                         .equatable()
                 } else {
@@ -420,6 +421,7 @@ private struct TargetWeekPage: View {
                     WeekAgenda(week: week,
                                monday: monday,
                                className: className,
+                               today: DayClock.shared.today,
                                remembersDayEnd: false,
                                onPick: onPick)
                         .equatable()

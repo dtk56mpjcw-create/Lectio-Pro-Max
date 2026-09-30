@@ -24,6 +24,9 @@ struct ContentView: View {
             // Reopening the app pulls straight from Lectio, so what you see is
             // whatever is actually on Lectio right now.
             .onChange(of: scenePhase) { _, newPhase in
+                // Back in the app: a new day since you left moves the
+                // schedule on (see DayClock).
+                if newPhase == .active { DayClock.shared.refresh() }
                 if newPhase == .active && wasAway {
                     wasAway = false
                     if session.hasLoadedOnce && !session.showLogin {

@@ -19,8 +19,8 @@ struct WeekAgenda: View, Equatable {
     let week: ScheduleWeek
     let monday: String
     let className: String
-    /// Today, from the page: which card is today's, which days fold.
-    var today: String = LectioDates.isoString(from: Date())
+    /// Today, from DayClock: which card is today's, which days fold.
+    let today: String
     /// See ScheduleWeek.rememberedDayEnd.
     var dayEnd: Int? = ScheduleWeek.rememberedDayEnd
     /// False for somebody else's week (see ScheduleWeek.schoolDayModules).
@@ -57,14 +57,13 @@ struct WeekAgenda: View, Equatable {
             VStack(spacing: 12) {
                 ForEach(shown, id: \.0) { date, plan in
                     Group {
-                        // Today and the days still to come: the clock says
-                        // which one is today, so it moves on at midnight
-                        // with the app left open (see DayList).
-                        if date >= today {
+                        if date == today {
                             TimelineView(.everyMinute) { context in
-                                let isToday = LectioDates.isoString(from: context.date) == date
-                                WeekDayCard(date: date, plan: plan, isToday: isToday,
-                                            startsFolded: false, now: isToday ? context.date : nil,
+                                // See DayList: the tick at midnight can come
+                                // just before DayClock moves on.
+                                let stillToday = LectioDates.isoString(from: context.date) == date
+                                WeekDayCard(date: date, plan: plan, isToday: true,
+                                            startsFolded: false, now: stillToday ? context.date : nil,
                                             onPick: onPick)
                             }
                         } else {

@@ -17,7 +17,8 @@ struct HomeworkTab: View {
     }
 
     private var groups: [WorkGroup] {
-        WorkGroup.build(from: session.snapshot, filter: filter)
+        // Today from DayClock, so "Today" and "Tomorrow" move on at midnight.
+        WorkGroup.build(from: session.snapshot, filter: filter, today: DayClock.shared.today)
     }
     private var doneItems: [WorkItem] {
         // Most recent first — the one you just handed in should be at the top,
@@ -198,8 +199,8 @@ struct WorkGroup: Identifiable {
     var items: [WorkItem]
     var isOverdue: Bool
 
-    static func build(from snapshot: LectioSnapshot, filter: WorkFilter = WorkFilter()) -> [WorkGroup] {
-        let today = LectioDates.isoString(from: Date())
+    static func build(from snapshot: LectioSnapshot, filter: WorkFilter = WorkFilter(),
+                      today: String = LectioDates.isoString(from: Date())) -> [WorkGroup] {
         let outstanding = snapshot.workItems
             .filter { filter.matches($0) }
             .filter { !snapshot.isCompleted($0) }
