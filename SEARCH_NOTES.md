@@ -6,6 +6,18 @@ out, and what to try next. All the code is in git: each attempt names its
 commit, and `git show <commit>` or `git checkout <commit> -- <file>` brings
 it back.
 
+## 1 Oct 2026: one tap and close closes, Apple's way
+
+SwiftUI has had a switch for both since iOS 26:
+`.tabViewSearchActivation(.searchTabSelection)` on the `TabView`. Apple:
+"When the search tab is selected, search will activate. When the user
+dismisses search, the search tab will be deselected and the previously
+selected tab will be reselected." Tried in the iOS 27 Simulator: one tap
+opens the field at the bottom with the keyboard up, ✕ goes back to the
+tab you were on as it was, a result opened and closed keeps the query.
+It also makes iOS 27 show Search as the round button at the bottom, as
+iOS 26 does, rather than a tab with its field at the top.
+
 ## In plain words (for Dan)
 
 The search is back to how it was before any of this (commit `4fc2981`):

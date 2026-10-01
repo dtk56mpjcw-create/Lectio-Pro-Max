@@ -43,6 +43,10 @@ struct RootView: View {
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
+        // Apple's own link between the Search tab and its field: choosing
+        // the tab opens the field, ready to type, and closing the field goes
+        // back to the tab you were on.
+        .tabViewSearchActivation(.searchTabSelection)
         // A widget or a notification: go to what it showed (see AppLink).
         .onOpenURL { AppRouter.shared.open($0) }
         // `initial`: a tap that launched the app can arrive before this
