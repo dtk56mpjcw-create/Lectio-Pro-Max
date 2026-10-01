@@ -172,6 +172,7 @@ struct GradesScreen: View {
                                 Text(field.value)
                                     .scaledFont(size: 15)
                                     .fixedSize(horizontal: false, vertical: true)
+                                    .textSelection(.enabled)
                             }
                         }
                     }

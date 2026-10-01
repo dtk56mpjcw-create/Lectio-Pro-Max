@@ -91,6 +91,7 @@ struct MessageThreadSheet: View {
                     .scaledFont(size: 16)
                     .lineSpacing(3.5)
                     .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
             }
             ForEach(message.attachments) { attachment in
                 Button {

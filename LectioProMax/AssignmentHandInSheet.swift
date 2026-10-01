@@ -163,6 +163,7 @@ struct AssignmentHandInSheet: View {
             Text(value)
                 .scaledFont(size: 14.5)
                 .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
             Spacer(minLength: 0)
         }
     }
@@ -321,6 +322,7 @@ struct AssignmentHandInSheet: View {
                             Text(entry.comment)
                                 .scaledFont(size: 14.5)
                                 .fixedSize(horizontal: false, vertical: true)
+                                .textSelection(.enabled)
                         }
                         Text([entry.user, entry.time].filter { !$0.isEmpty }.joined(separator: " · "))
                             .scaledFont(size: 13, weight: .medium)

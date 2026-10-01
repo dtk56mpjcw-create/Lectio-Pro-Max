@@ -33,12 +33,17 @@ struct LessonBlocksView: View {
         }
     }
 
+    /// Selectable, the system's way: on iOS 27 a press and hold selects a
+    /// word, with handles to widen it; on iOS 26 it offers Copy for the
+    /// whole paragraph, which is all SwiftUI does there. Links still open on
+    /// a tap.
     private func paragraph(_ runs: [LessonRun]) -> some View {
         Text(Self.attributed(runs))
             .scaledFont(size: 16)
             .lineSpacing(3)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
+            .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 

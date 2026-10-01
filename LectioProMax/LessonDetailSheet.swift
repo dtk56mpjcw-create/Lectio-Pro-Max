@@ -86,6 +86,7 @@ struct LessonDetailContent: View {
                         .scaledFont(size: 16.5)
                         .lineSpacing(3)
                         .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
                 }
                 .padding(15)
                 .frame(maxWidth: .infinity, alignment: .leading)

@@ -353,6 +353,12 @@ SwiftUI scroll facts learned the hard way:
   headings. It covers what Lectio's guide says a teacher can add (text,
   material, files, links, pictures, video, audio, formulas); relative
   addresses are read from the page's own address.
+- **Text worth copying is selectable with `.textSelection(.enabled)`**
+  (lesson content, homework, notes, message bodies, hand-in comments,
+  grade notes; not rows or buttons). iOS 27 gives handles to select part
+  of it; iOS 26 only offers Copy for the whole paragraph, Apple's limit. A
+  read-only `UITextView` for iOS 26 was tried (1 Oct) and taken out: laggy
+  on the SE 3, and a selection couldn't go past its own paragraph.
 - **Start loading from a view that's always on screen.** `.task` on a
   `Group` whose only child is an `if` that's still false may never run.
 - **"Today" comes from `DayClock`, never from `Date()` in a view.** The app
