@@ -400,6 +400,14 @@ SwiftUI scroll facts learned the hard way:
 - A pushed screen's search field (hidden until pulled down) showed through
   for a moment while the screen slid in: iOS starts it open, then folds it.
   `quietSearchBarWhilePushing()` makes it see-through for the push only.
+- A lesson's page (Overview) shows the teacher's photo and full name, and
+  the room and the teacher open their schedules. The page tags each
+  teacher with their context card id (`<span
+  data-lectiocontextcard="T…">LS</span>`, read into
+  `LessonDetail.teachers`); their name comes from `scheduleTargets` by
+  that id, their schedule is `SkemaNy.aspx?laererid=`. FindSkema's rooms
+  are `<a><span>006</span>Design</a>`: the span is `ScheduleTarget.code`,
+  matched to the lesson's room. The same markup at every school.
 - `ScheduleOwner.team`/`.room` hide empty modules ("Free" said nothing for
   a team or a room) in the day (`DayContent`) and the week (`WeekDayCard`).
 

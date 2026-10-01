@@ -168,6 +168,9 @@ struct ScheduleTab: View {
             let cookies = await session.requestCookies()
             guard !Task.isCancelled else { return }
             LessonCache.shared.prefetch([(selectedDate, today), (next, tomorrow)], cookies: cookies)
+            // And who's who, for a lesson's teachers and room (at most
+            // hourly): the full name is there when the lesson opens.
+            await session.loadScheduleTargets()
         }
         .sensoryFeedback(.selection, trigger: weekMode)
         // From a widget or a notification: that day, and that lesson.

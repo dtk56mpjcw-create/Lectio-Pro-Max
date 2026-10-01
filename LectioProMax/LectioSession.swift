@@ -439,6 +439,8 @@ final class LectioSession {
         lessonNotes.removeAll()
         absence = LectioStudyService.Absence()
         scheduleTargets.removeAll()
+        targetsLoading?.cancel()
+        targetsLoading = nil
         lessonNotesAt = nil
         absenceAt = nil
         targetsAt = nil
@@ -646,6 +648,7 @@ final class LectioSession {
     @ObservationIgnored private var lessonNotesAt: Date?
     @ObservationIgnored private var absenceAt: Date?
     @ObservationIgnored private var targetsAt: Date?
+    @ObservationIgnored private var targetsLoading: Task<Void, Never>?
 
     func loadLessonNotes(force: Bool = false) async {
         if !force, let at = lessonNotesAt, Date().timeIntervalSince(at) < 600 { return }
@@ -703,14 +706,29 @@ final class LectioSession {
         }
     }
 
+    /// Everyone and every room with a schedule. A lesson's page asks too
+    /// (for its teachers' names and its room's schedule), as does the
+    /// Schedule tab ahead of it; asking while it loads waits for that load
+    /// rather than fetching the whole directory twice.
     func loadScheduleTargets() async {
-        if !scheduleTargets.isEmpty, let at = targetsAt, Date().timeIntervalSince(at) < 3600 { return }
-        let cookies = await usableCookies(attempts: 3)
-        guard !cookies.isEmpty else { return }
-        if let targets = try? await LectioStudyService.loadScheduleTargets(cookies: cookies), !targets.isEmpty {
-            scheduleTargets = targets
-            targetsAt = Date()
+        if let running = targetsLoading {
+            await running.value
+            return
         }
+        if !scheduleTargets.isEmpty, let at = targetsAt, Date().timeIntervalSince(at) < 3600 { return }
+        let task = Task { @MainActor in
+            let cookies = await usableCookies(attempts: 3)
+            guard !cookies.isEmpty else { return }
+            // Not after signing out, which cancels it.
+            if let targets = try? await LectioStudyService.loadScheduleTargets(cookies: cookies),
+               !targets.isEmpty, !Task.isCancelled {
+                scheduleTargets = targets
+                targetsAt = Date()
+            }
+        }
+        targetsLoading = task
+        await task.value
+        targetsLoading = nil
     }
 
     /// The cookie set anything outside this class should send with a request —

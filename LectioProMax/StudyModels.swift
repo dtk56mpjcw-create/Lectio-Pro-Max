@@ -106,6 +106,10 @@ struct ScheduleTarget: Identifiable, Hashable, Codable {
     var name: String = ""
     var url: String = ""           // absolute SkemaNy URL
     var kind: Kind = .teacher
+    /// A room's code on its own ("006"), as a lesson names it; its name has
+    /// what it is as well ("006 Design"). Nil for the rest, and for rooms
+    /// saved before it was kept.
+    var code: String? = nil
 
     enum Kind: String, Codable, CaseIterable {
         case student, teacher, klasse, subject, room
@@ -295,9 +299,17 @@ enum LessonWording {
 struct LessonDetail {
     var note: String = ""          // the activity note, e.g. "Water 2:1"
     var sections: [LessonSection] = []
+    var teachers: [LessonTeacher] = []
 
     var files: [LessonFile] { sections.flatMap { $0.entries.flatMap { $0.files } } }
     var isEmpty: Bool { note.isEmpty && sections.allSatisfy { $0.entries.allSatisfy { $0.isEmpty } } }
+}
+
+/// A teacher as a lesson's page names them: the id Lectio's context card
+/// goes by ("T1364404959"), and the initials it shows ("LS").
+struct LessonTeacher: Hashable {
+    var id: String
+    var initials: String
 }
 
 extension ScheduleTarget {

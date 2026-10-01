@@ -220,4 +220,33 @@ struct LessonContentTests {
         #expect(blocks.contains(.image("data:image/png;base64,iVBORw0KGgo=")))
         #expect(blocks.last?.runs == [LessonRun(text: "Not a link")])
     }
+
+    @Test func theTeachersComeWithTheirIDs() {
+        // The page's header line, twice, as Lectio has it; you yourself are
+        // tagged too, as a student ("S…"), and aren't a teacher.
+        let line = """
+        to 1/10 1. modul - <span data-lectiocontextcard="HE111">1ij enB</span> •
+        <span data-lectiocontextcard="T222">LS</span> • <span data-lectiocontextcard="T333">KM</span> • 121
+        """
+        let html = """
+        <div data-lectiocontextcard="S999"><span>Eleven Ivan Surov, 1j -</span> Aktivitetsforside</div>
+        <div>\(line) - Pragmatism</div>
+        <span>\(line)</span>
+        """
+        #expect(LectioParser.parseLessonDetail(html).teachers == [
+            LessonTeacher(id: "T222", initials: "LS"),
+            LessonTeacher(id: "T333", initials: "KM"),
+        ])
+    }
+
+    @Test func roomsKeepTheirCode() {
+        // Find a schedule's rooms: the code on its own, then what it is.
+        let html = """
+        <a href="/lectio/21/SkemaNy.aspx?type=lokale&amp;nosubnav=1&amp;id=1"><span>006</span>Design</a>
+        <a href="/lectio/21/SkemaNy.aspx?type=lokale&amp;nosubnav=1&amp;id=2"><span>Aula</span></a>
+        """
+        let rooms = LectioParser.parseScheduleTargets(html, kind: .room)
+        #expect(rooms.map(\.name) == ["006 Design", "Aula"])
+        #expect(rooms.map(\.code) == ["006", "Aula"])
+    }
 }

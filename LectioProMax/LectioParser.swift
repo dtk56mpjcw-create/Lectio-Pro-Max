@@ -1161,11 +1161,23 @@ extension LectioParser {
         for anchor in root.all("a") {
             let href = anchor.attr("href") ?? ""
             guard href.contains("SkemaNy.aspx?") else { continue }
-            let name = anchor.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            var name = anchor.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty, let url = absoluteURL(href) else { continue }
             if seen.contains(url) { continue }
             seen.insert(url)
-            targets.append(ScheduleTarget(name: name, url: url, kind: kind))
+            // A room is "<span>006</span>Design": its code on its own, as a
+            // lesson names it, then what it is. Read as one, it came out
+            // "006Design".
+            var code: String?
+            if kind == .room, let tag = anchor.children.first(where: { $0.name == "span" }) {
+                let own = tag.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !own.isEmpty, name.hasPrefix(own) {
+                    code = own
+                    let rest = name.dropFirst(own.count).trimmingCharacters(in: .whitespaces)
+                    name = rest.isEmpty ? own : own + " " + rest
+                }
+            }
+            targets.append(ScheduleTarget(name: name, url: url, kind: kind, code: code))
         }
         return targets
     }
@@ -1186,6 +1198,22 @@ extension LectioParser {
     static func parseLessonDetail(root: HTMLNode, pageURL: String? = nil) -> LessonDetail {
         let base = pageURL.flatMap { URL(string: $0) }
         var detail = LessonDetail()
+
+        // The teachers, each tagged with the id Lectio's context card goes
+        // by ("T1364404959"), which their photo and schedule go by too. They
+        // sit in the page's header line beside the team and the room
+        // ("1ij enB • LS • 121"), all in the first one's line; the page has
+        // that line twice.
+        let isTeacher: (HTMLNode) -> Bool = { $0.attr("data-lectiocontextcard")?.hasPrefix("T") == true }
+        if let line = root.firstWhere(isTeacher)?.parent {
+            var seen: Set<String> = []
+            for tag in line.allWhere(isTeacher) {
+                let id = tag.attr("data-lectiocontextcard") ?? ""
+                guard seen.insert(id).inserted else { continue }
+                detail.teachers.append(LessonTeacher(
+                    id: id, initials: tag.text.trimmingCharacters(in: .whitespacesAndNewlines)))
+            }
+        }
 
         if let note = root.firstWhere({
             $0.name == "textarea" && ($0.attr("name") ?? "").contains("ActNoteTB")
