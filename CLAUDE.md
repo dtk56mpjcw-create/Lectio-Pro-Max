@@ -108,6 +108,13 @@ problem.
   iPhones each; devices can't be deleted (registrations expire after about a
   week), and there's no TestFlight. Friends' phones are spread across the
   teams.
+- **"Maximum number of registered iPhone devices": try the other teams
+  first.** A phone stays registered on the team it was first added to, so
+  it works there again. Pick each team in turn (all three targets, Debug
+  and Release) and look for a Signing status with no error. On 2 Oct the
+  phone "Huawei" failed on `DGKB47XJB8` but was fine on `L78DTW7MMS`.
+  Only when every team is full and none has the phone does Dan need a new
+  Apple ID (see below).
 - **The IDs follow the team.** Pick the Team in Signing & Capabilities for
   **all three targets** (app, widgets, tests) and everything else follows,
   through project-level build settings:
